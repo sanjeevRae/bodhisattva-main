@@ -29,6 +29,13 @@ export interface MailMessage {
   html?: string;
   /** Phase 7: the invoice PDF rides the outbox invoice mail. */
   attachments?: MailAttachment[];
+  /**
+   * Explicit RFC 5322 Message-ID (Phase 8). The outbox sets a
+   * deterministic one per row so retries of the same row carry the
+   * same id (downstream dedupe) while a resend — a new row — gets a
+   * new one. Absent → nodemailer generates one.
+   */
+  messageId?: string;
 }
 
 export interface Mailer {
@@ -47,6 +54,12 @@ export function createMailer(
       // Implicit TLS only on the standard SMTPS port; the local catcher and
       // typical submission ports use plain/STARTTLS connections.
       secure: config.smtp.port === 465,
+      // Explicit timeouts (Phase 8, Phase 7 review disposition 2): a
+      // hung connection must fail fast — far below the outbox's
+      // 5-minute lease — never outlive the claim that sent it.
+      connectionTimeout: 10_000,
+      greetingTimeout: 10_000,
+      socketTimeout: 30_000,
       ...(config.smtp.user
         ? { auth: { user: config.smtp.user, pass: config.smtp.password } }
         : {}),
@@ -59,6 +72,7 @@ export function createMailer(
         to: message.to,
         subject: message.subject,
         text: message.text,
+        ...(message.messageId ? { messageId: message.messageId } : {}),
         ...(message.html ? { html: message.html } : {}),
         ...(message.attachments && message.attachments.length > 0
           ? {

@@ -39,6 +39,7 @@ import {
 } from "../../middleware/authorization.js";
 import { getEffectivePermissions } from "../../services/permissions.js";
 import { asyncHandler } from "../../utils/async-handler.js";
+import { lastGoodCacheDir, withLastGood } from "./last-good.js";
 import {
   createPageSchema,
   replaceMenuItemsSchema,
@@ -103,8 +104,16 @@ export function createCmsPublicRouter(deps: CmsRouterDeps): Router {
   router.get(
     "/pages/:slug",
     asyncHandler(async (req, res) => {
-      const page = await getPublishedPageBySlug(cms, String(req.params.slug));
-      res.status(200).json(page);
+      // Last-good cache (Phase 8d): a database outage serves the most
+      // recent successful payload, marked via X-Content-Source.
+      const slug = String(req.params.slug);
+      const { payload, source } = await withLastGood({
+        cacheDir: lastGoodCacheDir(deps.config),
+        name: `page-${slug}`,
+        read: () => getPublishedPageBySlug(cms, slug),
+      });
+      if (source === "cache") res.set("X-Content-Source", "last-good-cache");
+      res.status(200).json(payload);
     }),
   );
 
@@ -135,8 +144,13 @@ export function createCmsPublicRouter(deps: CmsRouterDeps): Router {
   router.get(
     "/site",
     asyncHandler(async (_req, res) => {
-      const settings = await getPublicSettings(cms);
-      res.status(200).json({ settings });
+      const { payload, source } = await withLastGood({
+        cacheDir: lastGoodCacheDir(deps.config),
+        name: "site",
+        read: async () => ({ settings: await getPublicSettings(cms) }),
+      });
+      if (source === "cache") res.set("X-Content-Source", "last-good-cache");
+      res.status(200).json(payload);
     }),
   );
 

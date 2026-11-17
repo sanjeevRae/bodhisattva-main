@@ -288,3 +288,25 @@ version) and `/api/admin/invoice-template/preview.pdf`. Customers get
 (owner-only; anyone else's is a 404). The orders integration suite uses
 its own database (`bodhisattva_test_orders`); `npm run test:integration`
 runs all five suites.
+
+## Hardening, security & ops (Phase 8)
+
+- **Migration 0010** adds `credit_notes` and `email_outbox.lease_version`
+  (outbox fencing). Cancelling an APPROVED/PROCESSING order now creates a
+  credit note (CN-<year>-<5-digit>) in the same transaction and emails it.
+- **Security suite**: `server/tests/security.integration.test.ts` (own DB
+  `bodhisattva_test_security`) runs as part of `npm run test:integration`.
+  It found and fixed a real bug: the OTP wrong-attempt counter was rolled
+  back by its own transaction — see SECURITY_GUIDE.md.
+- **Ops CLIs** (server package.json): `npm run outbox:drain` (reliable
+  email path; schedule via cron in production), `npm run media:sweep`
+  (orphan files; dry-run unless `-- --delete`), `npm run
+  inventory:reconcile` (report-only ledger check, exit 1 on divergence).
+- **Last-good cache**: public page/site reads fall back to
+  `<UPLOAD_DIRECTORY>/../cache/last-good/` payloads when the DB read
+  fails (header `X-Content-Source: last-good-cache`); real 404s still
+  propagate.
+- **Production**: the API fails fast on missing/placeholder/reused
+  secrets; never ship a `.env` inside the deployed app directory.
+  Deployment itself is pending the owner's cPanel connection —
+  DEPLOYMENT_GUIDE.md is the runbook; RELEASE_REPORT.md is the status.

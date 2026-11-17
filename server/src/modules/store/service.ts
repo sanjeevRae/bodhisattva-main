@@ -55,6 +55,7 @@ import {
 } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
+import { withDeadlockRetry } from "../../database/tx-retry.js";
 import {
   cartItems,
   carts,
@@ -1207,7 +1208,14 @@ export async function checkout(
 
   let result: CheckoutResult | undefined;
   try {
-    await db.transaction(async (tx) => {
+    // Phase 8 (Phase 7 review disposition 4): a deadlock/lock-wait
+    // victim failure retries the WHOLE transaction. Safe because the
+    // body re-reads and re-validates everything under the row locks,
+    // and the A2 idempotency key turns a retry after an ambiguous
+    // outcome into a replay, never a second order.
+    await withDeadlockRetry(async () => {
+      result = undefined;
+      await db.transaction(async (tx) => {
       // Re-check inside the transaction: a concurrent first submission
       // with the same key may have committed while we waited.
       const inTxReplay = await findOrderByIdempotencyKey(
@@ -1469,7 +1477,8 @@ export async function checkout(
       // READ COMMITTED is load-bearing (see the module header): the
       // availability re-check after the product-row locks must see
       // reservations committed by a racing checkout.
-    }, { isolationLevel: "read committed" });
+      }, { isolationLevel: "read committed" });
+    });
   } catch (err) {
     // A2 race survivor: two first submissions with the same key raced;
     // the UNIQUE index rejected one insert and rolled it back. Return

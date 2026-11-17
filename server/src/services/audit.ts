@@ -117,6 +117,7 @@ export const AUDIT_ACTIONS = {
   storeInvoicesCreate: "store.invoices.create",
   storeInvoicesResend: "store.invoices.resend",
   storeInvoicesEmailDead: "store.invoices.email_dead",
+  storeInvoicesCreditNote: "store.invoices.credit_note",
   storeInvoiceTemplatesUpdate: "store.invoice_templates.update",
   storeOutboxRetry: "store.outbox.retry",
 } as const;

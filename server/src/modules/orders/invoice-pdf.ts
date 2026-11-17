@@ -84,6 +84,25 @@ export interface InvoiceSnapshot {
   };
 }
 
+/**
+ * Credit-note snapshot (Phase 8, Phase 7 review disposition 1): the
+ * invoice's snapshot re-marked as a reversal document. Lines and
+ * totals stay POSITIVE — the document type carries the reversal
+ * semantics — and the renderer pins its dates to
+ * `creditNoteIssuedAt`, keeping credit-note PDFs deterministic too.
+ */
+export interface CreditNoteSnapshot extends InvoiceSnapshot {
+  documentType: "CREDIT_NOTE";
+  creditNoteNumber: string;
+  /** ISO timestamp the credit note was created. */
+  creditNoteIssuedAt: string;
+  originalInvoiceNumber: string;
+  /** ISO timestamp the original invoice was issued. */
+  originalInvoiceIssuedAt: string;
+  /** The cancellation reason, carried from the transition. */
+  reason: string;
+}
+
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
@@ -105,20 +124,35 @@ export interface RenderInvoicePdfOptions {
   logoImage?: Buffer | null;
 }
 
-export function renderInvoicePdf(
+/** What distinguishes an INVOICE render from a CREDIT NOTE render:
+ * the title, the document's own number/date (which also pin the PDF
+ * metadata dates), and the reference block under the title. */
+interface DocumentDescriptor {
+  infoTitle: string;
+  titleText: string;
+  /** ISO timestamp pinned into the PDF info dictionary. */
+  documentDate: string;
+  references: { label: string; value: string }[];
+  /** Extra lines under the references (credit note: reversal note,
+   * reason). */
+  notes: string[];
+}
+
+function renderDocumentPdf(
   snapshot: InvoiceSnapshot,
+  descriptor: DocumentDescriptor,
   options: RenderInvoicePdfOptions = {},
 ): Promise<Buffer> {
   const cfg = snapshot.template.config;
   const show = cfg.show;
   return new Promise((resolve, reject) => {
-    const issued = new Date(snapshot.issuedAt);
+    const issued = new Date(descriptor.documentDate);
     const doc = new PDFDocument({
       size: "A4",
       margin: 50,
       compress: false,
       info: {
-        Title: `Invoice ${snapshot.invoiceNumber}`,
+        Title: descriptor.infoTitle,
         Author: snapshot.seller.name,
         CreationDate: issued,
         ModDate: issued,
@@ -182,12 +216,14 @@ export function renderInvoicePdf(
       .fillColor(cfg.primaryColor)
       .font("Helvetica-Bold")
       .fontSize(16)
-      .text("INVOICE", { width });
+      .text(descriptor.titleText, { width });
     doc.fillColor(INK).font("Helvetica").fontSize(10);
-    doc.text(`Invoice No: ${snapshot.invoiceNumber}`, { width });
-    doc.text(`Issue Date: ${formatSnapshotDate(snapshot.issuedAt)}`, { width });
-    doc.text(`Order No: ${snapshot.orderNumber}`, { width });
-    doc.text(`Order Date: ${formatSnapshotDate(snapshot.orderPlacedAt)}`, { width });
+    for (const ref of descriptor.references) {
+      doc.text(`${ref.label}: ${ref.value}`, { width });
+    }
+    for (const note of descriptor.notes) {
+      doc.text(note, { width });
+    }
     doc.moveDown(0.8);
 
     // ---- Buyer / delivery ----------------------------------------------
@@ -348,4 +384,62 @@ export function renderInvoicePdf(
 
     doc.end();
   });
+}
+
+export function renderInvoicePdf(
+  snapshot: InvoiceSnapshot,
+  options: RenderInvoicePdfOptions = {},
+): Promise<Buffer> {
+  return renderDocumentPdf(
+    snapshot,
+    {
+      infoTitle: `Invoice ${snapshot.invoiceNumber}`,
+      titleText: "INVOICE",
+      documentDate: snapshot.issuedAt,
+      references: [
+        { label: "Invoice No", value: snapshot.invoiceNumber },
+        { label: "Issue Date", value: formatSnapshotDate(snapshot.issuedAt) },
+        { label: "Order No", value: snapshot.orderNumber },
+        { label: "Order Date", value: formatSnapshotDate(snapshot.orderPlacedAt) },
+      ],
+      notes: [],
+    },
+    options,
+  );
+}
+
+/**
+ * Render a credit note (Phase 8): same snapshot-driven body as the
+ * invoice it reverses, re-titled, carrying its own number/date and a
+ * reference back to the original invoice. Deterministic — the PDF
+ * metadata dates pin to the credit note's creation timestamp.
+ */
+export function renderCreditNotePdf(
+  snapshot: CreditNoteSnapshot,
+  options: RenderInvoicePdfOptions = {},
+): Promise<Buffer> {
+  return renderDocumentPdf(
+    snapshot,
+    {
+      infoTitle: `Credit Note ${snapshot.creditNoteNumber}`,
+      titleText: "CREDIT NOTE",
+      documentDate: snapshot.creditNoteIssuedAt,
+      references: [
+        { label: "Credit Note No", value: snapshot.creditNoteNumber },
+        { label: "Issue Date", value: formatSnapshotDate(snapshot.creditNoteIssuedAt) },
+        { label: "Original Invoice No", value: snapshot.originalInvoiceNumber },
+        {
+          label: "Original Invoice Date",
+          value: formatSnapshotDate(snapshot.originalInvoiceIssuedAt),
+        },
+        { label: "Order No", value: snapshot.orderNumber },
+        { label: "Order Date", value: formatSnapshotDate(snapshot.orderPlacedAt) },
+      ],
+      notes: [
+        `This credit note reverses invoice ${snapshot.originalInvoiceNumber} in full.`,
+        `Reason: ${snapshot.reason}`,
+      ],
+    },
+    options,
+  );
 }

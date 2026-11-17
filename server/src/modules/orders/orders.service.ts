@@ -33,6 +33,14 @@
  *    restoration.
  *  - An order cancelled after approval keeps its invoice (§10.1):
  *    invoices are accounting records and are never deleted in v1.
+ *    Phase 8 adds the reversal document: the same cancellation
+ *    transaction also issues a credit note against that invoice
+ *    (credit-notes.service.ts; the 'CREDIT_NOTE:<year>' sequence row
+ *    takes the step-1 lock position for cancels).
+ *
+ * Phase 8 also wraps the whole transition in the deadlock retry
+ * (database/tx-retry.ts): a 1213/1205 victim failure re-runs the
+ * transaction, whose in-lock state validation makes the retry safe.
  *
  * Step-up: PERMISSIONS.md §7 reserves step-up MFA for invitations,
  * role assignment, global settings and MFA resets. Order transitions
@@ -63,6 +71,7 @@ import {
   products,
   productVariants,
 } from "../../database/schema/index.js";
+import { withDeadlockRetry } from "../../database/tx-retry.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
 import {
   insufficientStock,
@@ -73,6 +82,13 @@ import {
   type OrderView,
   type RequestMeta,
 } from "../store/service.js";
+import {
+  createCreditNoteForInvoice,
+  getCreditNoteByOrderId,
+  getCreditNotePdfBuffer,
+  lockCreditNoteSequence,
+  type CreditNoteRow,
+} from "./credit-notes.service.js";
 import {
   createInvoiceForOrder,
   getInvoiceByOrderId,
@@ -386,6 +402,8 @@ async function restoreStockOnCancel(
 export interface TransitionResult {
   detail: AdminOrderDetail;
   invoiceId: number | null;
+  /** Phase 8: set when a post-approval cancel created a credit note. */
+  creditNoteId: number | null;
 }
 
 export async function transitionOrder(
@@ -405,14 +423,28 @@ export async function transitionOrder(
   }
   const { db } = deps;
   let invoiceId: number | null = null;
+  let creditNoteId: number | null = null;
   let enqueuedMail = false;
 
-  await db.transaction(
+  // Phase 8 (Phase 7 review disposition 4): a deadlock/lock-wait
+  // victim retries the WHOLE transaction. Safe because the body
+  // re-reads the order and re-validates its state under the row lock
+  // at the top of every attempt — a retry after a rival transition
+  // committed fails with 422 instead of double-applying. Per-attempt
+  // outputs are reset at the top of each attempt.
+  await withDeadlockRetry(async () => {
+    invoiceId = null;
+    creditNoteId = null;
+    enqueuedMail = false;
+    await db.transaction(
     async (tx) => {
       const at = new Date();
       // Lock order (global order, module header): sequence row first
-      // for approve (§10.2), then the order row.
+      // for approve (§10.2) and for cancel (the CREDIT_NOTE scope —
+      // locked even though most cancels create no note, so the order
+      // is uniform), then the order row.
       if (action === "approve") await lockInvoiceSequence(tx, at);
+      if (rule.to === "CANCELLED") await lockCreditNoteSequence(tx, at);
       const [order] = await tx
         .select()
         .from(orders)
@@ -454,6 +486,27 @@ export async function transitionOrder(
           await releaseReservationsOnCancel(tx, order, items, actor);
         } else {
           await restoreStockOnCancel(tx, order, items, actor);
+        }
+        // Phase 8 (Phase 7 review disposition 1): an order cancelled
+        // AFTER approval carries an issued invoice — reverse it in
+        // full with a credit note in this same transaction (the note's
+        // email is enqueued by the credit-notes service). A cancel
+        // from PENDING_APPROVAL has no invoice, hence no note.
+        const [existingInvoice] = await tx
+          .select()
+          .from(invoices)
+          .where(eq(invoices.orderId, orderId))
+          .limit(1);
+        if (existingInvoice) {
+          const createdNote = await createCreditNoteForInvoice(
+            tx,
+            existingInvoice,
+            order,
+            reason!,
+            actor,
+            at,
+          );
+          creditNoteId = createdNote.creditNote.id;
         }
         await enqueueEmail(tx, {
           type: "ORDER_CANCELLED",
@@ -529,12 +582,28 @@ export async function transitionOrder(
           metadata: { orderId, orderNumber: order.orderNumber },
         });
       }
+      if (creditNoteId !== null) {
+        await writeAudit(tx as unknown as Database, {
+          actorId: actor.userId,
+          actorType: "ADMIN",
+          actorEmail: actor.email,
+          actorRole: actor.role,
+          action: AUDIT_ACTIONS.storeInvoicesCreditNote,
+          resourceType: "credit_note",
+          resourceId: creditNoteId,
+          result: "SUCCESS",
+          ipAddress: meta.ipAddress ?? null,
+          userAgent: meta.userAgent ?? null,
+          metadata: { orderId, orderNumber: order.orderNumber, reason },
+        });
+      }
       // READ COMMITTED is load-bearing (Phase 6 protocol): post-lock
       // availability reads must see reservations committed by racing
       // transactions.
     },
     { isolationLevel: "read committed" },
-  );
+    );
+  });
 
   // Post-commit, best-effort: warm the invoice PDF cache so the first
   // download/email attach is instant. A failure here is harmless —
@@ -550,11 +619,22 @@ export async function transitionOrder(
       }
     }
   }
+  if (creditNoteId !== null) {
+    // Same warm-up for the credit-note PDF (cache only).
+    const creditNote = await getCreditNoteByOrderId(db, orderId);
+    if (creditNote) {
+      try {
+        await getCreditNotePdfBuffer(deps, creditNote);
+      } catch {
+        // cache warm-up only
+      }
+    }
+  }
   if (enqueuedMail) drainOutboxSoon(deps);
 
   const detail = await getAdminOrderDetail(deps, orderId);
   if (!detail) throw AppError.notFound("Order not found.");
-  return { detail, invoiceId };
+  return { detail, invoiceId, creditNoteId };
 }
 
 // ---------------------------------------------------------------------------
@@ -705,4 +785,26 @@ export async function getOwnInvoice(
   const invoice = await getInvoiceByOrderId(db, orderId);
   if (!invoice) throw AppError.notFound("Invoice not found.");
   return { invoice, order };
+}
+
+/** Phase 8: the caller's own credit note for an order (same ownership
+ * discipline — another customer's order or an order without a credit
+ * note is a 404). */
+export async function getOwnCreditNote(
+  deps: OrdersDeps,
+  userId: number,
+  orderId: number,
+): Promise<{ creditNote: CreditNoteRow; order: OrderRow }> {
+  const { db } = deps;
+  const [order] = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.id, orderId))
+    .limit(1);
+  if (!order || order.userId !== userId) {
+    throw AppError.notFound("Order not found.");
+  }
+  const creditNote = await getCreditNoteByOrderId(db, orderId);
+  if (!creditNote) throw AppError.notFound("Credit note not found.");
+  return { creditNote, order };
 }

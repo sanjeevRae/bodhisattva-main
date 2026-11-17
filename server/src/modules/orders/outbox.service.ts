@@ -20,6 +20,18 @@
  * which an admin can manually retry — a DEAD invoice email never
  * blocks or duplicates the invoice itself.
  *
+ * Fencing (Phase 8, Phase 7 review disposition 2): every claim and
+ * every stale-lease recovery increments `lease_version`, and a
+ * worker's completion/failure write is conditional on the exact
+ * (status, claimed_by, lease_version) it claimed. A worker whose send
+ * outlived its lease therefore cannot clobber the newer claim's
+ * state — its late write affects 0 rows and is only logged. Delivery
+ * stays at-least-once (an SMTP-accepted send whose worker died before
+ * recording SENT will be re-sent by the next claim), bounded by the
+ * deterministic Message-ID each row carries: retries of a row reuse
+ * `<outbox-<id>@<app-host>`, so downstream systems can dedupe; a
+ * manual resend is a NEW row and gets a new Message-ID.
+ *
  * `invoices.email_status` mirrors the invoice's INVOICE row: SENT on
  * delivery, FAILED only when the row dead-letters, PENDING otherwise.
  */
@@ -28,20 +40,42 @@ import pino from "pino";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import {
+  creditNotes,
   emailOutbox,
   invoices,
 } from "../../database/schema/index.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
 import { getMailer } from "../../services/mailer.js";
 import type { DbLike } from "../store/service.js";
-import { ensureInvoicePdf, resolveInvoiceLogoImage } from "./invoice-files.js";
-import type { InvoiceSnapshot } from "./invoice-pdf.js";
+import {
+  ensureCreditNotePdf,
+  ensureInvoicePdf,
+  resolveInvoiceLogoImage,
+} from "./invoice-files.js";
+import type { CreditNoteSnapshot, InvoiceSnapshot } from "./invoice-pdf.js";
 
 const log = pino({ name: "outbox", level: process.env.LOG_LEVEL ?? "info" });
 
 export const OUTBOX_MAX_ATTEMPTS = 5;
 export const OUTBOX_BACKOFF_SECONDS = [60, 300, 1800, 7200];
 const LEASE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Deterministic RFC 5322 Message-ID for an outbox row (Phase 8):
+ * stable across the row's retries so a downstream system can dedupe
+ * an at-least-once redelivery; a resend creates a new row and
+ * therefore a new id. The host comes from APP_URL, falling back to
+ * 'bodhisattva.local' when APP_URL is unparseable.
+ */
+export function outboxMessageId(config: AppConfig, rowId: number): string {
+  let host = "bodhisattva.local";
+  try {
+    host = new URL(config.appUrl).hostname || host;
+  } catch {
+    // Keep the fallback host.
+  }
+  return `<outbox-${rowId}@${host}>`;
+}
 
 export interface OrdersDeps {
   db: Database;
@@ -152,6 +186,30 @@ async function loadAttachment(
   return { filename, content };
 }
 
+/** Credit-note attachments (Phase 8) resolve against the credit_notes
+ * row the outbox row points at, mirroring the invoice branch above. */
+async function loadCreditNoteAttachment(
+  deps: OrdersDeps,
+  row: OutboxRow,
+): Promise<{ filename: string; content: Buffer } | null> {
+  if (!row.attachmentStorageName || row.relatedId === null) return null;
+  const [creditNote] = await deps.db
+    .select()
+    .from(creditNotes)
+    .where(eq(creditNotes.id, row.relatedId))
+    .limit(1);
+  if (!creditNote) return null;
+  const snapshot = creditNote.snapshot as CreditNoteSnapshot;
+  const logoImage = await resolveInvoiceLogoImage(deps.db, deps.config, snapshot);
+  const content = await ensureCreditNotePdf(
+    deps.config,
+    row.attachmentStorageName,
+    snapshot,
+    logoImage,
+  );
+  return { filename: `${creditNote.creditNoteNumber}.pdf`, content };
+}
+
 export async function drainOutbox(
   deps: OrdersDeps,
   options: DrainOptions = {},
@@ -167,9 +225,16 @@ export async function drainOutbox(
   //    already counted at claim time; a row that has exhausted its
   //    attempts dead-letters instead of looping forever.
   const staleBefore = new Date(now.getTime() - LEASE_TTL_MS);
+  // Recovery also bumps lease_version: the dead worker's fencing token
+  // is invalidated before anyone can claim the row again.
   const recoveredDead = await db
     .update(emailOutbox)
-    .set({ status: "DEAD", claimedBy: null, claimedAt: null })
+    .set({
+      status: "DEAD",
+      claimedBy: null,
+      claimedAt: null,
+      leaseVersion: sql`${emailOutbox.leaseVersion} + 1`,
+    })
     .where(
       and(
         eq(emailOutbox.status, "PROCESSING"),
@@ -184,6 +249,7 @@ export async function drainOutbox(
       claimedBy: null,
       claimedAt: null,
       nextAttemptAt: now,
+      leaseVersion: sql`${emailOutbox.leaseVersion} + 1`,
     })
     .where(
       and(
@@ -219,6 +285,8 @@ export async function drainOutbox(
         claimedBy: workerId,
         claimedAt: now,
         attempts: sql`${emailOutbox.attempts} + 1`,
+        // Every claim takes a fresh fencing token (Phase 8).
+        leaseVersion: sql`${emailOutbox.leaseVersion} + 1`,
       })
       .where(
         and(
@@ -238,16 +306,33 @@ export async function drainOutbox(
     .orderBy(asc(emailOutbox.id));
 
   // 3. Send each claimed row; the outcome update is per-row and never
-  //    touches the business artefact (the invoice stays issued).
+  //    touches the business artefact (the invoice stays issued). Every
+  //    outcome write is FENCED on the claim this worker took (Phase 8):
+  //    if the row's lease was recovered and re-claimed while this send
+  //    was in flight, the write matches 0 rows and the newer claim's
+  //    state stands — the late outcome is logged, never applied.
   const mailer = getMailer(config);
+  const fencedOnClaim = (row: OutboxRow) =>
+    and(
+      eq(emailOutbox.id, row.id),
+      eq(emailOutbox.status, "PROCESSING"),
+      eq(emailOutbox.claimedBy, workerId),
+      eq(emailOutbox.leaseVersion, row.leaseVersion),
+    );
   for (const row of rows) {
     const data = (row.templateData ?? {}) as { text?: string; html?: string };
     try {
-      const attachment = await loadAttachment(deps, row);
+      const attachment =
+        row.relatedType === "credit_note"
+          ? await loadCreditNoteAttachment(deps, row)
+          : await loadAttachment(deps, row);
       await mailer.sendMail({
         to: row.recipientEmail,
         subject: row.subject,
         text: data.text ?? "",
+        // Deterministic per-row Message-ID (Phase 8): a redelivery of
+        // THIS row carries the same id; a resend (new row) does not.
+        messageId: outboxMessageId(config, row.id),
         ...(data.html ? { html: data.html } : {}),
         ...(attachment
           ? {
@@ -261,10 +346,17 @@ export async function drainOutbox(
             }
           : {}),
       });
-      await db
+      const sentUpdate = await db
         .update(emailOutbox)
         .set({ status: "SENT", sentAt: now, claimedBy: null, claimedAt: null })
-        .where(eq(emailOutbox.id, row.id));
+        .where(fencedOnClaim(row));
+      if (affectedRowsOf(sentUpdate) !== 1) {
+        log.warn(
+          { outboxId: row.id, workerId, leaseVersion: row.leaseVersion },
+          "outbox SENT write fenced out — a newer claim owns this row",
+        );
+        continue;
+      }
       if (row.type === "INVOICE" && row.relatedType === "invoice" && row.relatedId !== null) {
         await db
           .update(invoices)
@@ -275,7 +367,7 @@ export async function drainOutbox(
     } catch (err) {
       const error = sanitiseError(config, err);
       if (row.attempts >= maxAttempts) {
-        await db
+        const deadUpdate = await db
           .update(emailOutbox)
           .set({
             status: "DEAD",
@@ -283,7 +375,14 @@ export async function drainOutbox(
             claimedBy: null,
             claimedAt: null,
           })
-          .where(eq(emailOutbox.id, row.id));
+          .where(fencedOnClaim(row));
+        if (affectedRowsOf(deadUpdate) !== 1) {
+          log.warn(
+            { outboxId: row.id, workerId, leaseVersion: row.leaseVersion },
+            "outbox DEAD write fenced out — a newer claim owns this row",
+          );
+          continue;
+        }
         if (row.type === "INVOICE" && row.relatedType === "invoice" && row.relatedId !== null) {
           await db
             .update(invoices)
@@ -304,7 +403,7 @@ export async function drainOutbox(
           OUTBOX_BACKOFF_SECONDS[
             Math.min(row.attempts - 1, OUTBOX_BACKOFF_SECONDS.length - 1)
           ] ?? 60;
-        await db
+        const retryUpdate = await db
           .update(emailOutbox)
           .set({
             status: "PENDING",
@@ -313,7 +412,14 @@ export async function drainOutbox(
             claimedAt: null,
             nextAttemptAt: new Date(now.getTime() + backoffSeconds * 1000),
           })
-          .where(eq(emailOutbox.id, row.id));
+          .where(fencedOnClaim(row));
+        if (affectedRowsOf(retryUpdate) !== 1) {
+          log.warn(
+            { outboxId: row.id, workerId, leaseVersion: row.leaseVersion },
+            "outbox retry write fenced out — a newer claim owns this row",
+          );
+          continue;
+        }
         result.failed += 1;
       }
       log.warn(
@@ -325,13 +431,38 @@ export async function drainOutbox(
   return result;
 }
 
+/** Single-flight guard for the in-process opportunistic drain
+ * (Phase 8): never two passes at once — concurrent triggers coalesce.
+ * A trigger that arrives while a pass is running sets the rerun flag
+ * instead of being dropped: a pass snapshots its candidates once, so
+ * a row enqueued mid-pass (the classic approve→cancel-in-quick-
+ * succession case) would otherwise be stranded until the next
+ * enqueue. The follow-up pass runs with the first trigger's deps
+ * (the same app instance in practice). The CLI drain is unaffected. */
+let soonDrainInFlight = false;
+let soonDrainRerunRequested = false;
+
 /**
  * Fire-and-forget drain after an enqueue. Errors are swallowed by
  * design: the CLI/cron drain is the reliable path, and a failed
  * opportunistic pass simply leaves rows for it.
  */
 export function drainOutboxSoon(deps: OrdersDeps): void {
-  void drainOutbox(deps).catch((err: unknown) => {
-    log.warn({ err }, "opportunistic outbox drain failed");
-  });
+  if (soonDrainInFlight) {
+    soonDrainRerunRequested = true;
+    return;
+  }
+  soonDrainInFlight = true;
+  void (async () => {
+    try {
+      do {
+        soonDrainRerunRequested = false;
+        await drainOutbox(deps);
+      } while (soonDrainRerunRequested);
+    } catch (err) {
+      log.warn({ err }, "opportunistic outbox drain failed");
+    } finally {
+      soonDrainInFlight = false;
+    }
+  })();
 }

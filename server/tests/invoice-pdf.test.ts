@@ -12,7 +12,9 @@
 import { formatMoney } from "@bodhisattva/shared/money";
 import { describe, expect, it } from "vitest";
 import {
+  renderCreditNotePdf,
   renderInvoicePdf,
+  type CreditNoteSnapshot,
   type InvoiceSnapshot,
 } from "../src/modules/orders/invoice-pdf.js";
 
@@ -189,5 +191,35 @@ describe("renderInvoicePdf", () => {
     };
     const rendered = await renderInvoicePdf(hidden, { logoImage: TINY_PNG });
     expect(rendered.toString("latin1")).not.toContain("/Subtype /Image");
+  });
+});
+
+describe("renderCreditNotePdf (Phase 8)", () => {
+  const CREDIT_NOTE: CreditNoteSnapshot = {
+    ...SNAPSHOT,
+    documentType: "CREDIT_NOTE",
+    creditNoteNumber: "CN-2026-00007",
+    creditNoteIssuedAt: "2026-11-18T08:30:00.000Z",
+    originalInvoiceNumber: SNAPSHOT.invoiceNumber,
+    originalInvoiceIssuedAt: SNAPSHOT.issuedAt,
+    reason: "Customer asked to cancel",
+  };
+
+  it("is deterministic and carries the credit-note identity", async () => {
+    const first = await renderCreditNotePdf(CREDIT_NOTE);
+    const second = await renderCreditNotePdf(CREDIT_NOTE);
+    expect(first.equals(second)).toBe(true);
+    const text = extractText(first);
+    expect(text).toContain("CREDIT NOTE");
+    expect(text).toContain("CN-2026-00007");
+    // References the original invoice it reverses, in full.
+    expect(text).toContain("INV-2026-00042");
+    expect(text).toContain("reverses invoice INV-2026-00042 in full");
+    expect(text).toContain("Customer asked to cancel");
+    // Totals stay positive — the document type carries the reversal.
+    expect(text).toContain(formatMoney("9000.00"));
+    // And it is NOT the invoice: the uppercase INVOICE title block
+    // never appears ("Original Invoice No" is title-case).
+    expect(text).not.toContain("INVOICE");
   });
 });

@@ -16,4 +16,7 @@ server/.env
 
 # server runtime storage (uploads + generated invoice PDFs)
 server/storage/
+
+# Phase 8 backup-drill artifacts (database dumps contain credential hashes)
+docs/phase-8/drill/
 *.tsbuildinfo

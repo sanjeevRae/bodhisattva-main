@@ -19,19 +19,29 @@ import path from "node:path";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import { resolveMediaFile } from "../media/media.service.js";
-import type { InvoiceSnapshot } from "./invoice-pdf.js";
-import { renderInvoicePdf } from "./invoice-pdf.js";
+import type { CreditNoteSnapshot, InvoiceSnapshot } from "./invoice-pdf.js";
+import { renderCreditNotePdf, renderInvoicePdf } from "./invoice-pdf.js";
 
 const STORAGE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]*\.pdf$/;
 
-/** Deterministic storage name for an invoice: number + snapshot hash. */
-export function invoicePdfStorageName(snapshot: InvoiceSnapshot): string {
-  const hash = createHash("sha256")
+function snapshotHash(snapshot: unknown): string {
+  return createHash("sha256")
     .update(JSON.stringify(snapshot))
     .digest("hex")
     .slice(0, 8);
+}
+
+/** Deterministic storage name for an invoice: number + snapshot hash. */
+export function invoicePdfStorageName(snapshot: InvoiceSnapshot): string {
   const year = snapshot.issuedAt.slice(0, 4);
-  return `${year}/${snapshot.invoiceNumber}-${hash}.pdf`;
+  return `${year}/${snapshot.invoiceNumber}-${snapshotHash(snapshot)}.pdf`;
+}
+
+/** Deterministic storage name for a credit note (Phase 8): same
+ * private invoices directory, the CN number keeps files distinct. */
+export function creditNotePdfStorageName(snapshot: CreditNoteSnapshot): string {
+  const year = snapshot.creditNoteIssuedAt.slice(0, 4);
+  return `${year}/${snapshot.creditNoteNumber}-${snapshotHash(snapshot)}.pdf`;
 }
 
 /** Absolute path for a stored name, or null if the name is malformed. */
@@ -90,19 +100,15 @@ export async function resolveInvoiceLogoImage(
   }
 }
 
-/**
- * Return the PDF bytes for an invoice, rendering + caching them from
- * the snapshot when the stored file is missing.
- */
-export async function ensureInvoicePdf(
+/** Shared cache-or-render path for both document kinds. */
+async function ensureDocumentPdf(
   config: AppConfig,
   storageName: string,
-  snapshot: InvoiceSnapshot,
-  logoImage?: Buffer | null,
+  render: () => Promise<Buffer>,
 ): Promise<Buffer> {
   const existing = await readInvoicePdf(config, storageName);
   if (existing) return existing;
-  const buffer = await renderInvoicePdf(snapshot, { logoImage });
+  const buffer = await render();
   const absolute = invoicePdfAbsolutePath(config, storageName);
   if (absolute) {
     try {
@@ -114,4 +120,36 @@ export async function ensureInvoicePdf(
     }
   }
   return buffer;
+}
+
+/**
+ * Return the PDF bytes for an invoice, rendering + caching them from
+ * the snapshot when the stored file is missing.
+ */
+export async function ensureInvoicePdf(
+  config: AppConfig,
+  storageName: string,
+  snapshot: InvoiceSnapshot,
+  logoImage?: Buffer | null,
+): Promise<Buffer> {
+  return ensureDocumentPdf(config, storageName, () =>
+    renderInvoicePdf(snapshot, { logoImage }),
+  );
+}
+
+/**
+ * Return the PDF bytes for a credit note (Phase 8), rendering +
+ * caching them from its snapshot when the stored file is missing.
+ * The snapshot's embedded template config drives logo resolution the
+ * same way as invoices (callers pass the resolved bytes in).
+ */
+export async function ensureCreditNotePdf(
+  config: AppConfig,
+  storageName: string,
+  snapshot: CreditNoteSnapshot,
+  logoImage?: Buffer | null,
+): Promise<Buffer> {
+  return ensureDocumentPdf(config, storageName, () =>
+    renderCreditNotePdf(snapshot, { logoImage }),
+  );
 }

@@ -4,7 +4,7 @@
  * config object; the editor owns the state, these components only render
  * and report changes.
  */
-import { useState, type ReactNode } from "react";
+import { Component, Suspense, lazy, useState, type ReactNode } from "react";
 import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from "lucide-react";
 import type { FieldSpec } from "./field-specs";
 import type { MediaAsset, PageAdmin } from "./types";
@@ -62,6 +62,55 @@ export interface FieldContext {
   pages: PageAdmin[];
 }
 
+// ---------------------------------------------------------------------------
+// Rich text — TipTap editor, lazily loaded so it stays in its own chunk
+// inside the (already lazy) admin bundle. If the editor chunk fails to
+// load or the editor throws, the field degrades to the plain textarea
+// that predates it — the value contract (an HTML string) is identical.
+// ---------------------------------------------------------------------------
+
+const RichTextFieldImpl = lazy(() => import("./RichTextField"));
+
+class RichTextErrorBoundary extends Component<
+  { fallback: ReactNode; children: ReactNode },
+  { failed: boolean }
+> {
+  state = { failed: false };
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+  render() {
+    return this.state.failed ? this.props.fallback : this.props.children;
+  }
+}
+
+export function RichTextFieldLazy({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (html: string) => void;
+  ariaLabel?: string;
+}) {
+  const fallback = (
+    <textarea
+      className={inputCls}
+      rows={4}
+      value={value}
+      aria-label={ariaLabel}
+      onChange={(e) => onChange(e.target.value)}
+    />
+  );
+  return (
+    <RichTextErrorBoundary fallback={fallback}>
+      <Suspense fallback={fallback}>
+        <RichTextFieldImpl value={value} onChange={onChange} ariaLabel={ariaLabel} />
+      </Suspense>
+    </RichTextErrorBoundary>
+  );
+}
+
 interface FieldProps {
   spec: FieldSpec;
   root: Record<string, any>;
@@ -89,15 +138,25 @@ export function FieldRenderer({ spec, root, onChange, ctx }: FieldProps) {
       );
 
     case "textarea":
-    case "richtext":
       return (
-        <Field label={spec.label} hint={spec.kind === "richtext" ? "Basic formatting HTML is allowed; it is sanitised on save." : undefined}>
+        <Field label={spec.label}>
           <textarea
             className={inputCls}
             rows={spec.rows ?? 3}
             value={typeof value === "string" ? value : ""}
             onChange={(e) => set(e.target.value === "" ? undefined : e.target.value)}
             aria-label={spec.label}
+          />
+        </Field>
+      );
+
+    case "richtext":
+      return (
+        <Field label={spec.label} hint="Format with the toolbar (or the HTML source view); only site-safe formatting is kept — it is sanitised on save.">
+          <RichTextFieldLazy
+            value={typeof value === "string" ? value : ""}
+            onChange={(html) => set(html === "" ? undefined : html)}
+            ariaLabel={spec.label}
           />
         </Field>
       );
@@ -222,14 +281,12 @@ export function FieldRenderer({ spec, root, onChange, ctx }: FieldProps) {
               onRemove={() => set(removeIndex(list, index))}
             >
               {spec.kind === "richtextList" ? (
-                <textarea
-                  className={inputCls}
-                  rows={3}
+                <RichTextFieldLazy
                   value={item}
-                  aria-label={`${spec.itemLabel} ${index + 1}`}
-                  onChange={(e) => {
+                  ariaLabel={`${spec.itemLabel} ${index + 1}`}
+                  onChange={(html) => {
                     const next = [...list];
-                    next[index] = e.target.value;
+                    next[index] = html;
                     set(next);
                   }}
                 />

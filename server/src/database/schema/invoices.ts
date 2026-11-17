@@ -43,6 +43,16 @@ import { orders } from './store.js';
  *  - A cancelled-after-approval order keeps its invoice row — invoices
  *    are accounting records and are never deleted in v1 (a future
  *    credit-note flow would supersede, per §10.1 notes).
+ *
+ * Phase 8 adds `credit_notes` (Phase 7 review disposition 1): the
+ * lightweight reversal document for an order cancelled AFTER approval.
+ * One full credit note per invoice (`uq_credit_notes_invoice`), created
+ * inside the cancellation transaction with its own §10.2-style sequence
+ * scope ('CREDIT_NOTE:<year>', numbers `CN-<year>-<5 digits>`), an
+ * immutable snapshot mirroring the invoice's, and a CREDIT_NOTE outbox
+ * email. It is an accounting reversal only — the seeded template
+ * carries no tax registration number and the tax rate is 0%, so no
+ * VAT treatment is claimed anywhere.
  */
 export const invoiceSequences = mysqlTable('invoice_sequences', {
   // 'INVOICE:2026' | 'ORDER:2026'
@@ -205,6 +215,74 @@ export const invoices = mysqlTable(
       columns: [table.issuedBy],
       foreignColumns: [users.id],
       name: 'fk_invoices_by',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+  ],
+);
+
+export const creditNotes = mysqlTable(
+  'credit_notes',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    // 'CN-<year>-<sequence>' from the §10.2 counter (scope
+    // 'CREDIT_NOTE:<year>'), e.g. 'CN-2026-00001'.
+    creditNoteNumber: varchar('credit_note_number', { length: 24 }).notNull(),
+    // The invoice this note reverses — at most one full credit note
+    // per invoice in this lightweight design.
+    invoiceId: bigint('invoice_id', { mode: 'number', unsigned: true }).notNull(),
+    orderId: bigint('order_id', { mode: 'number', unsigned: true }).notNull(),
+    currency: char('currency', { length: 3 }).notNull().default('NPR'),
+    // Totals mirrored from the invoice at creation time (positive
+    // amounts; the document type carries the reversal semantics).
+    subtotal: decimal('subtotal', { precision: 12, scale: 2, mode: 'string' }).notNull(),
+    shippingFee: decimal('shipping_fee', { precision: 12, scale: 2, mode: 'string' })
+      .notNull()
+      .default('0.00'),
+    discountTotal: decimal('discount_total', { precision: 12, scale: 2, mode: 'string' })
+      .notNull()
+      .default('0.00'),
+    taxTotal: decimal('tax_total', { precision: 12, scale: 2, mode: 'string' })
+      .notNull()
+      .default('0.00'),
+    grandTotal: decimal('grand_total', { precision: 12, scale: 2, mode: 'string' }).notNull(),
+    // Immutable render data — the invoice's snapshot, re-marked as a
+    // credit-note document (documentType, creditNoteNumber,
+    // originalInvoiceNumber, reason). The ONLY source the credit-note
+    // PDF renderer reads.
+    snapshot: json('snapshot').notNull(),
+    // File under <uploadDirectory>/invoices/ — same private storage
+    // and authorised-download rule as invoice PDFs.
+    pdfStorageName: varchar('pdf_storage_name', { length: 120 }),
+    // The cancellation reason, carried from the transition.
+    reason: varchar('reason', { length: 500 }).notNull(),
+    // The admin whose cancellation created the note.
+    createdBy: bigint('created_by', { mode: 'number', unsigned: true }),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [
+    uniqueIndex('uq_credit_notes_number').on(table.creditNoteNumber),
+    uniqueIndex('uq_credit_notes_invoice').on(table.invoiceId),
+    foreignKey({
+      columns: [table.invoiceId],
+      foreignColumns: [invoices.id],
+      name: 'fk_credit_notes_invoice',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.orderId],
+      foreignColumns: [orders.id],
+      name: 'fk_credit_notes_order',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [users.id],
+      name: 'fk_credit_notes_by',
     })
       .onDelete('restrict')
       .onUpdate('restrict'),

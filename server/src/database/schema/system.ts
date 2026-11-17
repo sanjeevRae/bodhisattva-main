@@ -105,6 +105,11 @@ export const emailOutbox = mysqlTable(
     // Worker instance id while PROCESSING (the A8 lease owner).
     claimedBy: varchar('claimed_by', { length: 64 }),
     claimedAt: datetime('claimed_at', { fsp: 3, mode: 'date' }),
+    // Lease fencing token (Phase 8, Phase 7 review disposition 2):
+    // incremented on every claim AND on every stale-lease recovery, so
+    // a worker's completion/failure write — conditional on the version
+    // it claimed — can never clobber a newer claim's state.
+    leaseVersion: int('lease_version', { unsigned: true }).notNull().default(0),
     sentAt: datetime('sent_at', { fsp: 3, mode: 'date' }),
     createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
       .notNull()

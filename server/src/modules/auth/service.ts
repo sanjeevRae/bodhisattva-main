@@ -290,6 +290,12 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       ]);
     }
 
+    // A wrong code must PERSIST its attempt increment, so the mismatch
+    // path cannot throw inside the transaction (the rollback would undo
+    // the increment and the attempt cap would never engage — Phase 8
+    // security suite finding). Signal via flags, let the transaction
+    // commit the increment, then throw after it settles.
+    const mismatch: { exceeded: boolean | null } = { exceeded: null };
     await db.transaction(async (tx) => {
       const row = await repo.findLatestUnconsumedCodeForUpdate(tx, user.id);
       if (!row) {
@@ -314,12 +320,8 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       if (!matches) {
         // Atomic increment inside the row lock; the code dies at max (§4.3).
         await repo.incrementCodeAttempts(tx, row.id);
-        if (row.attempts + 1 >= row.maxAttempts) {
-          throw new AppError("OTP_ATTEMPTS_EXCEEDED");
-        }
-        throw AppError.validation([
-          { field: "code", issue: "Invalid verification code" },
-        ]);
+        mismatch.exceeded = row.attempts + 1 >= row.maxAttempts;
+        return;
       }
       // Single-use: consume in the same transaction as the account update.
       const consumed = await repo.consumeCode(tx, row.id, now);
@@ -330,6 +332,15 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       }
       await repo.markUserVerified(tx, user.id, now);
     });
+
+    if (mismatch.exceeded !== null) {
+      if (mismatch.exceeded) {
+        throw new AppError("OTP_ATTEMPTS_EXCEEDED");
+      }
+      throw AppError.validation([
+        { field: "code", issue: "Invalid verification code" },
+      ]);
+    }
 
     await writeAudit(db, {
       actorId: user.id,

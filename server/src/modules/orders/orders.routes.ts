@@ -11,6 +11,7 @@
  *   POST /orders/:id/invoice/resend           store.invoices.resend
  *   GET  /invoices · /invoices/:id            store.invoices.manage
  *   GET  /invoices/:id/download               store.invoices.manage
+ *   GET  /invoices/:id/credit-note.pdf        store.invoices.manage (Phase 8)
  *   GET|PUT /invoice-template                 store.invoice_templates.manage
  *   GET  /invoice-template/preview.pdf        store.invoice_templates.manage
  *
@@ -21,6 +22,7 @@
  * Customer — mount at /api (full session, ownership-scoped; another
  * customer's order/invoice is a 404 per PERMISSIONS.md §6):
  *   GET /orders/:id/invoice · GET /orders/:id/invoice.pdf
+ *   GET /orders/:id/credit-note.pdf           (Phase 8)
  */
 import { AppError } from "@bodhisattva/shared/errors";
 import {
@@ -38,6 +40,7 @@ import {
   requirePermission,
 } from "../../middleware/authorization.js";
 import { asyncHandler } from "../../utils/async-handler.js";
+import * as creditNotesService from "./credit-notes.service.js";
 import { resolveInvoiceLogoImage } from "./invoice-files.js";
 import { renderInvoicePdf, type InvoiceSnapshot } from "./invoice-pdf.js";
 import * as invoicesService from "./invoices.service.js";
@@ -202,7 +205,11 @@ export function createOrdersAdminRouter(deps: OrdersRouteDeps): Router {
     asyncHandler(async (req: Request, res: Response) => {
       const found = await invoicesService.getAdminInvoice(deps.db, parseIdParam(req));
       if (!found) throw AppError.notFound("Invoice not found.");
-      sendData(res, 200, { view: found.view, snapshot: found.snapshot });
+      sendData(res, 200, {
+        view: found.view,
+        snapshot: found.snapshot,
+        creditNote: found.creditNote,
+      });
     }),
   );
   router.get(
@@ -214,6 +221,22 @@ export function createOrdersAdminRouter(deps: OrdersRouteDeps): Router {
       if (!found) throw AppError.notFound("Invoice not found.");
       const buffer = await invoicesService.getInvoicePdfBuffer(svc, found.invoice);
       sendPdf(res, buffer, `${found.view.invoiceNumber}.pdf`);
+    }),
+  );
+  // Phase 8: the credit note reversing this invoice, as a PDF.
+  router.get(
+    "/invoices/:id/credit-note.pdf",
+    fullSession,
+    invoicesManage,
+    asyncHandler(async (req: Request, res: Response) => {
+      const invoiceId = parseIdParam(req);
+      const creditNote = await creditNotesService.getCreditNoteByInvoiceId(
+        deps.db,
+        invoiceId,
+      );
+      if (!creditNote) throw AppError.notFound("Credit note not found.");
+      const buffer = await creditNotesService.getCreditNotePdfBuffer(svc, creditNote);
+      sendPdf(res, buffer, `${creditNote.creditNoteNumber}.pdf`);
     }),
   );
 
@@ -348,9 +371,20 @@ export function createOrdersCustomerRouter(deps: OrdersRouteDeps): Router {
         auth.userId,
         parseIdParam(req),
       );
+      // Phase 8: a credit note reversing this invoice, when present.
+      const creditNote = await creditNotesService.getCreditNoteByOrderId(
+        svc.db,
+        order.id,
+      );
       sendData(res, 200, {
         ...invoicesService.toInvoiceView(invoice, order.orderNumber),
         downloadPath: `/api/orders/${order.id}/invoice.pdf`,
+        creditNote: creditNote
+          ? {
+              ...creditNotesService.toCreditNoteSummary(creditNote),
+              downloadPath: `/api/orders/${order.id}/credit-note.pdf`,
+            }
+          : null,
       });
     }),
   );
@@ -365,6 +399,21 @@ export function createOrdersCustomerRouter(deps: OrdersRouteDeps): Router {
       );
       const buffer = await invoicesService.getInvoicePdfBuffer(svc, invoice);
       sendPdf(res, buffer, `${invoice.invoiceNumber}.pdf`);
+    }),
+  );
+  // Phase 8: the owner's credit-note PDF (another customer's order,
+  // or an order without a credit note, is a 404 — getOwnCreditNote).
+  router.get(
+    "/orders/:id/credit-note.pdf",
+    asyncHandler(async (req: Request, res: Response) => {
+      const auth = getAuthContext(req);
+      const { creditNote } = await ordersService.getOwnCreditNote(
+        svc,
+        auth.userId,
+        parseIdParam(req),
+      );
+      const buffer = await creditNotesService.getCreditNotePdfBuffer(svc, creditNote);
+      sendPdf(res, buffer, `${creditNote.creditNoteNumber}.pdf`);
     }),
   );
 

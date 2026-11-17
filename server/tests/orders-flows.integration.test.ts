@@ -25,6 +25,21 @@
  *  8. the rendered PDF contains the invoice number, order number, a
  *     line item, the grand total and the seller name.
  *
+ * Phase 8 additions (Phase 6/7 review carry-overs):
+ *  12. THREE concurrent approvals → still exactly one invoice and one
+ *      deduction set (the adopted Phase 8 stress widening of test 2);
+ *  13. approve races cancel/reject → exactly one consistent end
+ *      state, never partial movements (three legal paths asserted);
+ *  14. two racing drainOutbox() passes deliver each email exactly
+ *      once, and a stale worker's late completion is fenced out by
+ *      lease_version (its write lands on 0 rows; the newer claim's
+ *      SENT state stands);
+ *  15. credit notes: a post-approval cancel issues CN-<year>-<5-digit>
+ *      in the cancel transaction, mirrors the invoice totals, emails
+ *      the customer with the PDF, appears on the admin + customer
+ *      invoice reads, audits store.invoices.credit_note — and a
+ *      pre-approval cancel creates none.
+ *
  * Guarded by INTEGRATION_DB=1 like the other suites.
  */
 import { execFileSync } from "node:child_process";
@@ -314,6 +329,7 @@ describe.skipIf(!RUN)("Phase 7 orders & invoices flows (integration)", () => {
     const pool = handle.pool;
     // Wipe orders/invoices + store + identity state (FK-safe order),
     // then migrate + seed for real so the suite is self-contained.
+    await pool.query("DELETE FROM credit_notes");
     await pool.query("DELETE FROM invoices");
     await pool.query("DELETE FROM email_outbox");
     // Templates point at their current version — detach before wiping.
@@ -927,5 +943,408 @@ describe.skipIf(!RUN)("Phase 7 orders & invoices flows (integration)", () => {
     expect(asCustomer.status).toBe(403);
     const anon = await request(app).get("/api/admin/audit-logs");
     expect(anon.status).toBe(401);
+  }, 120000);
+
+  // ---------------------------------------------------------------------
+  // Phase 8 — concurrency stress + credit notes + outbox fencing
+  // ---------------------------------------------------------------------
+
+  async function movementCount(orderId: number, type: string): Promise<number> {
+    return sqlCount(
+      "SELECT COUNT(*) AS c FROM inventory_movements WHERE order_id = ? AND movement_type = ?",
+      [orderId, type],
+    );
+  }
+
+  async function orderStatus(orderId: number): Promise<string> {
+    const row = await sqlOne<{ status: string }>(
+      "SELECT status FROM orders WHERE id = ?",
+      [orderId],
+    );
+    return row!.status;
+  }
+
+  it("12) THREE concurrent approvals: exactly one 200, one invoice, one deduction set", async () => {
+    const product = await adminCreateProduct("race3", 6);
+    const order = await placeOrder(product.id, 2, `race3-${runId}`);
+    const results = await Promise.all([
+      adminPost(order.id, "approve"),
+      adminPost(order.id, "approve"),
+      adminPost(order.id, "approve"),
+    ]);
+    const statuses = results.map((r) => r.status).sort((a, b) => a - b);
+    expect(statuses).toEqual([200, 422, 422]);
+    for (const loser of results.filter((r) => r.status === 422)) {
+      expect(loser.body.error.code).toBe("INVALID_STATE_TRANSITION");
+    }
+    expect(
+      await sqlCount("SELECT COUNT(*) AS c FROM invoices WHERE order_id = ?", [order.id]),
+    ).toBe(1);
+    expect(await movementCount(order.id, "ORDER_DEDUCT")).toBe(1);
+    expect(await movementCount(order.id, "RELEASE")).toBe(1);
+    expect(await productStock(product.id)).toBe(4);
+    expect(await orderStatus(order.id)).toBe("APPROVED");
+  }, 120000);
+
+  it("13a) approve vs reject race: exactly one wins, consistent end state", async () => {
+    const product = await adminCreateProduct("raceavsr", 10);
+    const order = await placeOrder(product.id, 2, `raceavsr-${runId}`);
+    // Reject is only legal from PENDING_APPROVAL, so exactly one of
+    // the two transitions can ever commit — no interleaving produces
+    // a mixed state.
+    const [approveRes, rejectRes] = await Promise.all([
+      adminPost(order.id, "approve"),
+      adminPost(order.id, "reject", { reason: "Race reject" }),
+    ]);
+    const statuses = [approveRes.status, rejectRes.status].sort((a, b) => a - b);
+    expect(statuses).toEqual([200, 422]);
+    const invoices = await sqlCount(
+      "SELECT COUNT(*) AS c FROM invoices WHERE order_id = ?",
+      [order.id],
+    );
+    if (approveRes.status === 200) {
+      expect(await orderStatus(order.id)).toBe("APPROVED");
+      expect(invoices).toBe(1);
+      expect(await movementCount(order.id, "ORDER_DEDUCT")).toBe(1);
+      expect(await movementCount(order.id, "RELEASE")).toBe(1); // approve's pair
+      expect(await movementCount(order.id, "ORDER_RESTORE")).toBe(0);
+      expect(await productStock(product.id)).toBe(8);
+    } else {
+      expect(await orderStatus(order.id)).toBe("CANCELLED");
+      expect(invoices).toBe(0);
+      expect(await movementCount(order.id, "ORDER_DEDUCT")).toBe(0);
+      expect(await movementCount(order.id, "RELEASE")).toBe(1); // reservation released
+      expect(await movementCount(order.id, "ORDER_RESTORE")).toBe(0);
+      expect(await productStock(product.id)).toBe(10);
+      expect(await publicAvailability(product.slug)).toBe(10);
+    }
+    // No credit note either way: reject never has an invoice, and a
+    // winning approve leaves the order APPROVED.
+    expect(
+      await sqlCount("SELECT COUNT(*) AS c FROM credit_notes WHERE order_id = ?", [order.id]),
+    ).toBe(0);
+  }, 120000);
+
+  it("13b) approve vs cancel race: one of the three legal end paths, never partial", async () => {
+    const product = await adminCreateProduct("raceavsc", 10);
+    const order = await placeOrder(product.id, 2, `raceavsc-${runId}`);
+    // Cancel is legal from PENDING_APPROVAL *and* APPROVED, so three
+    // end paths are legal — the race must land on exactly one of
+    // them, with movement counts matching that path precisely.
+    const [approveRes, cancelRes] = await Promise.all([
+      adminPost(order.id, "approve"),
+      adminPost(order.id, "cancel", { reason: "Race cancel" }),
+    ]);
+    expect(approveRes.status === 200 || cancelRes.status === 200).toBe(true);
+    const status = await orderStatus(order.id);
+    const invoices = await sqlCount(
+      "SELECT COUNT(*) AS c FROM invoices WHERE order_id = ?",
+      [order.id],
+    );
+    const creditNotes = await sqlCount(
+      "SELECT COUNT(*) AS c FROM credit_notes WHERE order_id = ?",
+      [order.id],
+    );
+    const deduct = await movementCount(order.id, "ORDER_DEDUCT");
+    const release = await movementCount(order.id, "RELEASE");
+    const restore = await movementCount(order.id, "ORDER_RESTORE");
+    if (cancelRes.status === 200 && approveRes.status !== 200) {
+      // Path A — cancel won outright from PENDING_APPROVAL.
+      expect(status).toBe("CANCELLED");
+      expect(invoices).toBe(0);
+      expect(creditNotes).toBe(0);
+      expect([deduct, release, restore]).toEqual([0, 1, 0]);
+      expect(await productStock(product.id)).toBe(10);
+      expect(await publicAvailability(product.slug)).toBe(10);
+    } else if (approveRes.status === 200 && cancelRes.status !== 200) {
+      // Path B — approve won; the cancel then 422'd.
+      expect(cancelRes.status).toBe(422);
+      expect(status).toBe("APPROVED");
+      expect(invoices).toBe(1);
+      expect(creditNotes).toBe(0);
+      expect([deduct, release, restore]).toEqual([1, 1, 0]);
+      expect(await productStock(product.id)).toBe(8);
+    } else {
+      // Path C — approve committed first, then the cancel legally ran
+      // from APPROVED: invoice issued AND credited, stock restored.
+      expect(approveRes.status).toBe(200);
+      expect(cancelRes.status).toBe(200);
+      expect(status).toBe("CANCELLED");
+      expect(invoices).toBe(1);
+      expect(creditNotes).toBe(1);
+      expect([deduct, release, restore]).toEqual([1, 1, 1]);
+      expect(await productStock(product.id)).toBe(10);
+      expect(await publicAvailability(product.slug)).toBe(10);
+    }
+  }, 120000);
+
+  it("14) racing drains deliver exactly once; a stale worker is fenced out", async () => {
+    // -- Part 1: two racing drainOutbox() passes over the same rows.
+    const invoiceIds: number[] = [];
+    const failingTransport = nodemailer.createTransport({
+      host: "127.0.0.1",
+      port: 59999,
+      connectionTimeout: 1000,
+      greetingTimeout: 1000,
+      socketTimeout: 2000,
+    });
+    setTransportForTesting(failingTransport);
+    try {
+      for (const suffix of ["drain-a", "drain-b", "drain-c"]) {
+        const product = await adminCreateProduct(suffix, 5);
+        const order = await placeOrder(product.id, 1, `${suffix}-${runId}`);
+        const res = await adminPost(order.id, "approve");
+        expect(res.status).toBe(200);
+        invoiceIds.push((res.body.data.invoice as InvoiceViewBody).id);
+      }
+      // Wait until the opportunistic drains have attempted (and
+      // failed) every invoice row, so all three sit PENDING.
+      const deadline = Date.now() + 30000;
+      for (;;) {
+        const pending = await sqlCount(
+          "SELECT COUNT(*) AS c FROM email_outbox WHERE type = 'INVOICE' AND related_id IN (?, ?, ?) AND status = 'PENDING' AND attempts >= 1",
+          invoiceIds,
+        );
+        if (pending === 3) break;
+        if (Date.now() > deadline) throw new Error("invoice rows never attempted");
+        await new Promise((r) => setTimeout(r, 250));
+      }
+    } finally {
+      setTransportForTesting(undefined);
+    }
+    const rowIds = new Map<number, number>();
+    for (const invoiceId of invoiceIds) {
+      const row = await sqlOne<{ id: number }>(
+        "SELECT id FROM email_outbox WHERE type = 'INVOICE' AND related_id = ? ORDER BY id DESC LIMIT 1",
+        [invoiceId],
+      );
+      rowIds.set(invoiceId, row!.id);
+    }
+    // The mailbox persists across suite runs and invoice numbers
+    // restart from the wiped sequence, so scope delivery assertions
+    // to mail that arrives from this point on.
+    const mailboxBefore = new Set(mailboxTexts());
+    const [drain1, drain2] = await Promise.all([
+      drainOutbox({ db: handle.db, config }, { workerId: "race-1", now: new Date(Date.now() + 120_000) }),
+      drainOutbox({ db: handle.db, config }, { workerId: "race-2", now: new Date(Date.now() + 120_000) }),
+    ]);
+    // The two passes may also pick up unrelated due rows from earlier
+    // tests (the ORDER_CONFIRMED mails of these very checkouts), so
+    // the exactly-once guarantee is asserted per invoice row below —
+    // the sink count is the evidence that matters.
+    expect(drain1.sent + drain2.sent).toBeGreaterThanOrEqual(3);
+    // Settle, then count deliveries per invoice in the sink: exactly
+    // one each, carrying the deterministic per-row Message-ID.
+    await new Promise((r) => setTimeout(r, 750));
+    const texts = mailboxTexts().filter((t) => !mailboxBefore.has(t));
+    for (const invoiceId of invoiceIds) {
+      const invoiceRow = await sqlOne<{ invoice_number: string }>(
+        "SELECT invoice_number FROM invoices WHERE id = ?",
+        [invoiceId],
+      );
+      const delivered = texts.filter((t) => t.includes(invoiceRow!.invoice_number));
+      expect(delivered).toHaveLength(1);
+      expect(delivered[0]).toContain(
+        `Message-ID: <outbox-${rowIds.get(invoiceId)}@localhost>`,
+      );
+      const outboxRow = await sqlOne<{ status: string; lease_version: number }>(
+        "SELECT status, lease_version FROM email_outbox WHERE id = ?",
+        [rowIds.get(invoiceId)],
+      );
+      expect(outboxRow!.status).toBe("SENT");
+      expect(Number(outboxRow!.lease_version)).toBeGreaterThanOrEqual(1);
+    }
+
+    // -- Part 2: fencing — a worker whose send outlives its lease
+    // cannot record the outcome; the recovering worker's state stands.
+    // Flush anything still due so the probe row is the only candidate.
+    await drainOutbox({ db: handle.db, config }, { workerId: "settle" });
+    const [inserted] = await handle.pool.query(
+      "INSERT INTO email_outbox (type, recipient_email, subject, template_data, status) VALUES ('ORDER_SHIPPED', ?, 'Fencing probe', ?, 'PENDING')",
+      [EMAIL_A, JSON.stringify({ text: "probe" })],
+    );
+    const probeId = Number((inserted as { insertId: number }).insertId);
+
+    const base = nodemailer.createTransport({ host: "127.0.0.1", port: 1025 });
+    const originalSend = base.sendMail.bind(base);
+    let sendCalls = 0;
+    let releaseFirstSend: (() => void) | null = null;
+    base.sendMail = (async (message: unknown) => {
+      sendCalls += 1;
+      if (sendCalls === 1) {
+        // Worker A's send hangs (a stuck SMTP session) until the test
+        // releases it — long past the point where B recovers the row.
+        await new Promise<void>((resolve) => {
+          releaseFirstSend = resolve;
+          setTimeout(resolve, 15000);
+        });
+      }
+      return originalSend(message as never);
+    }) as typeof base.sendMail;
+    setTransportForTesting(base);
+    try {
+      const drainA = drainOutbox(
+        { db: handle.db, config },
+        { workerId: "fence-a" },
+      );
+      // Wait for A to claim the probe (lease_version 1) and start sending.
+      const claimDeadline = Date.now() + 20000;
+      for (;;) {
+        const row = await sqlOne<{ status: string; claimed_by: string | null; lease_version: number }>(
+          "SELECT status, claimed_by, lease_version FROM email_outbox WHERE id = ?",
+          [probeId],
+        );
+        if (
+          row?.status === "PROCESSING" &&
+          row.claimed_by === "fence-a" &&
+          sendCalls >= 1
+        ) {
+          expect(Number(row.lease_version)).toBe(1);
+          break;
+        }
+        if (Date.now() > claimDeadline) throw new Error("worker A never claimed the probe row");
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      // Age A's claim past the 5-minute lease, then let B drain: B
+      // recovers the row (version 2), claims it (version 3) and sends.
+      await handle.pool.query(
+        "UPDATE email_outbox SET claimed_at = DATE_SUB(NOW(3), INTERVAL 6 MINUTE) WHERE id = ?",
+        [probeId],
+      );
+      const drainBResult = await drainOutbox(
+        { db: handle.db, config },
+        { workerId: "fence-b" },
+      );
+      // B sent the probe (it may also flush an unrelated due row);
+      // the probe's own row state below is the fencing evidence.
+      expect(drainBResult.sent).toBeGreaterThanOrEqual(1);
+      // A's stuck send finally completes; its SENT write is fenced.
+      releaseFirstSend!();
+      const drainAResult = await drainA;
+      expect(drainAResult.sent).toBe(0);
+      const finalRow = await sqlOne<{ status: string; lease_version: number; attempts: number }>(
+        "SELECT status, lease_version, attempts FROM email_outbox WHERE id = ?",
+        [probeId],
+      );
+      expect(finalRow!.status).toBe("SENT"); // B's state, never clobbered
+      expect(Number(finalRow!.lease_version)).toBe(3); // claim, recover, claim
+      expect(Number(finalRow!.attempts)).toBe(2);
+    } finally {
+      setTransportForTesting(undefined);
+    }
+  }, 180000);
+
+  it("15) credit notes: post-approval cancel issues, emails and exposes the note", async () => {
+    const product = await adminCreateProduct("crednote", 5);
+    const order = await placeOrder(product.id, 2, `crednote-${runId}`);
+    const approved = await adminPost(order.id, "approve");
+    expect(approved.status).toBe(200);
+    const invoice = approved.body.data.invoice as InvoiceViewBody;
+
+    const cancelled = await adminPost(order.id, "cancel", {
+      reason: "Customer asked to cancel",
+    });
+    expect(cancelled.status).toBe(200);
+    expect(cancelled.body.data.order.status).toBe("CANCELLED");
+
+    // The note exists, mirrors the invoice totals, and its snapshot
+    // is re-marked as a credit-note document.
+    const note = await sqlOne<{
+      id: number;
+      credit_note_number: string;
+      invoice_id: number;
+      grand_total: string;
+      reason: string;
+      snapshot: unknown;
+    }>(
+      "SELECT id, credit_note_number, invoice_id, grand_total, reason, snapshot FROM credit_notes WHERE order_id = ?",
+      [order.id],
+    );
+    expect(note).toBeTruthy();
+    expect(note!.credit_note_number).toMatch(/^CN-\d{4}-\d{5}$/);
+    expect(Number(note!.invoice_id)).toBe(invoice.id);
+    expect(Number(note!.grand_total)).toBe(invoice.grandTotalPaisa / 100);
+    expect(note!.reason).toBe("Customer asked to cancel");
+    const snap = (typeof note!.snapshot === "string"
+      ? JSON.parse(note!.snapshot)
+      : note!.snapshot) as Record<string, any>;
+    expect(snap.documentType).toBe("CREDIT_NOTE");
+    expect(snap.creditNoteNumber).toBe(note!.credit_note_number);
+    expect(snap.originalInvoiceNumber).toBe(invoice.invoiceNumber);
+    expect(snap.totals.grandTotal).toBe((invoice.grandTotalPaisa / 100).toFixed(2));
+    // At most one note per invoice (the unique constraint's effect).
+    expect(
+      await sqlCount("SELECT COUNT(*) AS c FROM credit_notes WHERE invoice_id = ?", [invoice.id]),
+    ).toBe(1);
+    // Creation was audited.
+    expect(
+      await sqlCount(
+        "SELECT COUNT(*) AS c FROM audit_logs WHERE action = 'store.invoices.credit_note' AND target_id = ?",
+        [note!.id],
+      ),
+    ).toBe(1);
+
+    // Customer reads: invoice metadata carries the summary; the PDF
+    // downloads for the owner and 404s for another customer.
+    const meta = await state
+      .custA!.get(`/api/orders/${order.id}/invoice`)
+      .set("X-CSRF-Token", state.csrfA!);
+    expect(meta.status).toBe(200);
+    expect(meta.body.data.creditNote).toBeTruthy();
+    expect(meta.body.data.creditNote.creditNoteNumber).toBe(note!.credit_note_number);
+    expect(meta.body.data.creditNote.downloadPath).toBe(
+      `/api/orders/${order.id}/credit-note.pdf`,
+    );
+    const ownPdf = await getBinary(
+      state.custA!,
+      `/api/orders/${order.id}/credit-note.pdf`,
+    );
+    expect(ownPdf.status).toBe(200);
+    expect(ownPdf.body.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+    const cnText = pdfText(ownPdf.body);
+    expect(cnText).toContain("CREDIT NOTE");
+    expect(cnText).toContain(note!.credit_note_number);
+    expect(cnText).toContain(invoice.invoiceNumber);
+    const otherPdf = await getBinary(
+      state.custB!,
+      `/api/orders/${order.id}/credit-note.pdf`,
+    );
+    expect(otherPdf.status).toBe(404);
+
+    // Admin reads: invoice detail carries the summary; the admin PDF
+    // route streams the same document.
+    const adminDetail = await state
+      .admin!.get(`/api/admin/invoices/${invoice.id}`)
+      .set("X-CSRF-Token", state.adminCsrf!);
+    expect(adminDetail.status).toBe(200);
+    expect(adminDetail.body.data.creditNote.creditNoteNumber).toBe(
+      note!.credit_note_number,
+    );
+    const adminPdf = await getBinary(
+      state.admin!,
+      `/api/admin/invoices/${invoice.id}/credit-note.pdf`,
+    );
+    expect(adminPdf.status).toBe(200);
+    expect(adminPdf.body.subarray(0, 5).toString("latin1")).toBe("%PDF-");
+
+    // The customer was emailed the credit note with its PDF attached.
+    const mail = await waitForMail(
+      (text) => mailFor(EMAIL_A)(text) && text.includes(note!.credit_note_number),
+    );
+    expect(mail).toContain("credited in full");
+    expect(mail).toContain("JVBERi");
+
+    // A pre-approval cancel creates NO credit note (no invoice yet).
+    const plain = await placeOrder(product.id, 1, `nocrednote-${runId}`);
+    const plainCancel = await adminPost(plain.id, "cancel", { reason: "Too early" });
+    expect(plainCancel.status).toBe(200);
+    expect(
+      await sqlCount("SELECT COUNT(*) AS c FROM credit_notes WHERE order_id = ?", [plain.id]),
+    ).toBe(0);
+    const noNotePdf = await getBinary(
+      state.custA!,
+      `/api/orders/${plain.id}/credit-note.pdf`,
+    );
+    expect(noNotePdf.status).toBe(404);
   }, 120000);
 });

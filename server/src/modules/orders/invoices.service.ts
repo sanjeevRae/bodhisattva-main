@@ -32,6 +32,11 @@ import {
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
 import type { DbLike, RequestMeta, StoreActor } from "../store/service.js";
 import {
+  getCreditNoteByInvoiceId,
+  toCreditNoteSummary,
+  type CreditNoteSummary,
+} from "./credit-notes.service.js";
+import {
   ensureInvoicePdf,
   invoicePdfStorageName,
   resolveInvoiceLogoImage,
@@ -453,7 +458,13 @@ export async function listAdminInvoices(
 export async function getAdminInvoice(
   db: DbLike,
   invoiceId: number,
-): Promise<{ view: InvoiceView; snapshot: InvoiceSnapshot; invoice: InvoiceRow } | null> {
+): Promise<{
+  view: InvoiceView;
+  snapshot: InvoiceSnapshot;
+  invoice: InvoiceRow;
+  /** Phase 8: the credit note reversing this invoice, when present. */
+  creditNote: CreditNoteSummary | null;
+} | null> {
   const [row] = await db
     .select({ invoice: invoices, orderNumber: orders.orderNumber })
     .from(invoices)
@@ -461,10 +472,12 @@ export async function getAdminInvoice(
     .where(eq(invoices.id, invoiceId))
     .limit(1);
   if (!row) return null;
+  const creditNote = await getCreditNoteByInvoiceId(db, invoiceId);
   return {
     view: toInvoiceView(row.invoice, row.orderNumber),
     snapshot: row.invoice.snapshot as InvoiceSnapshot,
     invoice: row.invoice,
+    creditNote: creditNote ? toCreditNoteSummary(creditNote) : null,
   };
 }
 
