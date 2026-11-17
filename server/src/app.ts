@@ -31,6 +31,11 @@ import {
   createAdminMfaRouter,
   createMfaRouter,
 } from "./modules/mfa/mfa.routes.js";
+import {
+  createCmsAdminRouter,
+  createCmsPublicRouter,
+} from "./modules/cms/routes.js";
+import { createMediaRouters } from "./modules/media/media.routes.js";
 import { createRolesRouter } from "./modules/roles/roles.routes.js";
 import {
   createHealthRouter,
@@ -88,6 +93,11 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/auth/mfa", createMfaRouter({ db, config }));
     app.use("/api/admin/mfa", createAdminMfaRouter({ db, config }));
     app.use("/api/admin", createRolesRouter({ db, config }));
+    app.use("/api", createCmsPublicRouter({ db, config }));
+    app.use("/api/admin", createCmsAdminRouter({ db, config }));
+    const media = createMediaRouters({ db, config });
+    app.use("/api", media.publicRouter);
+    app.use("/api/admin", media.adminRouter);
   }
 
   app.use(notFoundHandler);

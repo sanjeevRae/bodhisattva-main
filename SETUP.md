@@ -128,6 +128,29 @@ present `DATABASE_URL` wins over the discrete `DB_*` settings. Keep that
 in mind for any scripted CLI use: check which database the URL names
 before running it.
 
+### Phase 3 additions — CMS content + media
+
+Migration `0003` adds the CMS tables (pages, page_revisions,
+page_sections, menus, menu_items, site_settings, media_folders,
+media_assets) and `0004` adds `preview_tokens`. The seed step
+`cms-content` migrates the seven existing pages into the database (7
+pages, 31 sections, 4 menus, 19 menu items, 10 site settings) — it is
+idempotent and fill-missing-only for settings, so re-running `db:seed`
+never overwrites edited content.
+
+Media uploads are stored under `UPLOAD_DIRECTORY` (see `server/.env`,
+default `./storage/uploads`, relative to `server/`) in two-character
+prefix subdirectories; derivatives are generated next to the master file.
+The directory must be writable by the API process and is **not** served
+statically — files are streamed by `GET /api/media/:id/file/:variant`.
+
+The CMS integration suite (`server/tests/cms-flows.integration.test.ts`)
+uses its own database (`bodhisattva_test_cms`) so it can run in parallel
+with the auth suite; `npm --prefix server run test:integration` runs both
+suites (13 tests). The public frontend renders pages from
+`GET /api/pages/:slug`; the Vite dev server and preview both proxy
+`/api` to `http://localhost:4000` (see `vite.config.ts`).
+
 ## 7. Native module smoke test (Phase 1, provisional)
 
 `argon2` and `sharp` are native modules; ARCHITECTURE.md §14.1 requires

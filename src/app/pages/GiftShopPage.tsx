@@ -2,8 +2,20 @@ import { useState } from "react";
 import { motion } from "motion/react";
 import { X, Search, ShoppingBag, Heart } from "lucide-react";
 import { uimg } from "../components/shared";
+import { usePage } from "../lib/api";
+import PageRenderer, { PageStatus } from "../components/PageRenderer";
 
+/**
+ * Gift Shop — the page's only CMS section is the header band (hero),
+ * rendered from GET /api/pages/shop via PageRenderer with the cart-count
+ * badge injected from this component's cart state. The category tabs,
+ * product grid and quick-preview modal below are ecommerce module
+ * surface (mapping §6), not page sections: they stay in this component,
+ * operating on the current in-component product data until the Phase 6
+ * store APIs land.
+ */
 export default function GiftShopPage() {
+  const { data: page, error } = usePage("shop");
   const [tab, setTab] = useState("all");
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [cart, setCart] = useState<number[]>([]);
@@ -34,20 +46,31 @@ export default function GiftShopPage() {
   const toggleWishlist = (id: number) => setWishlist((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
   const toggleCart = (id: number) => setCart((prev) => prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]);
 
+  if (error) return <PageStatus error />;
+  if (!page) return <PageStatus />;
+
   return (
     <div className="pt-16">
-      <div className="bg-secondary border-b border-border py-20">
-        <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
-          <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">Collection Shop</p>
-          <div className="flex items-end justify-between">
-            <h1 className="font-display text-5xl md:text-6xl font-medium">Museum Gift Shop</h1>
-            <div className="flex items-center gap-2 ml-4">
-              <ShoppingBag size={17} className="text-accent" />
-              <span className="font-mono text-sm text-accent font-medium">{cart.length}</span>
+      <PageRenderer
+        page={page}
+        renderSection={(section) => {
+          if (section.type !== "hero") return undefined;
+          return (
+            <div className="bg-secondary border-b border-border py-20">
+              <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
+                <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
+                <div className="flex items-end justify-between">
+                  <h1 className="font-display text-5xl md:text-6xl font-medium">{section.config.heading}</h1>
+                  <div className="flex items-center gap-2 ml-4">
+                    <ShoppingBag size={17} className="text-accent" />
+                    <span className="font-mono text-sm text-accent font-medium">{cart.length}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
+          );
+        }}
+      />
 
       <div className="border-b border-border">
         <div className="max-w-screen-xl mx-auto px-6 lg:px-10 flex gap-0 overflow-x-auto">

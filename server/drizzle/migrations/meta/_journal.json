@@ -22,6 +22,20 @@
       "when": 1794899568286,
       "tag": "0002_session_version_snapshot",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794902093292,
+      "tag": "0003_cms_media",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794902487545,
+      "tag": "0004_preview_tokens",
+      "breakpoints": true
     }
   ]
 }

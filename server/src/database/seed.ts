@@ -1,3 +1,4 @@
+import { eq } from 'drizzle-orm';
 import { drizzle, type MySql2Database } from 'drizzle-orm/mysql2';
 import { createPool, type Pool } from 'mysql2/promise';
 import {
@@ -5,6 +6,15 @@ import {
   rolePermissions as rolePermissionsTable,
   roles as rolesTable,
 } from './schema/authorization.js';
+import {
+  menuItems as menuItemsTable,
+  menus as menusTable,
+  pageRevisions as pageRevisionsTable,
+  pageSections as pageSectionsTable,
+  pages as pagesTable,
+  siteSettings as siteSettingsTable,
+} from './schema/cms.js';
+import { CMS_MENUS, CMS_PAGES, CMS_SETTINGS } from './seed-data/cms-content.js';
 import {
   PERMISSION_SEEDS,
   ROLE_PERMISSIONS,
@@ -27,8 +37,10 @@ import {
  *
  * Phase 2 state: three production steps seed the authorization reference
  * data — roles, permissions, role_permissions — from PERMISSIONS.md (§2, §4,
- * §5) via `seed-data/permissions.ts`. They contain no accounts and no
- * secrets, and are safe in every environment including production (§13.3).
+ * §5) via `seed-data/permissions.ts`. Phase 3 adds the `cms-content` step
+ * (the seven migrated system pages, menus and public site settings). They
+ * contain no accounts and no secrets, and are safe in every environment
+ * including production (§13.3).
  * The `--dev` placeholder step exists only to prove the mechanism
  * end-to-end; it writes nothing.
  */
@@ -129,7 +141,163 @@ export const seedSteps: SeedStep[] = [
       }
     },
   },
+  {
+    // Phase 3 content migration (CMS_CONTENT_MAPPING.md): the seven system
+    // pages with their sections, the navigation/footer menus and the
+    // public site settings, from `seed-data/cms-content.ts`. Idempotent by
+    // natural key: a page whose slug already exists is skipped whole (its
+    // content may have been edited in the CMS since), a menu whose code
+    // exists is skipped, and settings only fill in missing keys — re-runs
+    // never overwrite CMS edits. Section links carry `pageSlug` in the
+    // seed data; they are resolved to `pageId` here (two passes: every
+    // page id exists before any section is written).
+    name: 'cms-content',
+    async run(db) {
+      const pageIdBySlug = new Map<string, number>();
+      const existingPages = await db
+        .select({ id: pagesTable.id, slug: pagesTable.slug })
+        .from(pagesTable);
+      for (const row of existingPages) pageIdBySlug.set(row.slug, row.id);
+
+      const pendingSections: {
+        revisionId: number;
+        sections: (typeof CMS_PAGES)[number]['sections'];
+      }[] = [];
+
+      for (const pageSeed of CMS_PAGES) {
+        if (pageIdBySlug.has(pageSeed.slug)) continue;
+        const [pageRow] = await db
+          .insert(pagesTable)
+          .values({
+            slug: pageSeed.slug,
+            title: pageSeed.title,
+            status: 'PUBLISHED',
+            isSystem: true,
+            seoTitle: pageSeed.seoTitle ?? null,
+            metaDescription: pageSeed.metaDescription ?? null,
+            publishedAt: new Date(),
+          })
+          .$returningId();
+        const [revisionRow] = await db
+          .insert(pageRevisionsTable)
+          .values({ pageId: pageRow.id, revisionNo: 1, version: 1 })
+          .$returningId();
+        await db
+          .update(pagesTable)
+          .set({
+            draftRevisionId: revisionRow.id,
+            publishedRevisionId: revisionRow.id,
+          })
+          .where(eq(pagesTable.id, pageRow.id));
+        pageIdBySlug.set(pageSeed.slug, pageRow.id);
+        pendingSections.push({
+          revisionId: revisionRow.id,
+          sections: pageSeed.sections,
+        });
+      }
+
+      for (const pending of pendingSections) {
+        if (pending.sections.length === 0) continue;
+        await db.insert(pageSectionsTable).values(
+          pending.sections.map((section) => ({
+            revisionId: pending.revisionId,
+            type: section.type,
+            sortOrder: section.sortOrder,
+            isVisible: section.isVisible,
+            config: resolveSeedLinks(section.config, pageIdBySlug),
+            design: section.design ?? null,
+          })),
+        );
+      }
+
+      for (const menuSeed of CMS_MENUS) {
+        const [existingMenu] = await db
+          .select({ id: menusTable.id })
+          .from(menusTable)
+          .where(eq(menusTable.code, menuSeed.code))
+          .limit(1);
+        if (existingMenu) continue;
+        const [menuRow] = await db
+          .insert(menusTable)
+          .values({ code: menuSeed.code, name: menuSeed.name })
+          .$returningId();
+        if (menuSeed.items.length > 0) {
+          await db.insert(menuItemsTable).values(
+            menuSeed.items.map((item) => {
+              let pageId: number | null = null;
+              if (item.linkType === 'PAGE') {
+                pageId = item.pageSlug
+                  ? (pageIdBySlug.get(item.pageSlug) ?? null)
+                  : null;
+                if (pageId === null) {
+                  throw new Error(
+                    `seed cms-content: menu '${menuSeed.code}' item '${item.label}' references unknown page slug '${item.pageSlug}'`,
+                  );
+                }
+              }
+              return {
+                menuId: menuRow.id,
+                label: item.label,
+                linkType: item.linkType,
+                pageId,
+                url: item.url ?? null,
+                sortOrder: item.sortOrder,
+                isVisible: item.isVisible,
+              };
+            }),
+          );
+        }
+      }
+
+      const existingSettings = await db
+        .select({ key: siteSettingsTable.settingKey })
+        .from(siteSettingsTable);
+      const existingKeys = new Set(existingSettings.map((row) => row.key));
+      for (const setting of CMS_SETTINGS) {
+        if (existingKeys.has(setting.key)) continue;
+        await db.insert(siteSettingsTable).values({
+          settingKey: setting.key,
+          settingValue: JSON.stringify(setting.value),
+          isPublic: setting.isPublic,
+        });
+      }
+    },
+  },
 ];
+
+/**
+ * Deep-resolve seed-time links: any object shaped like a CMS link
+ * (`{ kind: 'page', pageSlug, … }`) has its `pageSlug` replaced by the
+ * target page's `pageId`, per the seed-data convention in
+ * `seed-data/cms-content.ts`. Everything else is copied unchanged.
+ */
+function resolveSeedLinks(
+  value: unknown,
+  pageIdBySlug: Map<string, number>,
+): unknown {
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveSeedLinks(item, pageIdBySlug));
+  }
+  if (typeof value === 'object' && value !== null) {
+    const record = value as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(record)) {
+      if (key === 'pageSlug') continue;
+      out[key] = resolveSeedLinks(child, pageIdBySlug);
+    }
+    if (record.kind === 'page' && typeof record.pageSlug === 'string') {
+      const pageId = pageIdBySlug.get(record.pageSlug);
+      if (pageId === undefined) {
+        throw new Error(
+          `seed cms-content: link references unknown page slug '${record.pageSlug}'`,
+        );
+      }
+      out.pageId = pageId;
+    }
+    return out;
+  }
+  return value;
+}
 
 /** Development-only steps. Never run in production (enforced in main()). */
 export const devSeedSteps: SeedStep[] = [

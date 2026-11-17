@@ -62,6 +62,13 @@ export const AUDIT_ACTIONS = {
   rolesAssign: "admin.roles.assign",
   bootstrapSuperAdmin: "admin.bootstrap.super_admin",
   authorizationDenied: "authorization.denied",
+  cmsPagesCreate: "cms.pages.create",
+  cmsPagesUpdate: "cms.pages.update",
+  cmsPagesPublish: "cms.pages.publish",
+  cmsPagesRestore: "cms.pages.restore",
+  cmsPagesDelete: "cms.pages.delete",
+  cmsMenusUpdate: "cms.menus.update",
+  settingsUpdate: "settings.update",
 } as const;
 
 const SENSITIVE_KEY = /password|otp|token|secret|code/i;

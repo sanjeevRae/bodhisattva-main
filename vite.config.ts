@@ -32,5 +32,20 @@ export default defineConfig({
     },
   },
 
+  // ARCHITECTURE.md §5.1: the browser sees a single origin — /api is
+  // proxied to the API server on :4000 in dev and in `vite preview`
+  // (preview does not inherit `server.proxy`, so it is repeated there).
+  server: {
+    proxy: {
+      '/api': 'http://localhost:4000',
+    },
+  },
+
+  preview: {
+    proxy: {
+      '/api': 'http://localhost:4000',
+    },
+  },
+
   assetsInclude: ['**/*.svg', '**/*.csv'],
 })
