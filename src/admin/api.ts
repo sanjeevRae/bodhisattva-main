@@ -21,6 +21,7 @@ import type {
   FoundationProgramAdmin,
   GalleryItemAdmin,
   Invitation,
+  InventorySummaryAdmin,
   LoginResponse,
   MeResponse,
   MediaAsset,
@@ -30,6 +31,10 @@ import type {
   NewsCategoryAdmin,
   PageAdmin,
   PageMeta,
+  ProductAdmin,
+  ProductCategoryAdmin,
+  ProductImageAdmin,
+  ProductVariantAdmin,
   PublicPage,
   Revision,
   RoleInfo,
@@ -484,6 +489,82 @@ export const foundationApi = {
   },
   reorderTestimonials(ids: number[]): Promise<unknown> {
     return request("/api/admin/testimonials/reorder", { method: "POST", body: { ids } });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Store (Phase 6) — product categories, products (+ images, variants),
+// inventory. Same success envelope as the museum modules. Product
+// DELETE archives (the API never hard-deletes a product).
+// ---------------------------------------------------------------------------
+
+export const storeApi = {
+  listCategories(page = 1, pageSize = 100, search?: string): Promise<{ items: ProductCategoryAdmin[]; meta: PageMeta }> {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search) query.set("search", search);
+    return moduleList(`/api/admin/product-categories?${query.toString()}`);
+  },
+  createCategory(body: Record<string, unknown>): Promise<ProductCategoryAdmin> {
+    return moduleOne("/api/admin/product-categories", { method: "POST", body });
+  },
+  updateCategory(id: number, body: Record<string, unknown>): Promise<ProductCategoryAdmin> {
+    return moduleOne(`/api/admin/product-categories/${id}`, { method: "PATCH", body });
+  },
+  removeCategory(id: number): Promise<unknown> {
+    return request(`/api/admin/product-categories/${id}`, { method: "DELETE" });
+  },
+
+  listProducts(page = 1, pageSize = 100, search?: string): Promise<{ items: ProductAdmin[]; meta: PageMeta }> {
+    const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+    if (search) query.set("search", search);
+    return moduleList(`/api/admin/products?${query.toString()}`);
+  },
+  getProduct(id: number): Promise<ProductAdmin> {
+    return moduleOne(`/api/admin/products/${id}`);
+  },
+  createProduct(body: Record<string, unknown>): Promise<ProductAdmin> {
+    return moduleOne("/api/admin/products", { method: "POST", body });
+  },
+  updateProduct(id: number, body: Record<string, unknown>): Promise<ProductAdmin> {
+    return moduleOne(`/api/admin/products/${id}`, { method: "PATCH", body });
+  },
+  archiveProduct(id: number): Promise<ProductAdmin> {
+    return moduleOne(`/api/admin/products/${id}`, { method: "DELETE" });
+  },
+
+  async listImages(productId: number): Promise<ProductImageAdmin[]> {
+    const data = await moduleOne<{ items: ProductImageAdmin[] }>(`/api/admin/products/${productId}/images`);
+    return data.items;
+  },
+  createImage(productId: number, body: Record<string, unknown>): Promise<ProductImageAdmin> {
+    return moduleOne(`/api/admin/products/${productId}/images`, { method: "POST", body });
+  },
+  updateImage(id: number, body: Record<string, unknown>): Promise<ProductImageAdmin> {
+    return moduleOne(`/api/admin/products/images/${id}`, { method: "PATCH", body });
+  },
+  removeImage(id: number): Promise<unknown> {
+    return request(`/api/admin/products/images/${id}`, { method: "DELETE" });
+  },
+
+  async listVariants(productId: number): Promise<ProductVariantAdmin[]> {
+    const data = await moduleOne<{ items: ProductVariantAdmin[] }>(`/api/admin/products/${productId}/variants`);
+    return data.items;
+  },
+  createVariant(productId: number, body: Record<string, unknown>): Promise<ProductVariantAdmin> {
+    return moduleOne(`/api/admin/products/${productId}/variants`, { method: "POST", body });
+  },
+  updateVariant(productId: number, variantId: number, body: Record<string, unknown>): Promise<ProductVariantAdmin> {
+    return moduleOne(`/api/admin/products/${productId}/variants/${variantId}`, { method: "PATCH", body });
+  },
+  removeVariant(productId: number, variantId: number): Promise<unknown> {
+    return request(`/api/admin/products/${productId}/variants/${variantId}`, { method: "DELETE" });
+  },
+
+  getInventory(productId: number, page = 1, pageSize = 50): Promise<InventorySummaryAdmin> {
+    return moduleOne(`/api/admin/products/${productId}/inventory${listQuery(page, pageSize)}`);
+  },
+  adjustInventory(productId: number, body: Record<string, unknown>): Promise<InventorySummaryAdmin> {
+    return moduleOne(`/api/admin/products/${productId}/inventory/adjust`, { method: "POST", body });
   },
 };
 

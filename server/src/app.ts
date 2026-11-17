@@ -40,6 +40,11 @@ import {
   createMuseumAdminRouter,
   createMuseumPublicRouter,
 } from "./modules/museum/routes.js";
+import {
+  createStoreAdminRouter,
+  createStoreCustomerRouter,
+  createStorePublicRouter,
+} from "./modules/store/routes.js";
 import { createRolesRouter } from "./modules/roles/roles.routes.js";
 import {
   createHealthRouter,
@@ -104,6 +109,9 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/admin", media.adminRouter);
     app.use("/api", createMuseumPublicRouter({ db, config }));
     app.use("/api/admin", createMuseumAdminRouter({ db, config }));
+    app.use("/api", createStorePublicRouter({ db, config }));
+    app.use("/api", createStoreCustomerRouter({ db, config }));
+    app.use("/api/admin", createStoreAdminRouter({ db, config }));
   }
 
   app.use(notFoundHandler);

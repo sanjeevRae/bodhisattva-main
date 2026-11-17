@@ -23,7 +23,9 @@
  *   GET    /menus                              cms.menus.manage
  *   PUT    /menus/:code                        cms.menus.manage
  *   GET    /settings                           settings.manage
- *   PUT    /settings                           settings.manage
+ *   PUT    /settings                           settings.manage, or
+ *                                              store.settings.manage for
+ *                                              store.* keys only (Phase 6)
  */
 import { AppError } from "@bodhisattva/shared/errors";
 import { Router, type Request } from "express";
@@ -32,8 +34,10 @@ import type { Database } from "../../database/client.js";
 import { createRequireAuth } from "../../middleware/auth.js";
 import {
   getAuthContext,
+  requireAnyPermission,
   requirePermission,
 } from "../../middleware/authorization.js";
+import { getEffectivePermissions } from "../../services/permissions.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import {
   createPageSchema,
@@ -334,15 +338,31 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
     }),
   );
 
+  // PUT /settings: settings.manage may write any key. Since Phase 6 a
+  // caller holding only store.settings.manage may also use this route,
+  // but ONLY for keys beginning "store." — all-or-nothing per request:
+  // one non-store key in the payload rejects the whole update (403).
   router.put(
     "/settings",
     fullSession,
-    requirePermission(deps.db, "settings.manage"),
+    requireAnyPermission(deps.db, "settings.manage", "store.settings.manage"),
     asyncHandler(async (req, res) => {
       const { settings } = updateSettingsSchema.parse(req.body);
+      const actor = actorOf(req);
+      const granted = await getEffectivePermissions(deps.db, actor.userId);
+      if (!granted.has("settings.manage")) {
+        const foreign = settings.find(
+          (entry) => !entry.key.startsWith("store."),
+        );
+        if (foreign) {
+          throw AppError.forbidden(
+            "store.settings.manage allows updating store.* settings only.",
+          );
+        }
+      }
       const items = await updateSettings(
         cms,
-        actorOf(req),
+        actor,
         settings,
         requestMeta(req),
       );

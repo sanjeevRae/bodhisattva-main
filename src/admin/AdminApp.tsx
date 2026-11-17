@@ -32,6 +32,8 @@ import {
   Menu as MenuIcon,
   Newspaper,
   Settings as SettingsIcon,
+  ShoppingBag,
+  Tags,
   Users as UsersIcon,
 } from "lucide-react";
 import { authApi, setUnauthorizedHandler, usersApi } from "./api";
@@ -50,6 +52,9 @@ import CollectionsScreen from "./screens/Collections";
 import ExhibitionsScreen from "./screens/Exhibitions";
 import NewsScreen from "./screens/News";
 import FoundationScreen from "./screens/Foundation";
+import ProductsScreen from "./screens/Products";
+import ProductEditorScreen from "./screens/ProductEditor";
+import ProductCategoriesScreen from "./screens/ProductCategories";
 
 export type AuthStatus = "loading" | "anonymous" | AuthLevel;
 
@@ -171,6 +176,8 @@ const NAV_ITEMS: Array<{
   { to: "/admin/exhibitions", label: "Exhibitions", icon: <CalendarRange size={17} />, permission: "museum.exhibitions.manage" },
   { to: "/admin/news", label: "News", icon: <Newspaper size={17} />, permission: "news.manage" },
   { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
+  { to: "/admin/products", label: "Products", icon: <ShoppingBag size={17} />, permission: "store.products.manage" },
+  { to: "/admin/product-categories", label: "Product Categories", icon: <Tags size={17} />, permission: "store.categories.manage" },
   { to: "/admin/media", label: "Media", icon: <Images size={17} />, permission: "media.read" },
   { to: "/admin/menus", label: "Menus", icon: <MenuIcon size={17} />, permission: "cms.menus.manage" },
   { to: "/admin/settings", label: "Settings", icon: <SettingsIcon size={17} />, permission: "settings.manage" },
@@ -254,6 +261,10 @@ function Shell() {
             <Route path="exhibitions" element={<ExhibitionsScreen />} />
             <Route path="news" element={<NewsScreen />} />
             <Route path="foundation" element={<FoundationScreen />} />
+            <Route path="products" element={<ProductsScreen />} />
+            <Route path="products/new" element={<ProductEditorScreen />} />
+            <Route path="products/:id" element={<ProductEditorScreen />} />
+            <Route path="product-categories" element={<ProductCategoriesScreen />} />
             <Route path="media" element={<MediaLibrary />} />
             <Route path="menus" element={<MenusScreen />} />
             <Route path="settings" element={<SettingsScreen />} />

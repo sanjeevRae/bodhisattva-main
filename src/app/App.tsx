@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { motion } from "motion/react";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
+import CartDrawer from "./components/CartDrawer";
+import { CustomerProvider } from "./lib/customer";
 import { useWebsiteProtection } from "./components/shared";
 import HomePage from "./pages/HomePage";
 import MuseumPage from "./pages/MuseumPage";
@@ -11,6 +13,14 @@ import GiftShopPage from "./pages/GiftShopPage";
 import NewsPage from "./pages/NewsPage";
 import FoundationPage from "./pages/FoundationPage";
 import AboutPage from "./pages/AboutPage";
+import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+import VerifyEmailPage from "./pages/VerifyEmailPage";
+import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
+import AccountPage from "./pages/AccountPage";
+import AccountOrdersPage from "./pages/AccountOrdersPage";
+import AccountAddressesPage from "./pages/AccountAddressesPage";
+import CheckoutPage from "./pages/CheckoutPage";
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -30,27 +40,41 @@ function Shell() {
   }, [dark]);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      <div className={`protected-content ${contentObscured ? "is-obscured" : ""}`}>
-        <Nav dark={dark} onToggleDark={() => setDark((d) => !d)} />
-        <main>
-          <motion.div key={location.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}>
-            <Routes location={location}>
-              <Route path="/" element={<HomePage />} />
-              <Route path="/museum" element={<MuseumPage />} />
-              <Route path="/gallery" element={<GalleryPage />} />
-              <Route path="/shop" element={<GiftShopPage />} />
-              <Route path="/news" element={<NewsPage />} />
-              <Route path="/foundation" element={<FoundationPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </motion.div>
-        </main>
-        <Footer />
+    <CustomerProvider>
+      <div className="min-h-screen bg-background text-foreground">
+        <div className={`protected-content ${contentObscured ? "is-obscured" : ""}`}>
+          <Nav dark={dark} onToggleDark={() => setDark((d) => !d)} />
+          <main>
+            <motion.div key={location.pathname} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}>
+              <Routes location={location}>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/museum" element={<MuseumPage />} />
+                <Route path="/gallery" element={<GalleryPage />} />
+                <Route path="/shop" element={<GiftShopPage />} />
+                <Route path="/news" element={<NewsPage />} />
+                <Route path="/foundation" element={<FoundationPage />} />
+                <Route path="/about" element={<AboutPage />} />
+                {/* Customer accounts + checkout (Phase 6). These paths are
+                    in RESERVED_SLUGS so a CMS page can never shadow them. */}
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/register" element={<RegisterPage />} />
+                <Route path="/verify-email" element={<VerifyEmailPage />} />
+                <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/checkout" element={<CheckoutPage />} />
+                <Route path="/account" element={<AccountPage />} />
+                <Route path="/account/orders" element={<AccountOrdersPage />} />
+                <Route path="/account/addresses" element={<AccountAddressesPage />} />
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </motion.div>
+          </main>
+          <Footer />
+        </div>
+        <CartDrawer />
+        {contentObscured && <div className="privacy-screen" aria-hidden="true" />}
       </div>
-      {contentObscured && <div className="privacy-screen" aria-hidden="true" />}
-    </div>
+    </CustomerProvider>
   );
 }
 

@@ -13,4 +13,6 @@ export * from './authorization.js';
 export * from './cms.js';
 export * from './media.js';
 export * from './museum.js';
+export * from './store.js';
+export * from './invoices.js';
 export * from './system.js';

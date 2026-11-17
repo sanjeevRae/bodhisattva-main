@@ -22,6 +22,12 @@ import {
   newsCategories as newsCategoriesTable,
   testimonials as testimonialsTable,
 } from './schema/museum.js';
+import {
+  inventoryMovements as inventoryMovementsTable,
+  productCategories as productCategoriesTable,
+  productImages as productImagesTable,
+  products as productsTable,
+} from './schema/store.js';
 import { CMS_MENUS, CMS_PAGES, CMS_SETTINGS } from './seed-data/cms-content.js';
 import {
   COLLECTIONS as MUSEUM_COLLECTIONS,
@@ -36,6 +42,10 @@ import {
   ROLE_PERMISSIONS,
   ROLE_SEEDS,
 } from './seed-data/permissions.js';
+import {
+  PRODUCT_CATEGORIES as STORE_CATEGORIES,
+  PRODUCTS as STORE_PRODUCTS,
+} from './seed-data/store-content.js';
 
 /**
  * `npm run db:seed` — safe, idempotent seed runner (DATABASE_DESIGN.md §13.2–13.3,
@@ -56,7 +66,9 @@ import {
  * §5) via `seed-data/permissions.ts`. Phase 3 adds the `cms-content` step
  * (the seven migrated system pages, menus and public site settings). Phase 5
  * adds the `museum-content` step (the canonical museum/news/foundation
- * records). They contain no accounts and no secrets, and are safe in every
+ * records). Phase 6 adds the `store-content` step (Gift Shop categories,
+ * products, opening stock and placeholder store settings). They contain
+ * no accounts and no secrets, and are safe in every
  * environment including production (§13.3).
  * The `--dev` placeholder step exists only to prove the mechanism
  * end-to-end; it writes nothing.
@@ -427,6 +439,116 @@ export const seedSteps: SeedStep[] = [
           imageAlt: record.image?.alt ?? null,
           isPublished: true,
           sortOrder: record.sortOrder,
+        });
+      }
+    },
+  },
+  {
+    // Phase 6 (DATABASE_DESIGN.md §9): the Gift Shop catalogue from
+    // `seed-data/store-content.ts`. Idempotent by natural key, same rule
+    // as the other content steps: categories skip by slug, products skip
+    // by SKU (a skipped product keeps whatever stock/admin edits it has
+    // accumulated — the seed never rewrites live inventory). Each newly
+    // inserted product gets its primary image row (legacy image_url
+    // pair, BD-2) and its opening ledger entry: stock_qty is set AND an
+    // OPENING movement is written (§9.5 — the inventory ledger is the
+    // source of truth, the column is its cache).
+    //
+    // ⚠ The seeded stock quantities are PLACEHOLDERS (10 per product —
+    // no stock data exists in the source); the client's real counts
+    // must replace them via admin inventory adjustments before launch.
+    //
+    // The store.* settings below are PLACEHOLDER DEFAULTS, filled only
+    // when missing: no shipping fee, no tax, COD enabled. The real
+    // fee/tax values are the client's decision (store settings screen).
+    name: 'store-content',
+    async run(db) {
+      const categoryIdBySlug = new Map<string, number>();
+      for (const row of await db
+        .select({ id: productCategoriesTable.id, slug: productCategoriesTable.slug })
+        .from(productCategoriesTable)) {
+        categoryIdBySlug.set(row.slug, row.id);
+      }
+      for (const record of STORE_CATEGORIES) {
+        if (categoryIdBySlug.has(record.slug)) continue;
+        const [inserted] = await db
+          .insert(productCategoriesTable)
+          .values({
+            slug: record.slug,
+            name: record.name,
+            sortOrder: record.sortOrder,
+            isActive: record.isActive,
+          })
+          .$returningId();
+        categoryIdBySlug.set(record.slug, inserted.id);
+      }
+
+      const existingSkus = new Set(
+        (await db.select({ sku: productsTable.sku }).from(productsTable))
+          .map((row) => row.sku)
+          .filter((sku): sku is string => sku !== null),
+      );
+      for (const record of STORE_PRODUCTS) {
+        if (existingSkus.has(record.sku)) continue;
+        const categoryId = categoryIdBySlug.get(record.categorySlug);
+        if (categoryId === undefined) {
+          throw new Error(
+            `seed store-content: product '${record.sku}' references unknown category '${record.categorySlug}'`,
+          );
+        }
+        const [inserted] = await db
+          .insert(productsTable)
+          .values({
+            slug: record.slug,
+            sku: record.sku,
+            name: record.name,
+            categoryId,
+            shortDescription: record.detail,
+            price: record.price,
+            stockQty: record.stockQuantity,
+            status: record.isPublished ? 'ACTIVE' : 'DRAFT',
+          })
+          .$returningId();
+        await db.insert(productImagesTable).values({
+          productId: inserted.id,
+          imageUrl: record.image.url,
+          altText: record.image.alt,
+          sortOrder: 0,
+          isPrimary: true,
+        });
+        if (record.stockQuantity > 0) {
+          await db.insert(inventoryMovementsTable).values({
+            productId: inserted.id,
+            variantId: null,
+            movementType: 'OPENING',
+            quantity: record.stockQuantity,
+            balanceAfter: record.stockQuantity,
+            reason: 'Initial stock (seed)',
+          });
+        }
+      }
+
+      // Store settings — fill-missing only (same rule as cms-content
+      // settings): an existing key, however it got there, is never
+      // overwritten by the seed.
+      const existingSettingKeys = new Set(
+        (
+          await db
+            .select({ key: siteSettingsTable.settingKey })
+            .from(siteSettingsTable)
+        ).map((row) => row.key),
+      );
+      const storeSettings: { key: string; value: string }[] = [
+        { key: 'store.shipping_flat_fee', value: '0.00' },
+        { key: 'store.tax_rate_percent', value: '0' },
+        { key: 'store.cod_enabled', value: 'true' },
+      ];
+      for (const setting of storeSettings) {
+        if (existingSettingKeys.has(setting.key)) continue;
+        await db.insert(siteSettingsTable).values({
+          settingKey: setting.key,
+          settingValue: JSON.stringify(setting.value),
+          isPublic: false,
         });
       }
     },

@@ -24,6 +24,31 @@ export function orNull(value: string): string | null {
   return trimmed === "" ? null : trimmed;
 }
 
+/**
+ * Store money helpers (Phase 6): the admin API speaks DECIMAL strings
+ * in rupees ("4500.00"); forms edit rupees, displays use the shop's
+ * "Rs. X,XXX" format.
+ */
+export function formatRsDecimal(value: string | null | undefined): string {
+  if (value == null || value === "") return "—";
+  const num = Number(value);
+  if (!Number.isFinite(num)) return value;
+  const [whole, frac] = Math.abs(num).toFixed(2).split(".");
+  const grouped = Number(whole).toLocaleString("en-IN");
+  const sign = num < 0 ? "−" : "";
+  return frac === "00" ? `${sign}Rs. ${grouped}` : `${sign}Rs. ${grouped}.${frac}`;
+}
+
+/** Validate a rupee form value; returns the canonical DECIMAL string or null. */
+export function rupeeInputToDecimal(value: string, allowNegative = false): string | null {
+  const trimmed = value.trim();
+  if (!/^-?\d+(\.\d{1,2})?$/.test(trimmed)) return null;
+  const num = Number(trimmed);
+  if (!Number.isFinite(num)) return null;
+  if (!allowNegative && num < 0) return null;
+  return num.toFixed(2);
+}
+
 /** Public URL for a record's resolved image (media asset wins, as in the API). */
 export function recordThumb(record: { coverMediaId?: number | null; avatarMediaId?: number | null; imageUrl?: string | null }): string | null {
   const mediaId = record.coverMediaId ?? record.avatarMediaId ?? null;

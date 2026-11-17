@@ -50,6 +50,20 @@
       "when": 1794907764684,
       "tag": "0006_museum_display_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1794910942942,
+      "tag": "0007_store",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1794911306744,
+      "tag": "0008_invoice_sequences",
+      "breakpoints": true
     }
   ]
 }

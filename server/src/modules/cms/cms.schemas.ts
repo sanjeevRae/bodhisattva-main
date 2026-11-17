@@ -91,8 +91,8 @@ export const updateSettingsSchema = z.object({
           .min(1)
           .max(80)
           .regex(
-            /^[a-z0-9_]+$/,
-            "Setting keys are lowercase letters, numbers and underscores",
+            /^[a-z0-9_.]+$/,
+            "Setting keys are lowercase letters, numbers, underscores and dots",
           ),
         value: jsonValueSchema,
         isPublic: z.boolean().optional(),

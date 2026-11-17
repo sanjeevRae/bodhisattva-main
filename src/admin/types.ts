@@ -304,3 +304,102 @@ export interface TestimonialAdmin {
   createdAt: string;
   updatedAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// Store (Phase 6) — admin payloads are the raw store rows: money fields
+// are DECIMAL strings in rupees ("4500.00") exactly as the API returns
+// them; the screens convert to/from rupee form inputs.
+// ---------------------------------------------------------------------------
+
+export interface ProductCategoryAdmin {
+  id: number;
+  slug: string;
+  name: string;
+  description: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProductAdmin {
+  id: number;
+  categoryId: number | null;
+  slug: string;
+  sku: string | null;
+  name: string;
+  shortDescription: string | null;
+  description: string | null;
+  /** DECIMAL string, rupees. */
+  price: string;
+  /** DECIMAL string, rupees; null = not on sale. */
+  salePrice: string | null;
+  stockQty: number;
+  trackInventory: boolean;
+  status: "DRAFT" | "ACTIVE" | "ARCHIVED" | string;
+  isFeatured: boolean;
+  createdBy: number | null;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt: string | null;
+  categorySlug: string | null;
+  reservedQty: number;
+  availableQty: number;
+  image: { url: string; alt: string } | null;
+}
+
+export interface ProductImageAdmin {
+  id: number;
+  productId: number;
+  mediaId: number | null;
+  imageUrl: string | null;
+  altText: string | null;
+  sortOrder: number;
+  isPrimary: boolean;
+  createdAt: string;
+}
+
+export interface ProductVariantAdmin {
+  id: number;
+  productId: number;
+  sku: string | null;
+  name: string;
+  /** DECIMAL string, rupees; may be negative. */
+  priceDelta: string;
+  stockQty: number;
+  isActive: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryVariantSummary {
+  variantId: number;
+  name: string;
+  stockQty: number;
+  reservedQty: number;
+  availableQty: number;
+}
+
+export interface InventoryMovementAdmin {
+  id: number;
+  productId: number;
+  variantId: number | null;
+  movementType: string;
+  quantity: number;
+  balanceAfter: number | null;
+  orderId: number | null;
+  actorId: number | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface InventorySummaryAdmin {
+  productId: number;
+  stockQty: number;
+  reservedQty: number;
+  availableQty: number;
+  variants: InventoryVariantSummary[];
+  /** Ledger page (present on the GET response). */
+  items?: InventoryMovementAdmin[];
+}

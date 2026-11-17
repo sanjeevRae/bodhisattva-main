@@ -207,3 +207,42 @@ an uploaded `cover_media_id` wins; otherwise the record's legacy `image_url` /
 `image_alt` pair is used. Deleting a media asset is blocked while any module
 record references it. The museum integration suite uses its own database
 (`bodhisattva_test_museum`); `npm run test:integration` runs all three suites.
+
+## Gift Shop ecommerce (Phase 6)
+
+Migrations `0007_store` (the eleven store tables) and `0008_invoice_sequences`
+(the §10.2 sequence counters) extend the schema. The `store-content` seed step
+loads 5 product categories, 12 products with primary images and opening stock
+(placeholder 10 per product — replace with the client's real counts via admin
+inventory adjustments before launch), plus placeholder store settings
+(`store.shipping_flat_fee` "0.00", `store.tax_rate_percent` "0",
+`store.cod_enabled` "true"; fill-missing only). Note the seed now requires
+migrations through 0008 on every database it runs against.
+
+Public reads: `GET /api/shop/categories`, `GET /api/shop/products`
+(`?category=&search=&sort=`), `GET /api/shop/products/:slug`,
+`GET /api/shop/config`. Signed-in customers get `/api/cart`,
+`/api/addresses`, `POST /api/checkout` (COD, stock reservations,
+idempotency keys) and `/api/orders`. Admin catalogue/inventory lives under
+`/api/admin/products`, `/api/admin/product-categories` and
+`/api/admin/products/:id/inventory`, gated by the `store.*` permissions;
+a holder of `store.settings.manage` may update only `store.*` keys through
+`PUT /api/admin/settings`. The store integration suite uses its own database
+(`bodhisattva_test_store`); `npm run test:integration` runs all four suites.
+
+Frontend: the shop page renders from the public APIs; customers get
+`/login`, `/register`, `/verify-email`, `/forgot-password`,
+`/reset-password`, `/checkout`, `/account`, `/account/orders` and
+`/account/addresses`. Adding to the cart requires login — the intended add
+is preserved across the login round-trip and completes on return. Admin
+screens: Products, Product Categories, and inventory inside the product
+editor.
+
+Inventory rules every writer must follow (Phase 6 review): checkout and
+inventory transactions run at READ COMMITTED and lock the product row
+FOR UPDATE (variant rows likewise, in id order) before reading
+availability; availability = `stock_qty + SUM(RESERVE/RELEASE movement
+quantities)`; when a product has variants, variant stock is authoritative
+and `products.stock_qty` mirrors the variant sum. Local quirk: set
+`SMTP_HOST=127.0.0.1` (not `localhost`) — the sandbox egress proxy
+intercepts nodemailer's `localhost` connections.

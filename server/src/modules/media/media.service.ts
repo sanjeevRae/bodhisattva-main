@@ -39,6 +39,7 @@ import {
   newsArticles,
   pageSections,
   pages,
+  productImages,
   testimonials,
 } from "../../database/schema/index.js";
 import type { AuthContext } from "../../middleware/authorization.js";
@@ -689,6 +690,17 @@ export async function deleteAsset(
         .where(eq(testimonials.avatarMediaId, assetId)),
     ]);
     referenced = museumRefs.some(([row]) => (row?.value ?? 0) > 0);
+  }
+
+  // …then the store (Phase 6): product_images.media_id is a plain FK
+  // column (SET NULL on hard delete, but a soft-deleted asset must not
+  // silently orphan a product's primary image) — counted the same way.
+  if (!referenced) {
+    const [productImageRow] = await db
+      .select({ value: count() })
+      .from(productImages)
+      .where(eq(productImages.mediaId, assetId));
+    referenced = (productImageRow?.value ?? 0) > 0;
   }
 
   // …then section configs/designs. The LIKE patterns pre-filter candidate

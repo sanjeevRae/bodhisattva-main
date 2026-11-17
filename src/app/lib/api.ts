@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { getShopProducts, type ShopProduct } from "./shop";
 
 /**
  * Tiny client for the public CMS API (ARCHITECTURE.md §5.1/§8.3).
@@ -281,6 +282,8 @@ export interface ModuleData {
   exhibitions?: ExhibitionRecord[];
   news?: NewsPayload;
   foundation?: FoundationPayload;
+  /** Phase 6 store products (featured sort) for featured_products sections. */
+  products?: ShopProduct[];
 }
 
 async function fetchModuleJson<T>(url: string): Promise<T> {
@@ -310,6 +313,22 @@ export function getNewsPayload(): Promise<NewsPayload> {
 
 export function getFoundation(): Promise<FoundationPayload> {
   return cached("module:foundation", () => fetchModuleJson<FoundationPayload>("/api/foundation"));
+}
+
+/**
+ * Store products in the API's "featured" order (flagged products first)
+ * for featured_products sections. One cached fetch shared by the public
+ * pages and the editor canvas, like the museum getters above.
+ */
+export function getFeaturedProducts(): Promise<ShopProduct[]> {
+  return cached("module:products", async () => {
+    const { items } = await getShopProducts({ sort: "featured", page: 1, pageSize: 24 });
+    return items;
+  });
+}
+
+export function useFeaturedProducts(): AsyncState<ShopProduct[]> {
+  return useCached(getFeaturedProducts);
 }
 
 export function useCollections(): AsyncState<CollectionRecord[]> {

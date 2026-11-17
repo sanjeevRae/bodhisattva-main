@@ -59,6 +59,7 @@ import PageRenderer from "../../app/components/PageRenderer";
 import {
   getCollections,
   getExhibitions,
+  getFeaturedProducts,
   getFoundation,
   getNewsPayload,
   type CmsPage,
@@ -212,15 +213,16 @@ export default function PageEditor() {
   // Phase 5: the canvas renders module sections (collections,
   // exhibitions, news, foundation) from the real public module
   // endpoints, fetched once per editor session (the getters are
-  // promise-cached in lib/api). Failure leaves moduleData undefined —
+  // promise-cached in lib/api). Phase 6 adds the store's featured
+  // products to the same set. Failure leaves moduleData undefined —
   // sections then render chrome only, exactly as the public renderer
   // degrades.
   const [moduleData, setModuleData] = useState<ModuleData | undefined>(undefined);
   useEffect(() => {
     let alive = true;
-    Promise.all([getCollections(), getExhibitions(), getNewsPayload(), getFoundation()]).then(
-      ([collections, exhibitions, news, foundation]) => {
-        if (alive) setModuleData({ collections, exhibitions, news, foundation });
+    Promise.all([getCollections(), getExhibitions(), getNewsPayload(), getFoundation(), getFeaturedProducts()]).then(
+      ([collections, exhibitions, news, foundation, products]) => {
+        if (alive) setModuleData({ collections, exhibitions, news, foundation, products });
       },
       () => undefined,
     );

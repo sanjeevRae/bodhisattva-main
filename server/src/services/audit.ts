@@ -96,6 +96,20 @@ export const AUDIT_ACTIONS = {
   foundationTestimonialsUpdate: "foundation.testimonials.update",
   foundationTestimonialsDelete: "foundation.testimonials.delete",
   foundationTestimonialsReorder: "foundation.testimonials.reorder",
+  storeProductsCreate: "store.products.create",
+  storeProductsUpdate: "store.products.update",
+  storeProductsArchive: "store.products.archive",
+  storeProductImagesCreate: "store.product_images.create",
+  storeProductImagesUpdate: "store.product_images.update",
+  storeProductImagesDelete: "store.product_images.delete",
+  storeVariantsCreate: "store.variants.create",
+  storeVariantsUpdate: "store.variants.update",
+  storeVariantsDelete: "store.variants.delete",
+  storeCategoriesCreate: "store.categories.create",
+  storeCategoriesUpdate: "store.categories.update",
+  storeCategoriesDelete: "store.categories.delete",
+  storeInventoryAdjust: "store.inventory.adjust",
+  storeOrdersCreate: "store.orders.create",
 } as const;
 
 const SENSITIVE_KEY = /password|otp|token|secret|code/i;

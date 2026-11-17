@@ -6,10 +6,11 @@ import {
   MapPin, Clock, Phone, Mail, Globe, type LucideIcon,
 } from "lucide-react";
 import {
-  usePagePathMap, useSiteSettings, settingString,
+  useFeaturedProducts, usePagePathMap, useSiteSettings, settingString,
   type CmsLinkRef, type CmsPage, type CmsSection,
   type ExhibitionRecord, type ModuleData, type NewsArticleRecord,
 } from "../lib/api";
+import { formatRs } from "../lib/shop";
 import { SectionLabel } from "./shared";
 
 /**
@@ -26,8 +27,8 @@ import { SectionLabel } from "./shared";
  * from the Phase 5 museum module APIs, passed in via the `moduleData`
  * prop. When module data is absent or a list is empty, the section
  * renders its chrome with no cards — there is no hardcoded fallback.
- * featured_products is the exception: it has no data source yet, so it
- * renders chrome only until the Phase 6 ecommerce module lands.
+ * Since Phase 6, featured_products follows the same pattern with the
+ * store's product list (GET /api/shop/products, featured order).
  */
 
 // ---------------------------------------------------------------------------
@@ -1161,8 +1162,23 @@ function ImageGallerySection({ section }: { section: CmsSection }) {
   );
 }
 
-function FeaturedProductsSection({ section }: { section: CmsSection }) {
+/**
+ * Featured products (Phase 6) — records come from the store module via
+ * moduleData.products (GET /api/shop/products in "featured" order:
+ * flagged products first, then category/product sort order). When the
+ * caller passes no moduleData, the section fetches the same list
+ * itself. Flagged products lead; the pool order fills the rest, sliced
+ * to config.limit (default 3, matching the grid). Cards link to the
+ * Gift Shop — the product detail surface is the shop's quick view.
+ */
+function FeaturedProductsSection({ section, moduleData }: { section: CmsSection; moduleData?: ModuleData }) {
   const config = section.config;
+  const fetched = useFeaturedProducts();
+  const pool = moduleData?.products ?? fetched.data ?? [];
+  const limit = typeof config.limit === "number" ? config.limit : 3;
+  const flagged = pool.filter((p) => p.isFeatured);
+  const ordered = flagged.length > 0 ? [...flagged, ...pool.filter((p) => !p.isFeatured)] : pool;
+  const items = ordered.slice(0, limit);
   return (
     <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
       <div className="flex items-end justify-between mb-12">
@@ -1178,10 +1194,28 @@ function FeaturedProductsSection({ section }: { section: CmsSection }) {
           </CmsLink>
         )}
       </div>
-      {/* TODO Phase 6 module data: product records come from the ecommerce
-          module; until then the section renders its chrome and an empty
-          grid region — no cards. */}
-      <div className="grid md:grid-cols-3 gap-6" />
+      <div className="grid md:grid-cols-3 gap-6">
+        {items.map((product) => (
+          <Link key={product.id} to="/shop" className="group block">
+            <div className="relative aspect-[3/4] overflow-hidden bg-muted mb-4">
+              {product.image && (
+                <img src={product.image.url} alt={product.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+              )}
+              {!product.inStock && (
+                <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.5rem] tracking-[0.18em] uppercase text-foreground">
+                  Out of Stock
+                </span>
+              )}
+            </div>
+            <h3 className="font-display text-sm font-medium leading-snug mb-1">{product.name}</h3>
+            <p className="font-mono text-[0.5rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
+            <span className="font-display text-base font-medium text-accent">{formatRs(product.effectivePricePaisa)}</span>
+            {product.salePricePaisa != null && (
+              <span className="ml-2 font-display text-sm text-muted-foreground line-through">{formatRs(product.pricePaisa)}</span>
+            )}
+          </Link>
+        ))}
+      </div>
     </section>
   );
 }
@@ -1278,7 +1312,7 @@ function renderDefaultSection(section: CmsSection, pageSlug: string, moduleData?
     case "image_gallery":
       return <ImageGallerySection section={section} />;
     case "featured_products":
-      return <FeaturedProductsSection section={section} />;
+      return <FeaturedProductsSection section={section} moduleData={moduleData} />;
     case "divider":
       return <DividerSection />;
     case "newsletter_signup":
