@@ -9,3 +9,7 @@ pnpm-debug.log*
 
 .DS_Store
 *.local
+
+# env files (never commit secrets)
+.env
+server/.env

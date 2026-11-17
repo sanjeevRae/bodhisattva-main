@@ -1,0 +1,122 @@
+# SETUP.md — Local Development Setup
+
+Bodhisattva Museum dynamic platform: existing Vite/React frontend (repo root)
+plus the new Express + TypeScript API (`server/`) and shared contracts
+(`shared/`). Architecture: `ARCHITECTURE.md` §5.1. Phase 1 foundation —
+see `DEVELOPMENT_ROADMAP.md` §3 for what exists so far.
+
+## Prerequisites
+
+| Tool | Version | Notes |
+|---|---|---|
+| Node.js | 24.x (repo `engines`) | The API also runs on any current LTS; the *host's* Node version is verified separately (hosting gate, `DEPLOYMENT_REQUIREMENTS.md`). |
+| npm | 10+ | Three installs: root (frontend), `shared/`, `server/`. |
+| MariaDB or MySQL | MariaDB 10.6+ / MySQL 8.0+ | Local instance for development. Database `bodhisattva_dev`, user `bodhisattva`. |
+
+## 1. Create the local database
+
+```sql
+CREATE DATABASE bodhisattva_dev CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'bodhisattva'@'localhost' IDENTIFIED BY '<choose-a-local-password>';
+GRANT ALL PRIVILEGES ON bodhisattva_dev.* TO 'bodhisattva'@'localhost';
+FLUSH PRIVILEGES;
+```
+
+## 2. Install dependencies
+
+```bash
+# Frontend (repo root) — usually already installed
+npm install
+
+# Shared contracts package (must be built before the API can type-check/run)
+npm --prefix shared install
+npm --prefix shared run build
+
+# API
+npm --prefix server install
+```
+
+## 3. Configure the API environment
+
+```bash
+cp server/.env.example server/.env
+```
+
+Edit `server/.env`: set `DB_PASSWORD` to the password from step 1 (or set
+`DATABASE_URL=mysql://bodhisattva:<password>@localhost:3306/bodhisattva_dev`
+instead) and replace the three `change-me-…` secrets with unique local values
+of at least 32 characters, e.g.:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+`server/.env` is never committed and holds no production values. The API
+validates the whole environment at boot and exits with a readable list of
+problems if anything required is missing (fail-fast).
+
+## 4. Migrations, status, seed
+
+From the repo root (these delegate to `server/`):
+
+```bash
+npm run db:status    # which migrations exist / are applied
+npm run db:migrate   # apply pending migrations
+npm run db:seed      # roles/permissions seed framework (Phase 2 content)
+```
+
+The `db:*` scripts read `DATABASE_URL` from the environment. Export it for
+the session (the API server itself loads `server/.env` automatically):
+
+```bash
+export DATABASE_URL="mysql://bodhisattva:<password>@localhost:3306/bodhisattva_dev"
+```
+
+## 5. Run frontend + API together
+
+Two terminals:
+
+```bash
+# Terminal 1 — API on http://localhost:4000
+npm run server:dev
+
+# Terminal 2 — frontend on http://localhost:5173
+npm run dev
+```
+
+Smoke checks (no database required for liveness):
+
+```bash
+curl http://localhost:4000/health         # {"status":"ok"}
+curl http://localhost:4000/health/ready   # 200 when the DB answers SELECT 1,
+                                          # 503 + error envelope when it doesn't
+```
+
+> Note: the Vite dev proxy for `/api` → `http://localhost:4000`
+> (ARCHITECTURE.md §5.1) is added with the Phase 3 frontend data layer.
+> Until then the frontend and API run side by side on their own ports and
+> the API is exercised directly (curl, tests).
+
+## 6. Tests and build
+
+```bash
+npm run server:test     # vitest suite — passes WITHOUT a database running
+npm run server:build    # builds shared/, then compiles the API to server/dist/
+```
+
+## 7. Native module smoke test (Phase 1, provisional)
+
+`argon2` and `sharp` are native modules; ARCHITECTURE.md §14.1 requires
+proving they load before the design relies on them. Results on this
+development machine (Linux x86_64, Node 24.22.1), 2026-11-17:
+
+| Module | Test | Result |
+|---|---|---|
+| `argon2` 0.44.0 | Argon2id hash of a test password, then verify correct + incorrect password | **PASS** — hash `$argon2id$v=19$…` produced; correct password verified `true`, wrong password `false` |
+| `sharp` 0.34.5 | Generate a 1×1 PNG in memory, resize to 4×4, read back metadata | **PASS** — output 4×4 PNG, libvips 8.17.3 |
+
+**Provisional:** these results cover this machine only. The same smoke test
+must pass on the cPanel host before Phase 2 relies on Argon2id parameters
+or Phase 3 relies on Sharp re-encoding (hosting verification gate —
+`DEPLOYMENT_REQUIREMENTS.md`; fallbacks in `SECURITY_THREAT_MODEL.md` /
+ARCHITECTURE.md §14.1).
