@@ -28,6 +28,14 @@ import {
   productImages as productImagesTable,
   products as productsTable,
 } from './schema/store.js';
+import {
+  invoiceTemplates as invoiceTemplatesTable,
+  invoiceTemplateVersions as invoiceTemplateVersionsTable,
+} from './schema/invoices.js';
+import {
+  DEFAULT_INVOICE_TEMPLATE_CONFIG,
+  DEFAULT_INVOICE_TEMPLATE_NAME,
+} from './seed-data/invoice-content.js';
 import { CMS_MENUS, CMS_PAGES, CMS_SETTINGS } from './seed-data/cms-content.js';
 import {
   COLLECTIONS as MUSEUM_COLLECTIONS,
@@ -67,8 +75,10 @@ import {
  * (the seven migrated system pages, menus and public site settings). Phase 5
  * adds the `museum-content` step (the canonical museum/news/foundation
  * records). Phase 6 adds the `store-content` step (Gift Shop categories,
- * products, opening stock and placeholder store settings). They contain
- * no accounts and no secrets, and are safe in every
+ * products, opening stock and placeholder store settings). Phase 7 adds
+ * the `invoice-template` step (one default invoice template + version 1;
+ * placeholder identity defaults for the client to edit — never a tax
+ * number). They contain no accounts and no secrets, and are safe in every
  * environment including production (§13.3).
  * The `--dev` placeholder step exists only to prove the mechanism
  * end-to-end; it writes nothing.
@@ -551,6 +561,37 @@ export const seedSteps: SeedStep[] = [
           isPublic: false,
         });
       }
+    },
+  },
+  {
+    // Phase 7 (DATABASE_DESIGN.md §10.3): the default invoice template
+    // and its version 1, from `seed-data/invoice-content.ts`. Skip-if-any
+    // rule like the other content steps: once a template exists the seed
+    // never touches it — template editing belongs to the admin editor,
+    // which versions every change.
+    name: 'invoice-template',
+    async run(db) {
+      const existing = await db
+        .select({ id: invoiceTemplatesTable.id })
+        .from(invoiceTemplatesTable)
+        .limit(1);
+      if (existing.length > 0) return;
+      const [template] = await db
+        .insert(invoiceTemplatesTable)
+        .values({ name: DEFAULT_INVOICE_TEMPLATE_NAME, isActive: true })
+        .$returningId();
+      const [version] = await db
+        .insert(invoiceTemplateVersionsTable)
+        .values({
+          templateId: template.id,
+          versionNo: 1,
+          config: DEFAULT_INVOICE_TEMPLATE_CONFIG,
+        })
+        .$returningId();
+      await db
+        .update(invoiceTemplatesTable)
+        .set({ currentVersionId: version.id })
+        .where(eq(invoiceTemplatesTable.id, template.id));
     },
   },
 ];

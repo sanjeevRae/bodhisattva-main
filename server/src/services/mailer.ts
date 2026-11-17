@@ -16,11 +16,19 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import type { AppConfig } from "../config/env.js";
 
+export interface MailAttachment {
+  filename: string;
+  content: Buffer;
+  contentType?: string;
+}
+
 export interface MailMessage {
   to: string;
   subject: string;
   text: string;
   html?: string;
+  /** Phase 7: the invoice PDF rides the outbox invoice mail. */
+  attachments?: MailAttachment[];
 }
 
 export interface Mailer {
@@ -52,6 +60,15 @@ export function createMailer(
         subject: message.subject,
         text: message.text,
         ...(message.html ? { html: message.html } : {}),
+        ...(message.attachments && message.attachments.length > 0
+          ? {
+              attachments: message.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content,
+                ...(a.contentType ? { contentType: a.contentType } : {}),
+              })),
+            }
+          : {}),
       });
     },
   };

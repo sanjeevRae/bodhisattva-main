@@ -45,6 +45,11 @@ import {
   createStoreCustomerRouter,
   createStorePublicRouter,
 } from "./modules/store/routes.js";
+import {
+  createOrdersAdminRouter,
+  createOrdersCustomerRouter,
+} from "./modules/orders/orders.routes.js";
+import { createAuditRouter } from "./modules/audit/audit.routes.js";
 import { createRolesRouter } from "./modules/roles/roles.routes.js";
 import {
   createHealthRouter,
@@ -112,6 +117,9 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api", createStorePublicRouter({ db, config }));
     app.use("/api", createStoreCustomerRouter({ db, config }));
     app.use("/api/admin", createStoreAdminRouter({ db, config }));
+    app.use("/api", createOrdersCustomerRouter({ db, config }));
+    app.use("/api/admin", createOrdersAdminRouter({ db, config }));
+    app.use("/api/admin", createAuditRouter({ db, config }));
   }
 
   app.use(notFoundHandler);

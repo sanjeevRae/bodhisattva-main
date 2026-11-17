@@ -389,3 +389,36 @@ export async function listOrders(page = 1, pageSize = 20): Promise<{ items: Cust
 export function getOrder(id: number): Promise<CustomerOrder> {
   return dataOf<CustomerOrder>(`/api/orders/${id}`);
 }
+
+// ---------------------------------------------------------------------------
+// Invoices (Phase 7) — issued at approval; the metadata endpoint 404s
+// until then, which simply means "no invoice yet" for the account UI.
+// ---------------------------------------------------------------------------
+
+export interface CustomerInvoice {
+  id: number;
+  invoiceNumber: string;
+  orderId: number;
+  orderNumber: string;
+  currency: string;
+  subtotalPaisa: number;
+  shippingFeePaisa: number;
+  discountTotalPaisa: number;
+  taxTotalPaisa: number;
+  grandTotalPaisa: number;
+  /** PENDING | SENT | FAILED — delivery state of the invoice email. */
+  emailStatus: string;
+  issuedAt: string;
+  /** Same-origin PDF download path (session cookie authorises it). */
+  downloadPath: string;
+}
+
+/** The order's invoice, or null when none has been issued yet. */
+export async function getOrderInvoice(orderId: number): Promise<CustomerInvoice | null> {
+  try {
+    return await dataOf<CustomerInvoice>(`/api/orders/${orderId}/invoice`);
+  } catch (err) {
+    if (err instanceof ShopApiError && err.status === 404) return null;
+    throw err;
+  }
+}

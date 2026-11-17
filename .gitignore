@@ -13,4 +13,7 @@ pnpm-debug.log*
 # env files (never commit secrets)
 .env
 server/.env
+
+# server runtime storage (uploads + generated invoice PDFs)
+server/storage/
 *.tsbuildinfo

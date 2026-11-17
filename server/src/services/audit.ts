@@ -110,6 +110,15 @@ export const AUDIT_ACTIONS = {
   storeCategoriesDelete: "store.categories.delete",
   storeInventoryAdjust: "store.inventory.adjust",
   storeOrdersCreate: "store.orders.create",
+  storeOrdersApprove: "store.orders.approve",
+  storeOrdersReject: "store.orders.reject",
+  storeOrdersCancel: "store.orders.cancel",
+  storeOrdersUpdate: "store.orders.update",
+  storeInvoicesCreate: "store.invoices.create",
+  storeInvoicesResend: "store.invoices.resend",
+  storeInvoicesEmailDead: "store.invoices.email_dead",
+  storeInvoiceTemplatesUpdate: "store.invoice_templates.update",
+  storeOutboxRetry: "store.outbox.retry",
 } as const;
 
 const SENSITIVE_KEY = /password|otp|token|secret|code/i;

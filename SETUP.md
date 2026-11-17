@@ -246,3 +246,45 @@ quantities)`; when a product has variants, variant stock is authoritative
 and `products.stock_qty` mirrors the variant sum. Local quirk: set
 `SMTP_HOST=127.0.0.1` (not `localhost`) — the sandbox egress proxy
 intercepts nodemailer's `localhost` connections.
+
+## Orders & invoices (Phase 7)
+
+Migration `0009_invoices_outbox` adds `invoices`, `invoice_templates`,
+`invoice_template_versions` and `email_outbox`. The `invoice-template` seed
+step creates one active template ("Default Museum Invoice", version 1) from
+the site's public identity — prefix `INV`, tax registration number NULL
+(never invent one; the client adds it in the template editor).
+
+Order lifecycle is owned by ONE service (`transitionOrder` in
+`server/src/modules/orders/orders.service.ts`) — the only writer of
+`orders.status`. Matrix: approve PENDING_APPROVAL→APPROVED; reject
+PENDING_APPROVAL→CANCELLED (reason required); process APPROVED→PROCESSING;
+ship PROCESSING→SHIPPED; deliver SHIPPED→DELIVERED; cancel from
+PENDING_APPROVAL/APPROVED/PROCESSING→CANCELLED (reason required); anything
+else is 422 INVALID_STATE_TRANSITION. Every transition is one READ
+COMMITTED transaction under the global lock order: invoice-sequence row
+(approve only) → order row → product rows (id order) → variant rows.
+Approval finalises inventory (ORDER_DEDUCT + RELEASE pair per line),
+creates exactly one invoice (unique `invoices.order_id`; number from the
+`INVOICE:<year>` sequence; snapshot frozen from the order's stored
+snapshots + the pinned template version) and enqueues the invoice email —
+atomically. Cancellation before approval releases the reservation
+(RELEASE); after approval it restores stock (ORDER_RESTORE); an issued
+invoice is never deleted. Invoice PDFs render ONLY from the stored
+snapshot (PDFKit, deterministic) and are cached under
+`<upload directory>/invoices/`.
+
+Email goes through the outbox, never inline: rows are claimed under a
+lease (stale leases recover after 5 minutes), failures back off
+(1m/5m/30m/2h) and dead-letter after 5 attempts. The API drains
+opportunistically after each enqueue; the reliable path is the CLI —
+`npm run outbox:drain` in `server/` (run it from cron every minute in
+production). Admin endpoints: `/api/admin/orders` (+ `/:id` and the
+transition POSTs), `/api/admin/orders/:id/invoice/resend`,
+`/api/admin/invoices` (+ `/:id`, `/:id/download`),
+`/api/admin/invoice-template` (GET/PUT — every save is a new immutable
+version) and `/api/admin/invoice-template/preview.pdf`. Customers get
+`GET /api/orders/:id/invoice` and `GET /api/orders/:id/invoice.pdf`
+(owner-only; anyone else's is a 404). The orders integration suite uses
+its own database (`bodhisattva_test_orders`); `npm run test:integration`
+runs all five suites.

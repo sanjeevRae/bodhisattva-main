@@ -22,6 +22,7 @@ import {
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import {
   CalendarRange,
+  ClipboardList,
   ExternalLink,
   FileText,
   HeartHandshake,
@@ -31,7 +32,10 @@ import {
   LogOut,
   Menu as MenuIcon,
   Newspaper,
+  Receipt,
+  ScrollText,
   Settings as SettingsIcon,
+  ShieldCheck,
   ShoppingBag,
   Tags,
   Users as UsersIcon,
@@ -55,6 +59,11 @@ import FoundationScreen from "./screens/Foundation";
 import ProductsScreen from "./screens/Products";
 import ProductEditorScreen from "./screens/ProductEditor";
 import ProductCategoriesScreen from "./screens/ProductCategories";
+import OrdersScreen from "./screens/Orders";
+import OrderDetailScreen from "./screens/OrderDetail";
+import InvoicesScreen from "./screens/Invoices";
+import InvoiceTemplateScreen from "./screens/InvoiceTemplate";
+import AuditLogScreen from "./screens/AuditLog";
 
 export type AuthStatus = "loading" | "anonymous" | AuthLevel;
 
@@ -178,6 +187,10 @@ const NAV_ITEMS: Array<{
   { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
   { to: "/admin/products", label: "Products", icon: <ShoppingBag size={17} />, permission: "store.products.manage" },
   { to: "/admin/product-categories", label: "Product Categories", icon: <Tags size={17} />, permission: "store.categories.manage" },
+  { to: "/admin/orders", label: "Orders", icon: <ClipboardList size={17} />, permission: "store.orders.read" },
+  { to: "/admin/invoices", label: "Invoices", icon: <Receipt size={17} />, permission: "store.invoices.manage" },
+  { to: "/admin/invoice-template", label: "Invoice Template", icon: <ScrollText size={17} />, permission: "store.invoice_templates.manage" },
+  { to: "/admin/audit-log", label: "Audit Log", icon: <ShieldCheck size={17} />, permission: "audit.read" },
   { to: "/admin/media", label: "Media", icon: <Images size={17} />, permission: "media.read" },
   { to: "/admin/menus", label: "Menus", icon: <MenuIcon size={17} />, permission: "cms.menus.manage" },
   { to: "/admin/settings", label: "Settings", icon: <SettingsIcon size={17} />, permission: "settings.manage" },
@@ -265,6 +278,11 @@ function Shell() {
             <Route path="products/new" element={<ProductEditorScreen />} />
             <Route path="products/:id" element={<ProductEditorScreen />} />
             <Route path="product-categories" element={<ProductCategoriesScreen />} />
+            <Route path="orders" element={<OrdersScreen />} />
+            <Route path="orders/:id" element={<OrderDetailScreen />} />
+            <Route path="invoices" element={<InvoicesScreen />} />
+            <Route path="invoice-template" element={<InvoiceTemplateScreen />} />
+            <Route path="audit-log" element={<AuditLogScreen />} />
             <Route path="media" element={<MediaLibrary />} />
             <Route path="menus" element={<MenusScreen />} />
             <Route path="settings" element={<SettingsScreen />} />

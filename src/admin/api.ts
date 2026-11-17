@@ -14,7 +14,10 @@
  *   registered unauthorized handler, which routes the SPA to login.
  */
 import type {
+  AdminOrderDetail,
+  AdminOrderListItem,
   AdminUser,
+  AuditLogAdmin,
   CollectionAdmin,
   Draft,
   ExhibitionAdmin,
@@ -22,6 +25,9 @@ import type {
   GalleryItemAdmin,
   Invitation,
   InventorySummaryAdmin,
+  InvoiceAdmin,
+  InvoiceTemplateConfigAdmin,
+  InvoiceTemplateStateAdmin,
   LoginResponse,
   MeResponse,
   MediaAsset,
@@ -565,6 +571,116 @@ export const storeApi = {
   },
   adjustInventory(productId: number, body: Record<string, unknown>): Promise<InventorySummaryAdmin> {
     return moduleOne(`/api/admin/products/${productId}/inventory/adjust`, { method: "POST", body });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Orders & invoices (Phase 7) — same success envelope as the museum/store
+// modules. Transitions return the refreshed admin order detail. PDF
+// downloads are plain navigations (the session cookie authorises them),
+// so only their URLs are built here.
+// ---------------------------------------------------------------------------
+
+export type OrderTransitionAction =
+  | "approve"
+  | "reject"
+  | "process"
+  | "ship"
+  | "deliver"
+  | "cancel";
+
+export interface OrderListParams {
+  page?: number;
+  pageSize?: number;
+  status?: string;
+  search?: string;
+  from?: string;
+  to?: string;
+}
+
+export const ordersApi = {
+  list(params: OrderListParams = {}): Promise<{ items: AdminOrderListItem[]; meta: PageMeta }> {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 1),
+      pageSize: String(params.pageSize ?? 50),
+    });
+    if (params.status) query.set("status", params.status);
+    if (params.search) query.set("search", params.search);
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    return moduleList(`/api/admin/orders?${query.toString()}`);
+  },
+  get(id: number): Promise<AdminOrderDetail> {
+    return moduleOne(`/api/admin/orders/${id}`);
+  },
+  transition(id: number, action: OrderTransitionAction, reason?: string): Promise<AdminOrderDetail> {
+    return moduleOne(`/api/admin/orders/${id}/${action}`, {
+      method: "POST",
+      body: reason ? { reason } : {},
+    });
+  },
+  resendInvoice(id: number): Promise<InvoiceAdmin> {
+    return moduleOne(`/api/admin/orders/${id}/invoice/resend`, { method: "POST", body: {} });
+  },
+  /** Attachment download URL (admin invoice download endpoint). */
+  invoiceDownloadUrl(invoiceId: number): string {
+    return `/api/admin/invoices/${invoiceId}/download`;
+  },
+};
+
+export const invoicesApi = {
+  list(page = 1, pageSize = 50): Promise<{ items: InvoiceAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/invoices${listQuery(page, pageSize)}`);
+  },
+  downloadUrl(invoiceId: number): string {
+    return `/api/admin/invoices/${invoiceId}/download`;
+  },
+};
+
+export const invoiceTemplateApi = {
+  get(): Promise<InvoiceTemplateStateAdmin> {
+    return moduleOne("/api/admin/invoice-template");
+  },
+  /** Saving always creates a NEW immutable version; returns the new state. */
+  update(config: InvoiceTemplateConfigAdmin, name?: string): Promise<InvoiceTemplateStateAdmin> {
+    return moduleOne("/api/admin/invoice-template", {
+      method: "PUT",
+      body: name ? { name, config } : { config },
+    });
+  },
+  previewUrl(): string {
+    return "/api/admin/invoice-template/preview.pdf";
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Audit log (Phase 7b) — read-only Super Admin module (audit.read).
+// ---------------------------------------------------------------------------
+
+export interface AuditListParams {
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  actor?: string;
+  role?: string;
+  action?: string;
+  result?: string;
+}
+
+export const auditApi = {
+  list(params: AuditListParams = {}): Promise<{ items: AuditLogAdmin[]; meta: PageMeta }> {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 1),
+      pageSize: String(params.pageSize ?? 50),
+    });
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    if (params.actor) query.set("actor", params.actor);
+    if (params.role) query.set("role", params.role);
+    if (params.action) query.set("action", params.action);
+    if (params.result) query.set("result", params.result);
+    return moduleList(`/api/admin/audit-logs?${query.toString()}`);
   },
 };
 

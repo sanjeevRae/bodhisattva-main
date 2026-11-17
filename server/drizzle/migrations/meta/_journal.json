@@ -64,6 +64,13 @@
       "when": 1794911306744,
       "tag": "0008_invoice_sequences",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1794914878343,
+      "tag": "0009_invoices_outbox",
+      "breakpoints": true
     }
   ]
 }

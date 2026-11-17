@@ -2,6 +2,7 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   datetime,
+  foreignKey,
   index,
   int,
   json,
@@ -9,10 +10,12 @@ import {
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/mysql-core';
+import { users } from './auth.js';
 
 /**
- * System tables in the Phase 1 foundation set — DATABASE_DESIGN.md §11.2
- * (`audit_logs`) and §11.4 (`rate_limits`).
+ * System tables — DATABASE_DESIGN.md §11. Phase 1 authored §11.2
+ * (`audit_logs`) and §11.4 (`rate_limits`); Phase 7 adds §11.1
+ * (`email_outbox`), the transactional-outbox queue.
  */
 
 export const auditLogs = mysqlTable(
@@ -47,6 +50,80 @@ export const auditLogs = mysqlTable(
     index('idx_audit_action').on(table.action, table.createdAt),
     index('idx_audit_target').on(table.targetType, table.targetId),
     index('idx_audit_result').on(table.result, table.createdAt),
+  ],
+);
+
+/**
+ * Transactional email outbox (§11.1, ARCHITECTURE.md §10, Phase 0
+ * amendment A8). Rows are written in the SAME transaction as the
+ * business event (order approval, cancellation, …) and drained later by
+ * the outbox worker — an email failure can never roll back the business
+ * event, and a retry can never duplicate the business artefact (the
+ * invoice PDF is rendered once from its snapshot and re-attached).
+ *
+ * Delivery protocol (A8 lease): the worker claims due PENDING rows by
+ * flipping them to PROCESSING with `claimed_by` + `claimed_at` under
+ * `SELECT … FOR UPDATE SKIP LOCKED`; a claim whose `claimed_at` is
+ * older than the lease TTL is stale (the worker died mid-send) and is
+ * recovered to PENDING without consuming the send. `attempts` counts
+ * completed send attempts; failures reschedule with the §11.1 backoff
+ * (1m/5m/30m/2h) and the row goes DEAD after 5 attempts — the
+ * dead-letter state an admin can manually retry (audited).
+ *
+ * `claimed_at` is the one column beyond the §11.1 listing: A8 requires
+ * stale-lease recovery, which is impossible without a claim timestamp.
+ *
+ * Bodies are rendered at enqueue time into `template_data`
+ * ({ text, html?, … }) by the calling service (§11.1 note); order and
+ * invoice mail carries no secrets.
+ */
+export const emailOutbox = mysqlTable(
+  'email_outbox',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    // ORDER_APPROVED | ORDER_CANCELLED | ORDER_SHIPPED | ORDER_DELIVERED |
+    // INVOICE | … (§11.1 catalogue; VARCHAR by design, not an enum).
+    type: varchar('type', { length: 40 }).notNull(),
+    recipientEmail: varchar('recipient_email', { length: 254 }).notNull(),
+    recipientUserId: bigint('recipient_user_id', { mode: 'number', unsigned: true }),
+    subject: varchar('subject', { length: 255 }).notNull(),
+    // Render inputs + the rendered body ({ text, html? }) — see header.
+    templateData: json('template_data').notNull(),
+    // Invoice PDF for INVOICE rows (name under <uploadDirectory>/invoices/).
+    attachmentStorageName: varchar('attachment_storage_name', { length: 120 }),
+    // 'order' | 'invoice' | 'user' | 'invitation'
+    relatedType: varchar('related_type', { length: 40 }),
+    relatedId: bigint('related_id', { mode: 'number', unsigned: true }),
+    // PENDING | PROCESSING | SENT | FAILED | DEAD (§11.1). FAILED is
+    // retained in the design's vocabulary; the drain's terminal
+    // dead-letter state is DEAD.
+    status: varchar('status', { length: 20 }).notNull().default('PENDING'),
+    attempts: int('attempts', { unsigned: true }).notNull().default(0),
+    nextAttemptAt: datetime('next_attempt_at', { fsp: 3, mode: 'date' }),
+    // Sanitised SMTP error summary — never credentials (§11.1).
+    lastError: varchar('last_error', { length: 500 }),
+    // Worker instance id while PROCESSING (the A8 lease owner).
+    claimedBy: varchar('claimed_by', { length: 64 }),
+    claimedAt: datetime('claimed_at', { fsp: 3, mode: 'date' }),
+    sentAt: datetime('sent_at', { fsp: 3, mode: 'date' }),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('idx_outbox_drain').on(table.status, table.nextAttemptAt),
+    index('idx_outbox_related').on(table.relatedType, table.relatedId),
+    foreignKey({
+      columns: [table.recipientUserId],
+      foreignColumns: [users.id],
+      name: 'fk_outbox_user',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
   ],
 );
 

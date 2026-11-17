@@ -39,6 +39,12 @@ export function formatRsDecimal(value: string | null | undefined): string {
   return frac === "00" ? `${sign}Rs. ${grouped}` : `${sign}Rs. ${grouped}.${frac}`;
 }
 
+/** Format an integer-paisa amount (orders/invoices API) as "Rs. X,XXX". */
+export function formatRsPaisa(paisa: number | null | undefined): string {
+  if (paisa == null || !Number.isFinite(paisa)) return "—";
+  return formatRsDecimal((paisa / 100).toFixed(2));
+}
+
 /** Validate a rupee form value; returns the canonical DECIMAL string or null. */
 export function rupeeInputToDecimal(value: string, allowNegative = false): string | null {
   const trimmed = value.trim();

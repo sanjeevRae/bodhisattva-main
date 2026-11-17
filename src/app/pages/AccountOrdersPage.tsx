@@ -1,29 +1,92 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import AccountLayout from "./AccountLayout";
-import { formatRs, getOrder, listOrders, type CustomerOrder } from "../lib/shop";
+import {
+  formatRs,
+  getOrder,
+  getOrderInvoice,
+  listOrders,
+  type CustomerInvoice,
+  type CustomerOrder,
+} from "../lib/shop";
 
 /**
  * Order history — the customer's own orders from GET /api/orders with
  * an expandable detail (items snapshot, totals, delivery address) from
- * GET /api/orders/:id. Status labels are friendly renderings of the
- * server's order lifecycle.
+ * GET /api/orders/:id. The detail also carries a progress timeline in
+ * customer language and, once the museum has approved the order, the
+ * invoice card (GET /api/orders/:id/invoice + its PDF download).
+ * Status labels are friendly renderings of the server's lifecycle
+ * (PENDING_APPROVAL → APPROVED → PROCESSING → SHIPPED → DELIVERED).
  */
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING_APPROVAL: "Awaiting Approval",
   APPROVED: "Approved",
-  PREPARING: "Preparing",
-  DISPATCHED: "Dispatched",
-  OUT_FOR_DELIVERY: "Out for Delivery",
+  PROCESSING: "Being Prepared",
+  SHIPPED: "Shipped",
   DELIVERED: "Delivered",
   CANCELLED: "Cancelled",
-  RETURN_REQUESTED: "Return Requested",
-  RETURNED: "Returned",
 };
 
 export function statusLabel(status: string): string {
   return STATUS_LABELS[status] ?? status.replace(/_/g, " ");
+}
+
+/** Progress steps in customer language; the index is the lifecycle order. */
+const PROGRESS_STEPS: Array<{ status: string; label: string }> = [
+  { status: "PENDING_APPROVAL", label: "Order placed" },
+  { status: "APPROVED", label: "Approved" },
+  { status: "PROCESSING", label: "Being prepared" },
+  { status: "SHIPPED", label: "Shipped" },
+  { status: "DELIVERED", label: "Delivered" },
+];
+
+/** An invoice exists from approval onwards (it also survives a later
+ * cancellation, which the detail fetch confirms). */
+const INVOICED_STATUSES = new Set(["APPROVED", "PROCESSING", "SHIPPED", "DELIVERED"]);
+
+function ProgressTimeline({ status }: { status: string }) {
+  if (status === "CANCELLED") {
+    return (
+      <p className="mb-6 border border-destructive/40 bg-destructive/5 px-4 py-3 font-sans text-sm text-destructive">
+        This order was cancelled. If you were expecting it, please contact the museum.
+      </p>
+    );
+  }
+  const current = PROGRESS_STEPS.findIndex((step) => step.status === status);
+  return (
+    <ol className="mb-7 flex flex-wrap items-start gap-y-3" aria-label="Order progress">
+      {PROGRESS_STEPS.map((step, index) => {
+        const done = current >= 0 && index <= current;
+        return (
+          <li key={step.status} className="flex items-center">
+            <span className="flex items-center gap-2">
+              <span
+                className={`h-2.5 w-2.5 rounded-full border ${
+                  done ? "border-accent bg-accent" : "border-border bg-background"
+                }`}
+                aria-hidden
+              />
+              <span
+                className={`font-mono text-[0.52rem] uppercase tracking-widest ${
+                  done ? "text-foreground" : "text-muted-foreground"
+                }`}
+              >
+                {step.label}
+              </span>
+            </span>
+            {index < PROGRESS_STEPS.length - 1 && (
+              <span
+                className={`mx-3 h-px w-6 sm:w-10 ${current > index ? "bg-accent" : "bg-border"}`}
+                aria-hidden
+              />
+            )}
+          </li>
+        );
+      })}
+    </ol>
+  );
 }
 
 export function formatPlacedAt(iso: string): string {
@@ -40,6 +103,7 @@ export default function AccountOrdersPage() {
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, CustomerOrder>>({});
+  const [invoices, setInvoices] = useState<Record<number, CustomerInvoice | null>>({});
 
   useEffect(() => {
     let alive = true;
@@ -77,6 +141,11 @@ export default function AccountOrdersPage() {
       getOrder(order.id)
         .then((detail) => setDetails((prev) => ({ ...prev, [order.id]: detail })))
         .catch(() => setError("That order's details could not be loaded."));
+    }
+    if (!(order.id in invoices)) {
+      getOrderInvoice(order.id)
+        .then((invoice) => setInvoices((prev) => ({ ...prev, [order.id]: invoice })))
+        .catch(() => setInvoices((prev) => ({ ...prev, [order.id]: null })));
     }
   };
 
@@ -122,6 +191,11 @@ export default function AccountOrdersPage() {
                     <span className="border border-accent/50 px-2.5 py-1 font-mono text-[0.52rem] uppercase tracking-widest text-accent">
                       {statusLabel(order.status)}
                     </span>
+                    {INVOICED_STATUSES.has(order.status) && (
+                      <span className="border border-border px-2.5 py-1 font-mono text-[0.52rem] uppercase tracking-widest text-muted-foreground">
+                        Invoice available
+                      </span>
+                    )}
                     <span className="ml-auto font-display text-base font-medium">
                       {formatRs(order.grandTotalPaisa)}
                     </span>
@@ -136,6 +210,8 @@ export default function AccountOrdersPage() {
                           Loading details…
                         </p>
                       ) : (
+                        <>
+                        <ProgressTimeline status={detail.status} />
                         <div className="grid gap-8 md:grid-cols-[2fr_1fr]">
                           <div>
                             <table className="w-full text-sm">
@@ -203,8 +279,30 @@ export default function AccountOrdersPage() {
                               Payment: cash on delivery. The museum confirms each order before
                               dispatch — we will call if anything needs clarifying.
                             </p>
+                            {invoices[order.id] && (
+                              <div className="mt-6 border border-border bg-background p-4">
+                                <h3 className="mb-1 font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground">
+                                  Invoice
+                                </h3>
+                                <p className="font-display text-base font-medium">
+                                  {invoices[order.id]!.invoiceNumber}
+                                </p>
+                                <p className="mb-4 font-sans text-xs font-light text-muted-foreground">
+                                  Issued {formatPlacedAt(invoices[order.id]!.issuedAt)} ·{" "}
+                                  {formatRs(invoices[order.id]!.grandTotalPaisa)} · also emailed
+                                  to you
+                                </p>
+                                <a
+                                  href={invoices[order.id]!.downloadPath}
+                                  className="inline-block border border-foreground px-5 py-2.5 font-mono text-[0.55rem] uppercase tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
+                                >
+                                  Download PDF
+                                </a>
+                              </div>
+                            )}
                           </div>
                         </div>
+                        </>
                       )}
                     </div>
                   )}

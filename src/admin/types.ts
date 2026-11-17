@@ -403,3 +403,147 @@ export interface InventorySummaryAdmin {
   /** Ledger page (present on the GET response). */
   items?: InventoryMovementAdmin[];
 }
+
+// ---------------------------------------------------------------------------
+// Orders & invoices (Phase 7) — payloads of server/src/modules/orders.
+// Money is integer paisa; timestamps are ISO strings.
+// ---------------------------------------------------------------------------
+
+export interface OrderItemAdmin {
+  id: number;
+  productId: number | null;
+  variantId: number | null;
+  name: string;
+  variantName: string | null;
+  sku: string | null;
+  unitPricePaisa: number;
+  quantity: number;
+  lineTotalPaisa: number;
+}
+
+export interface OrderDeliveryAdmin {
+  recipientName: string;
+  phone: string;
+  addressLine: string;
+  city: string;
+  district: string | null;
+  postalCode: string | null;
+  notes: string | null;
+}
+
+export interface OrderAdmin {
+  id: number;
+  orderNumber: string;
+  status: string;
+  paymentMethod: string;
+  currency: string;
+  subtotalPaisa: number;
+  shippingFeePaisa: number;
+  discountTotalPaisa: number;
+  taxTotalPaisa: number;
+  grandTotalPaisa: number;
+  customerEmail: string;
+  delivery: OrderDeliveryAdmin;
+  items: OrderItemAdmin[];
+  placedAt: string;
+}
+
+/** Admin list row: the order view + owner id + queue age (ms since placed). */
+export interface AdminOrderListItem extends OrderAdmin {
+  userId: number;
+  ageMs: number;
+}
+
+export interface OrderHistoryEntry {
+  id: number;
+  fromStatus: string | null;
+  toStatus: string;
+  actorId: number | null;
+  actorRole: string | null;
+  reason: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceAdmin {
+  id: number;
+  invoiceNumber: string;
+  orderId: number;
+  orderNumber: string;
+  templateVersionId: number | null;
+  currency: string;
+  subtotalPaisa: number;
+  shippingFeePaisa: number;
+  discountTotalPaisa: number;
+  taxTotalPaisa: number;
+  grandTotalPaisa: number;
+  /** PENDING | SENT | FAILED — mirrors the email outbox row. */
+  emailStatus: string;
+  issuedAt: string;
+  issuedBy: number | null;
+}
+
+export interface AdminOrderDetail {
+  order: OrderAdmin & { userId: number };
+  customer: { userId: number; email: string };
+  history: OrderHistoryEntry[];
+  invoice: InvoiceAdmin | null;
+}
+
+export interface InvoiceTemplateConfigAdmin {
+  companyName: string;
+  companyAddress: string;
+  companyPhone: string | null;
+  companyEmail: string | null;
+  taxRegistrationNumber: string | null;
+  logoMediaId: number | null;
+  invoicePrefix: string;
+  primaryColor: string;
+  accentColor: string;
+  footerText: string | null;
+  termsText: string | null;
+  show: {
+    logo: boolean;
+    companyPhone: boolean;
+    companyEmail: boolean;
+    taxRegistrationNumber: boolean;
+    deliveryAddress: boolean;
+    paymentMethod: boolean;
+    terms: boolean;
+    footer: boolean;
+  };
+}
+
+export interface InvoiceTemplateVersionAdmin {
+  id: number;
+  versionNo: number;
+  config: InvoiceTemplateConfigAdmin;
+  createdBy: number | null;
+  createdAt: string;
+}
+
+export interface InvoiceTemplateStateAdmin {
+  template: {
+    id: number;
+    name: string;
+    isActive: boolean;
+    currentVersionId: number | null;
+  };
+  versions: InvoiceTemplateVersionAdmin[];
+  activeVersion: InvoiceTemplateVersionAdmin | null;
+}
+
+export interface AuditLogAdmin {
+  id: number;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorRole: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: number | null;
+  /** SUCCESS | FAILURE | DENIED */
+  result: string;
+  ipAddress: string | null;
+  userAgent: string | null;
+  metadata: unknown;
+  createdAt: string;
+}

@@ -1059,7 +1059,8 @@ function toOrderItemView(row: OrderItemRow): OrderItemView {
   };
 }
 
-function toOrderView(order: OrderRow, items: OrderItemRow[]): OrderView {
+/** Exported for the Phase 7 orders module (admin views share the shape). */
+export function toOrderView(order: OrderRow, items: OrderItemRow[]): OrderView {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
