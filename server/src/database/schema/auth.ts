@@ -61,6 +61,10 @@ export const userSessions = mysqlTable(
     // SHA-256 hex of the cookie value; the raw session id is never stored (§2.11).
     sessionIdHash: char('session_id_hash', { length: 64 }).notNull(),
     userId: bigint('user_id', { mode: 'number', unsigned: true }).notNull(),
+    // Snapshot of users.session_version at creation (amendment A9): a version
+    // bump (logout-all, password reset, privilege change) invalidates every
+    // session whose snapshot no longer matches, even if its row was missed.
+    sessionVersion: int('session_version', { unsigned: true }).notNull().default(0),
     // PASSWORD | MFA_VERIFIED
     authLevel: varchar('auth_level', { length: 20 }).notNull().default('PASSWORD'),
     ipAddress: varchar('ip_address', { length: 45 }),

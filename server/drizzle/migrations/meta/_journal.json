@@ -8,6 +8,20 @@
       "when": 1794897284490,
       "tag": "0000_foundation_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794898778084,
+      "tag": "0001_auth_challenges",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794899568286,
+      "tag": "0002_session_version_snapshot",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,1 @@
+ALTER TABLE `user_sessions` ADD `session_version` int unsigned DEFAULT 0 NOT NULL;

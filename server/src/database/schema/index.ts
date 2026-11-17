@@ -8,5 +8,6 @@
  * module per design-document group, re-exported from this index.
  */
 export * from './auth.js';
+export * from './auth-challenges.js';
 export * from './authorization.js';
 export * from './system.js';

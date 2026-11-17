@@ -104,6 +104,30 @@ npm run server:test     # vitest suite — passes WITHOUT a database running
 npm run server:build    # builds shared/, then compiles the API to server/dist/
 ```
 
+### Integration tests (Phase 2 exit gate)
+
+`server/tests/auth-flows.integration.test.ts` exercises the real app
+against a real database and a real SMTP sink — OTP codes, reset tokens and
+invitation tokens are read from the delivered mail, never from the DB.
+It is skipped unless `INTEGRATION_DB=1`, so the default suite stays
+database-free. To run it:
+
+1. Create a test database (e.g. `bodhisattva_test`) and grant the dev user
+   access to it.
+2. Apply migrations + seed to it (point `DATABASE_URL` at it for
+   `db:migrate` / `db:seed`).
+3. Run an SMTP sink on `localhost:1025` that stores messages as `.eml`
+   files in `/tmp/mailbox` (any mail catcher that writes files works; the
+   suite decodes quoted-printable before extracting codes/links).
+4. `npm --prefix server run test:integration` (sources `server/.env` for
+   the DB credentials; the suite itself targets `bodhisattva_test`).
+
+The bootstrap CLI test inside the suite passes `DATABASE_URL` for the
+**test** database explicitly — the CLI loads `server/.env` itself, and a
+present `DATABASE_URL` wins over the discrete `DB_*` settings. Keep that
+in mind for any scripted CLI use: check which database the URL names
+before running it.
+
 ## 7. Native module smoke test (Phase 1, provisional)
 
 `argon2` and `sharp` are native modules; ARCHITECTURE.md §14.1 requires
