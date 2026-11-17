@@ -402,6 +402,44 @@ describe.skipIf(!RUN)("Phase 2 auth flows (integration)", () => {
       expect(replay.status).toBeGreaterThanOrEqual(400);
     }
   }, 120000);
+  it("supports in-place MFA step-up for a full admin session, rejecting replay and wrong codes", async () => {
+    const { admin, csrf, secret } = state as {
+      admin: ReturnType<typeof request.agent>;
+      csrf: string;
+      secret: string;
+    };
+    // Earlier tests claimed the current TOTP step (enrolment confirm, the
+    // MFA login verify); wait for a fresh step so the code below is
+    // genuinely unconsumed — same pattern as the MFA login test.
+    const msToNextStep = 30000 - (Date.now() % 30000);
+    await new Promise((r) => setTimeout(r, msToNextStep + 1000));
+
+    const code = authenticator.generate(secret);
+    const stepUp = await admin
+      .post("/api/auth/mfa/step-up")
+      .set("X-CSRF-Token", csrf)
+      .send({ code });
+    expect(stepUp.status, JSON.stringify(stepUp.body)).toBe(200);
+    expect(stepUp.body.stepUpAt).toBeTruthy();
+
+    // Replay: the step is now claimed, so the same code must be rejected
+    // (the A3 single-use claim is shared with login verification).
+    const replay = await admin
+      .post("/api/auth/mfa/step-up")
+      .set("X-CSRF-Token", csrf)
+      .send({ code });
+    expect(replay.status).toBeGreaterThanOrEqual(400);
+
+    // A wrong code is rejected with the same generic shape as MFA verify.
+    const wrong = code === "000000" ? "111111" : "000000";
+    const bad = await admin
+      .post("/api/auth/mfa/step-up")
+      .set("X-CSRF-Token", csrf)
+      .send({ code: wrong });
+    expect(bad.status).toBe(401);
+    expect(bad.body.error.code).toBe("UNAUTHENTICATED");
+  }, 120000);
+
   it("rate-limits login after 5 failures, even for the correct password", async () => {
     const cust = newAgent();
     await cust

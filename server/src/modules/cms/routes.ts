@@ -226,13 +226,15 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
     fullSession,
     requirePermission(deps.db, "cms.pages.update"),
     asyncHandler(async (req, res) => {
-      const { expectedVersion, sections } = saveDraftSchema.parse(req.body);
+      const { expectedVersion, revisionId, sections } =
+        saveDraftSchema.parse(req.body);
       const draft = await saveDraft(
         cms,
         actorOf(req),
         parseIdParam(req.params.id, "Page"),
         sections,
         expectedVersion,
+        revisionId,
         requestMeta(req),
       );
       res.status(200).json(draft);

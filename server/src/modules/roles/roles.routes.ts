@@ -1,10 +1,15 @@
 /**
  * Roles routes (PERMISSIONS.md §8) — mount at `/api/admin`:
  *   GET /roles                  roles.read   → roles with their permissions
+ *   GET /users                  roles.read   → paginated user directory
+ *                               (Phase 4 delta for the admin SPA: id, email,
+ *                               display name, status, roles, last login —
+ *                               no credential or token material)
  *   PUT /users/:userId/roles    roles.manage + step-up → assign/replace the
  *                               target's administrative role
  */
 import { AppError } from "@bodhisattva/shared/errors";
+import { paginationQuerySchema } from "@bodhisattva/shared/pagination";
 import { Router, type Request } from "express";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
@@ -16,7 +21,12 @@ import {
 } from "../../middleware/authorization.js";
 import { asyncHandler } from "../../utils/async-handler.js";
 import { assignRoleSchema } from "./roles.schemas.js";
-import { assignRole, listRoles, type RequestMeta } from "./roles.service.js";
+import {
+  assignRole,
+  listRoles,
+  listUsers,
+  type RequestMeta,
+} from "./roles.service.js";
 
 export interface RolesRouterDeps {
   db: Database;
@@ -50,6 +60,25 @@ export function createRolesRouter(deps: RolesRouterDeps): Router {
     asyncHandler(async (_req, res) => {
       const roles = await listRoles(deps.db);
       res.status(200).json({ items: roles });
+    }),
+  );
+
+  router.get(
+    "/users",
+    fullSession,
+    requirePermission(deps.db, "roles.read"),
+    asyncHandler(async (req, res) => {
+      const pagination = paginationQuerySchema.parse(req.query);
+      const { items, total } = await listUsers(deps.db, pagination);
+      res.status(200).json({
+        items,
+        meta: {
+          page: pagination.page,
+          pageSize: pagination.pageSize,
+          total,
+          totalPages: Math.max(1, Math.ceil(total / pagination.pageSize)),
+        },
+      });
     }),
   );
 

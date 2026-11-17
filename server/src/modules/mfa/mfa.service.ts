@@ -29,6 +29,7 @@ import {
   users,
 } from "../../database/schema/index.js";
 import type { AuthContext } from "../../middleware/authorization.js";
+import { createRateLimiter } from "../../security/rate-limit.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
 import { getUserRoles, isAdminRole, getHighestRole } from "../../services/permissions.js";
 import {
@@ -342,6 +343,132 @@ export async function verifyMfa(
   });
 
   return { authLevel: "full" };
+}
+
+/** Step-up failure budget: 5 wrong codes per user per 15 minutes. */
+const STEP_UP_MAX_FAILURES = 5;
+const STEP_UP_WINDOW_SECONDS = 15 * 60;
+
+/**
+ * In-place MFA step-up (Phase 4 review fix): a full admin session whose
+ * step-up stamp has aged past `requireStepUp`'s window re-verifies with a
+ * fresh TOTP code WITHOUT signing out — the same code-verification path
+ * as login (including the A3 single-use step claim), but instead of
+ * rotating the session it re-stamps `step_up_at` on the current one.
+ * Failures are rate-limited per user (5 / 15 min, mirroring the login
+ * account scope) and the counter clears on success.
+ */
+export async function stepUpMfa(
+  deps: MfaDeps,
+  auth: AuthContext,
+  code: string,
+  meta: RequestMeta,
+): Promise<{ stepUpAt: string }> {
+  const { db, config } = deps;
+  const userId = auth.userId;
+
+  const roles = await getUserRoles(db, userId);
+  const highest = getHighestRole(roles);
+  if (!highest || !isAdminRole(highest)) {
+    throw AppError.forbidden(
+      "Step-up verification is for administrator accounts.",
+    );
+  }
+
+  const limiter = createRateLimiter({
+    db,
+    keySecret: config.secrets.otpHmacSecret,
+  });
+  const limitKey = String(userId);
+  const gate = await limiter.checkLimit(
+    "mfa:stepup",
+    limitKey,
+    STEP_UP_MAX_FAILURES,
+    STEP_UP_WINDOW_SECONDS,
+  );
+  if (!gate.allowed) {
+    await writeAudit(db, {
+      actorId: userId,
+      actorType: "ADMIN",
+      actorEmail: auth.email,
+      action: AUDIT_ACTIONS.mfaStepUp,
+      resourceType: "user",
+      resourceId: userId,
+      result: "FAILURE",
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null,
+      metadata: { reason: "rate_limited" },
+    });
+    throw new AppError("RATE_LIMITED");
+  }
+
+  const fail = async (reason?: string): Promise<never> => {
+    await limiter.recordHit("mfa:stepup", limitKey, STEP_UP_WINDOW_SECONDS);
+    await writeAudit(db, {
+      actorId: userId,
+      actorType: "ADMIN",
+      actorEmail: auth.email,
+      action: AUDIT_ACTIONS.mfaStepUp,
+      resourceType: "user",
+      resourceId: userId,
+      result: "FAILURE",
+      ipAddress: meta.ipAddress ?? null,
+      userAgent: meta.userAgent ?? null,
+      metadata: reason ? { reason } : undefined,
+    });
+    throw invalidCodeError();
+  };
+
+  const credential = await loadCredential(db, userId);
+  if (!credential?.confirmedAt) {
+    return fail("no_active_credential");
+  }
+
+  const key = decodeTotpKey(config.secrets.totpEncryptionKey);
+  const secret = decryptTotpSecret(credential.secretEncrypted, key);
+  const step = matchTotpStep(secret, code);
+  if (step === null) {
+    return fail("code_mismatch");
+  }
+
+  // Replay protection (A3): claim this time-step atomically, exactly as
+  // login verification does — a code already used (at login, enrolment
+  // confirmation or a previous step-up) can never step up twice.
+  const now = new Date();
+  const claimed = await db
+    .update(mfaCredentials)
+    .set({ lastUsedCounter: step, lastUsedAt: now })
+    .where(
+      and(
+        eq(mfaCredentials.id, credential.id),
+        or(
+          isNull(mfaCredentials.lastUsedCounter),
+          lt(mfaCredentials.lastUsedCounter, step),
+        ),
+      ),
+    );
+  if (affectedRows(claimed) !== 1) {
+    return fail("replay");
+  }
+
+  await createSessionService(deps).markStepUp(auth.sessionId);
+  // Success proves authenticator possession: clear the failure counter so
+  // earlier fat-fingered attempts cannot lock the admin out (login rule).
+  await limiter.resetScope("mfa:stepup", limitKey, STEP_UP_WINDOW_SECONDS);
+
+  await writeAudit(db, {
+    actorId: userId,
+    actorType: "ADMIN",
+    actorEmail: auth.email,
+    action: AUDIT_ACTIONS.mfaStepUp,
+    resourceType: "user",
+    resourceId: userId,
+    result: "SUCCESS",
+    ipAddress: meta.ipAddress ?? null,
+    userAgent: meta.userAgent ?? null,
+  });
+
+  return { stepUpAt: now.toISOString() };
 }
 
 export async function recoverMfa(

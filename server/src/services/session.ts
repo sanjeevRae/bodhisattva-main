@@ -138,6 +138,12 @@ export interface SessionService {
     newAuthLevel: AuthLevel,
     ctx: SessionContext,
   ): Promise<CreatedSession>;
+  /**
+   * Stamp `step_up_at = now` on an existing session (in-place MFA step-up,
+   * Phase 4 review fix): the session keeps its id and token — only the
+   * recent-verification timestamp that `requireStepUp` reads is refreshed.
+   */
+  markStepUp(sessionId: number): Promise<void>;
   revokeSessionByToken(
     rawToken: string,
     reason?: RevokeReason,
@@ -349,6 +355,15 @@ export function createSessionService(deps: {
     return created;
   }
 
+  async function markStepUp(sessionId: number): Promise<void> {
+    await db
+      .update(userSessions)
+      .set({ stepUpAt: new Date() })
+      .where(
+        and(eq(userSessions.id, sessionId), isNull(userSessions.revokedAt)),
+      );
+  }
+
   async function revokeSessionByToken(
     rawToken: string,
     reason: RevokeReason = "LOGOUT",
@@ -389,6 +404,7 @@ export function createSessionService(deps: {
     createSession,
     validateSession,
     rotateSession,
+    markStepUp,
     revokeSessionByToken,
     revokeAllSessions,
     idleSecondsFor,

@@ -5,9 +5,11 @@
  * separate from the auth suite's database so the two files can run in
  * parallel) with the REAL seeded content. Exercises: public published
  * reads, draft isolation, preview tokens, publish, publish-failure
- * preservation, rollback, optimistic concurrency, slug rules, media
- * upload validation + serving + reference-blocked delete, and an RBAC
- * negative. Guarded by INTEGRATION_DB=1 like the auth suite.
+ * preservation, rollback, optimistic concurrency, draft revision binding
+ * (a post-publish save carrying the published revision id is refused),
+ * slug rules, media upload validation + serving + reference-blocked
+ * delete, and an RBAC negative. Guarded by INTEGRATION_DB=1 like the
+ * auth suite.
  */
 import { execFileSync } from "node:child_process";
 import { mkdirSync, rmSync } from "node:fs";
@@ -193,14 +195,22 @@ describe.skipIf(!RUN)("Phase 3 CMS flows (integration)", () => {
     const save = await admin
       .put(`/api/admin/pages/${museum.id}/draft`)
       .set("X-CSRF-Token", csrf)
-      .send({ expectedVersion: draft.body.version, sections: edited });
+      .send({
+        expectedVersion: draft.body.version,
+        revisionId: draft.body.revisionId,
+        sections: edited,
+      });
     expect(save.status).toBe(200);
 
     // Stale version → 409.
     const stale = await admin
       .put(`/api/admin/pages/${museum.id}/draft`)
       .set("X-CSRF-Token", csrf)
-      .send({ expectedVersion: draft.body.version, sections: edited });
+      .send({
+        expectedVersion: draft.body.version,
+        revisionId: draft.body.revisionId,
+        sections: edited,
+      });
     expect(stale.status).toBe(409);
 
     // Public still serves the original; preview shows the edit.
@@ -229,6 +239,21 @@ describe.skipIf(!RUN)("Phase 3 CMS flows (integration)", () => {
     expect(publish.status).toBe(200);
     const pubAfter = await request(app).get("/api/pages/museum");
     expect(heroHeading(pubAfter.body.sections)).toBe(`Edited ${runId}`);
+
+    // Revision binding (Phase 4 review fix): a save carrying the
+    // now-published revision id is refused — even with expectedVersion 1,
+    // which is exactly what the fresh clone-on-edit draft created by an
+    // unguarded save would carry. Before the fix, that coincidence let a
+    // stale editor silently overwrite the new draft.
+    const superseded = await admin
+      .put(`/api/admin/pages/${museum.id}/draft`)
+      .set("X-CSRF-Token", csrf)
+      .send({
+        expectedVersion: 1,
+        revisionId: state.museumRevisionId,
+        sections: edited,
+      });
+    expect(superseded.status).toBe(409);
 
     const revisions = await admin
       .get(`/api/admin/pages/${museum.id}/revisions`)

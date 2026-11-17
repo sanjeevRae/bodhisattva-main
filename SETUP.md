@@ -151,6 +151,20 @@ suites (13 tests). The public frontend renders pages from
 `GET /api/pages/:slug`; the Vite dev server and preview both proxy
 `/api` to `http://localhost:4000` (see `vite.config.ts`).
 
+### Phase 4 additions — admin SPA + visual builder
+
+The admin lives at `/admin` in the same SPA (lazy-loaded, outside the
+public shell). Sign in with a bootstrapped or invited admin account;
+admin roles must enrol in TOTP MFA at first login (the enrolment screen
+shows the secret as text — enter it into any authenticator app). The
+page editor is three panels: section navigator (drag to reorder),
+live canvas (the real public renderer at desktop/tablet/mobile widths),
+and a property inspector whose fields mirror the server-side section
+schemas — the server stays authoritative and rejects invalid saves with
+field-level errors. `GET /api/admin/users` (roles.read) backs the Users
+screen. A scripted walkthrough of the admin (login → MFA → editor →
+media → menus) is recorded in `docs/phase-4/walkthrough.md`.
+
 ## 7. Native module smoke test (Phase 1, provisional)
 
 `argon2` and `sharp` are native modules; ARCHITECTURE.md §14.1 requires

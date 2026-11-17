@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
 import { motion } from "motion/react";
 import Nav from "./components/Nav";
@@ -54,11 +54,33 @@ function Shell() {
   );
 }
 
+// The admin SPA is code-split: it loads only when an /admin URL is
+// visited, and it renders OUTSIDE the public Shell — no site Nav/Footer
+// and no useWebsiteProtection (admins must be able to copy text and use
+// devtools; see src/admin/AdminApp.tsx).
+const AdminApp = lazy(() => import("../admin/AdminApp"));
+
 export default function App() {
   return (
     <BrowserRouter>
       <ScrollToTop />
-      <Shell />
+      <Routes>
+        <Route
+          path="/admin/*"
+          element={
+            <Suspense
+              fallback={
+                <div className="flex min-h-screen items-center justify-center bg-background text-sm text-muted-foreground">
+                  Loading admin…
+                </div>
+              }
+            >
+              <AdminApp />
+            </Suspense>
+          }
+        />
+        <Route path="*" element={<Shell />} />
+      </Routes>
     </BrowserRouter>
   );
 }

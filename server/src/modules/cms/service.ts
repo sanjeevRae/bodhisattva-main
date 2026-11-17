@@ -517,6 +517,7 @@ export async function saveDraft(
   pageId: number,
   sections: SectionInput[],
   expectedVersion: number,
+  revisionId: number,
   meta: RequestMeta,
 ): Promise<DraftView> {
   const { db } = deps;
@@ -536,6 +537,24 @@ export async function saveDraft(
       .for("update")
       .limit(1);
     if (!page) throw AppError.notFound("Page not found.");
+
+    // Revision binding (Phase 4 review fix): the editor must be saving the
+    // exact draft revision it loaded. If the page was published or rolled
+    // back since, the loaded revision is no longer the draft — it either
+    // stopped being the draft pointer, or it has itself become the
+    // published revision (publishing points published_revision_id AT the
+    // draft). Without this check, a stale editor whose expectedVersion
+    // happens to match the fresh clone-on-edit draft (e.g. both are
+    // version 1) would silently overwrite the newer work.
+    if (
+      page.draftRevisionId !== revisionId ||
+      (page.publishedRevisionId !== null &&
+        revisionId === page.publishedRevisionId)
+    ) {
+      throw AppError.conflict(
+        "This draft has been superseded (the page was published or rolled back elsewhere). Reload the draft.",
+      );
+    }
 
     const draft = await ensureDraftRevision(tx, page, actor.userId);
     if (draft.version !== expectedVersion) {

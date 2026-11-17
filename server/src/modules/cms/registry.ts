@@ -153,6 +153,50 @@ const testimonialsConfig = z.object({
 
 const spacerConfig = z.object({});
 
+const dividerConfig = z.object({});
+
+/** Single image (mapping §11.1 type 3 — retained builder utility, unused
+ * by the current pages). The image follows the §1.1 `{url, alt}` shape. */
+const imageConfig = z.object({
+  image: imageSchema,
+  caption: z.string().max(500).optional(),
+  link: linkSchema.optional(),
+});
+
+/** Image gallery (mapping §11.1 type 5 — retained builder utility).
+ * `columns` defaults to 3 at render time, like the other optional
+ * layout fields — the registry stores only what the editor set. */
+const imageGalleryConfig = z.object({
+  sectionLabel: z.string().min(1).max(200).optional(),
+  heading: z.string().min(1).max(300).optional(),
+  images: z.array(imageSchema).min(1).max(30),
+  columns: z.union([z.literal(2), z.literal(3), z.literal(4)]).optional(),
+});
+
+/** Featured products (mapping §11.1 type 8) — module-reference like the
+ * other grids, but with its own field set: the records live in the
+ * ecommerce module (Phase 6); the section only selects them. `limit`
+ * is capped at 24 (a curated embed, not the full store listing). */
+const featuredProductsConfig = z.object({
+  sectionLabel: z.string().min(1).max(200).optional(),
+  heading: z.string().min(1).max(300).optional(),
+  selection: z.string().min(1).max(200).optional(),
+  limit: z.number().int().positive().max(24).optional(),
+  viewAllLink: linkSchema.optional(),
+});
+
+/** Newsletter signup (mapping §11.2 type 20, schema in §H8). The
+ * submissions store (`newsletter_subscribers`) is a later phase; the
+ * section config is complete so pages can be built ahead of it. */
+const newsletterSignupConfig = z.object({
+  heading: z.string().min(1).max(300),
+  text: z.string().max(2000).optional(),
+  emailPlaceholder: z.string().min(1).max(200).optional(),
+  buttonLabel: z.string().min(1).max(100),
+  successMessage: z.string().max(1000).optional(),
+  privacyNote: z.string().max(1000).optional(),
+});
+
 const historyTimelineConfig = z.object({
   sectionLabel: z.string().min(1).max(200),
   heading: z.string().min(1).max(300),
@@ -359,6 +403,11 @@ export const SECTION_SCHEMAS = {
   foundation_programs: moduleSectionConfig,
   testimonials: testimonialsConfig,
   spacer: spacerConfig,
+  divider: dividerConfig,
+  image: imageConfig,
+  image_gallery: imageGalleryConfig,
+  featured_products: featuredProductsConfig,
+  newsletter_signup: newsletterSignupConfig,
   history_timeline: historyTimelineConfig,
   directory: directoryConfig,
   cta: ctaConfig,

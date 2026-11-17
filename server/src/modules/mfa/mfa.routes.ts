@@ -6,6 +6,8 @@
  *   POST /confirm  session at enrolment_required or full
  *   POST /verify   session at mfa_pending (post-password, pre-MFA)
  *   POST /recover  session at mfa_pending
+ *   POST /step-up  session at full (admin roles) — refresh the step-up
+ *                  stamp in place when requireStepUp's window has lapsed
  *
  * Admin router — mount at `/api/admin/mfa`:
  *   POST /reset/:userId   users.manage + step-up (Super Admin in practice)
@@ -31,6 +33,7 @@ import {
   enrolMfa,
   recoverMfa,
   resetMfaForUser,
+  stepUpMfa,
   verifyMfa,
   type RequestMeta,
 } from "./mfa.service.js";
@@ -71,6 +74,7 @@ export function createMfaRouter(deps: MfaRouterDeps): Router {
     allowLevels: ["enrolment_required", "full"],
   });
   const pendingSession = requireAuth({ allowLevels: ["mfa_pending"] });
+  const fullSession = requireAuth({ allowLevels: ["full"] });
 
   router.post(
     "/enrol",
@@ -137,6 +141,25 @@ export function createMfaRouter(deps: MfaRouterDeps): Router {
         ...result,
         message:
           "Recovery code accepted. This event has been flagged for administrator review.",
+      });
+    }),
+  );
+
+  router.post(
+    "/step-up",
+    fullSession,
+    asyncHandler(async (req, res) => {
+      const { code } = totpCodeSchema.parse(req.body);
+      const result = await stepUpMfa(
+        deps,
+        getAuthContext(req),
+        code,
+        requestMeta(req),
+      );
+      res.status(200).json({
+        ...result,
+        message:
+          "Verification complete. Your session is refreshed for sensitive actions — you can retry the action now.",
       });
     }),
   );

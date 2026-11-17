@@ -38,6 +38,11 @@ export const sectionInputSchema = z.object({
 
 export const saveDraftSchema = z.object({
   expectedVersion: z.number().int().min(1),
+  // The exact draft revision the editor loaded (Phase 4 review fix): the
+  // service refuses the save when the page's draft pointer has moved since
+  // (publish / rollback elsewhere), even if the version coincidentally
+  // matches the fresh draft's version.
+  revisionId: z.number().int().positive(),
   sections: z.array(sectionInputSchema).max(200),
 });
 

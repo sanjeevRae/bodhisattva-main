@@ -29,6 +29,8 @@ import {
  * (collection_grid, exhibition_grid, news_listing, foundation_programs,
  * testimonial grids) render their chrome from config and their records
  * from temporary-module-data.ts until the Phase 5/6 module APIs land.
+ * featured_products is the exception: it has no temporary data source, so
+ * it renders chrome only until the Phase 6 ecommerce module lands.
  */
 
 // ---------------------------------------------------------------------------
@@ -1033,6 +1035,136 @@ function SpacerSection() {
 }
 
 // ---------------------------------------------------------------------------
+// Phase 4 library types — retained builder utilities (mapping §11.1/§11.2)
+// that no current page uses yet: image, image_gallery, featured_products,
+// divider, newsletter_signup.
+// ---------------------------------------------------------------------------
+
+function ImageSection({ section }: { section: CmsSection }) {
+  const config = section.config;
+  const image = config.image as { url: string; alt: string } | undefined;
+  if (!image) return null;
+  const img = <img src={image.url} alt={image.alt} className="w-full h-auto" />;
+  return (
+    <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
+      <figure>
+        {config.link ? (
+          <CmsLink link={config.link} className="block">
+            {img}
+          </CmsLink>
+        ) : (
+          img
+        )}
+        {config.caption && (
+          <figcaption className="mt-4 text-center font-sans text-xs text-muted-foreground font-light">
+            {config.caption}
+          </figcaption>
+        )}
+      </figure>
+    </section>
+  );
+}
+
+const GALLERY_COLUMN_CLASS: Record<number, string> = {
+  2: "sm:grid-cols-2",
+  3: "sm:grid-cols-2 lg:grid-cols-3",
+  4: "sm:grid-cols-2 lg:grid-cols-4",
+};
+
+function ImageGallerySection({ section }: { section: CmsSection }) {
+  const config = section.config;
+  const images: { url: string; alt: string }[] = config.images ?? [];
+  const columns = typeof config.columns === "number" ? config.columns : 3;
+  return (
+    <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
+      {config.sectionLabel && <SectionLabel>{config.sectionLabel}</SectionLabel>}
+      {config.heading && (
+        <h2 className="font-display text-3xl md:text-4xl font-medium mb-12">{config.heading}</h2>
+      )}
+      <div className={`grid gap-6 ${GALLERY_COLUMN_CLASS[columns] ?? GALLERY_COLUMN_CLASS[3]}`}>
+        {images.map((image) => (
+          <div key={image.url} className="overflow-hidden bg-muted">
+            <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FeaturedProductsSection({ section }: { section: CmsSection }) {
+  const config = section.config;
+  return (
+    <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
+      <div className="flex items-end justify-between mb-12">
+        <div>
+          {config.sectionLabel && <SectionLabel>{config.sectionLabel}</SectionLabel>}
+          {config.heading && (
+            <h2 className="font-display text-3xl md:text-4xl font-medium">{config.heading}</h2>
+          )}
+        </div>
+        {config.viewAllLink && (
+          <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
+            {config.viewAllLink.label} <ArrowRight size={12} />
+          </CmsLink>
+        )}
+      </div>
+      {/* TODO Phase 6 module data: product records come from the ecommerce
+          module; until then the section renders its chrome and an empty
+          grid region — no cards. */}
+      <div className="grid md:grid-cols-3 gap-6" />
+    </section>
+  );
+}
+
+function DividerSection() {
+  return (
+    <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
+      <hr className="border-border" />
+    </div>
+  );
+}
+
+function NewsletterSignupSection({ section }: { section: CmsSection }) {
+  const config = section.config;
+  return (
+    <section className="bg-secondary py-24 border-y border-border">
+      <div className="max-w-screen-lg mx-auto px-6 text-center">
+        <h2 className="font-display text-3xl md:text-4xl font-medium mb-4">{config.heading}</h2>
+        {config.text && (
+          <p className="font-sans text-sm text-muted-foreground leading-relaxed font-light max-w-md mx-auto mb-10">
+            {config.text}
+          </p>
+        )}
+        {/* TODO: submissions store (newsletter_subscribers) — later phase.
+            Until the store exists the form is a no-op, exactly like the
+            contact form; `successMessage` is honoured once it lands. */}
+        <form
+          className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto"
+          onSubmit={(e) => e.preventDefault()}
+        >
+          <input
+            type="email"
+            required
+            placeholder={config.emailPlaceholder ?? "Email address"}
+            className="flex-1 bg-background border border-border px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent placeholder:text-muted-foreground"
+          />
+          <button
+            type="submit"
+            className="bg-accent text-accent-foreground px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans hover:opacity-90 transition-opacity"
+          >
+            {config.buttonLabel}
+          </button>
+        </form>
+        {config.privacyNote && (
+          <p className="font-sans text-xs text-muted-foreground font-light mt-5">{config.privacyNote}</p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // PageRenderer
 // ---------------------------------------------------------------------------
 
@@ -1072,6 +1204,16 @@ function renderDefaultSection(section: CmsSection, pageSlug: string): ReactNode 
       return <ContactBand form={section} />;
     case "spacer":
       return <SpacerSection />;
+    case "image":
+      return <ImageSection section={section} />;
+    case "image_gallery":
+      return <ImageGallerySection section={section} />;
+    case "featured_products":
+      return <FeaturedProductsSection section={section} />;
+    case "divider":
+      return <DividerSection />;
+    case "newsletter_signup":
+      return <NewsletterSignupSection section={section} />;
     default:
       return null;
   }

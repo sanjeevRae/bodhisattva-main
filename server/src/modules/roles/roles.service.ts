@@ -15,7 +15,7 @@
  */
 import { AppError } from "@bodhisattva/shared/errors";
 import { isRole, type Role } from "@bodhisattva/shared/permissions";
-import { and, count, eq, inArray } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import {
@@ -86,6 +86,79 @@ export async function listRoles(db: Database): Promise<RoleView[]> {
       },
     ];
   });
+}
+
+/** One row of the admin users list (Phase 4 delta — the admin SPA's Users
+ * screen needs a directory; only non-sensitive fields are exposed). */
+export interface UserListItem {
+  id: number;
+  email: string;
+  displayName: string;
+  status: string;
+  roles: string[];
+  lastLoginAt: Date | null;
+}
+
+/**
+ * Paginated user directory for the admin UI. Soft-deleted users are
+ * excluded; roles are resolved with one join query for the whole page
+ * (same pattern as listRoles' grants query).
+ */
+export async function listUsers(
+  db: Database,
+  pagination: { page: number; pageSize: number },
+): Promise<{ items: UserListItem[]; total: number }> {
+  const offset = (pagination.page - 1) * pagination.pageSize;
+  const [countRow] = await db
+    .select({ value: count() })
+    .from(users)
+    .where(isNull(users.deletedAt));
+  const total = countRow?.value ?? 0;
+
+  const rows = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      fullName: users.fullName,
+      status: users.status,
+      lastLoginAt: users.lastLoginAt,
+    })
+    .from(users)
+    .where(isNull(users.deletedAt))
+    .orderBy(asc(users.id))
+    .limit(pagination.pageSize)
+    .offset(offset);
+
+  const rolesByUser = new Map<number, string[]>();
+  if (rows.length > 0) {
+    const grants = await db
+      .select({ userId: userRoles.userId, code: rolesTable.code })
+      .from(userRoles)
+      .innerJoin(rolesTable, eq(userRoles.roleId, rolesTable.id))
+      .where(
+        inArray(
+          userRoles.userId,
+          rows.map((row) => row.id),
+        ),
+      );
+    for (const grant of grants) {
+      const list = rolesByUser.get(grant.userId) ?? [];
+      list.push(grant.code);
+      rolesByUser.set(grant.userId, list);
+    }
+  }
+
+  return {
+    total,
+    items: rows.map((row) => ({
+      id: row.id,
+      email: row.email,
+      displayName: row.fullName,
+      status: row.status,
+      roles: rolesByUser.get(row.id) ?? [],
+      lastLoginAt: row.lastLoginAt,
+    })),
+  };
 }
 
 async function countActiveSuperAdmins(db: Database): Promise<number> {

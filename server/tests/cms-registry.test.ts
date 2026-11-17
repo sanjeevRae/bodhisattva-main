@@ -101,6 +101,133 @@ describe("cms section registry", () => {
     expect(cleaned).not.toContain("onclick");
   });
 
+  it("registers the five Phase 4 library types", () => {
+    // The full library: 19 specification types (§11.1) + the 3 proposed
+    // additions (§11.2). The seed data exercises 17 of the 22.
+    for (const type of [
+      "image",
+      "image_gallery",
+      "featured_products",
+      "divider",
+      "newsletter_signup",
+    ]) {
+      expect(SECTION_TYPES).toContain(type);
+    }
+    expect(SECTION_TYPES).toHaveLength(22);
+  });
+
+  it("accepts a valid image section", () => {
+    const result = validateSection("image", {
+      image: { url: "https://example.com/hall.jpg", alt: "Main hall" },
+      caption: "The main hall, north wing.",
+      link: { kind: "url", url: "https://example.com", label: "More" },
+    });
+    expect(result.config.caption).toBe("The main hall, north wing.");
+  });
+
+  it("rejects an image section without an image", () => {
+    expect(() =>
+      validateSection("image", { caption: "No image here." }),
+    ).toThrowError(AppError);
+    try {
+      validateSection("image", { caption: "No image here." });
+    } catch (err) {
+      expect((err as AppError).code).toBe("VALIDATION_FAILED");
+      expect(
+        (err as AppError).details?.some((d) => d.field === "config.image"),
+      ).toBe(true);
+    }
+  });
+
+  it("accepts a valid image_gallery section", () => {
+    const result = validateSection("image_gallery", {
+      sectionLabel: "Gallery",
+      heading: "Selected Works",
+      images: [
+        { url: "https://example.com/a.jpg", alt: "Work A" },
+        { url: "https://example.com/b.jpg", alt: "Work B" },
+      ],
+      columns: 4,
+    });
+    expect(result.config.columns).toBe(4);
+    expect(result.config.images).toHaveLength(2);
+  });
+
+  it("rejects an image_gallery with no images", () => {
+    expect(() => validateSection("image_gallery", { images: [] })).toThrowError(
+      AppError,
+    );
+    try {
+      validateSection("image_gallery", { images: [] });
+    } catch (err) {
+      expect(
+        (err as AppError).details?.some((d) => d.field === "config.images"),
+      ).toBe(true);
+    }
+  });
+
+  it("accepts a valid featured_products section", () => {
+    const result = validateSection("featured_products", {
+      sectionLabel: "Gift Shop",
+      heading: "Featured Products",
+      selection: "featured",
+      limit: 8,
+      viewAllLink: { kind: "page", pageSlug: "shop", label: "View all" },
+    });
+    expect(result.config.limit).toBe(8);
+  });
+
+  it("rejects featured_products with a limit above the curated cap", () => {
+    expect(() =>
+      validateSection("featured_products", { limit: 25 }),
+    ).toThrowError(AppError);
+    try {
+      validateSection("featured_products", { limit: 25 });
+    } catch (err) {
+      expect(
+        (err as AppError).details?.some((d) => d.field === "config.limit"),
+      ).toBe(true);
+    }
+  });
+
+  it("accepts an empty divider config", () => {
+    const result = validateSection("divider", {});
+    expect(result.config).toEqual({});
+  });
+
+  it("rejects a divider with an out-of-vocabulary design value", () => {
+    expect(() =>
+      validateSection("divider", {}, { background: "rainbow" }),
+    ).toThrowError(AppError);
+  });
+
+  it("accepts a valid newsletter_signup section", () => {
+    const result = validateSection("newsletter_signup", {
+      heading: "Stay in touch",
+      text: "Exhibition openings and programme news, once a month.",
+      emailPlaceholder: "Email address",
+      buttonLabel: "Subscribe",
+      successMessage: "Thank you — please check your inbox.",
+      privacyNote: "We never share your address.",
+    });
+    expect(result.config.buttonLabel).toBe("Subscribe");
+  });
+
+  it("rejects a newsletter_signup without a button label", () => {
+    expect(() =>
+      validateSection("newsletter_signup", { heading: "Stay in touch" }),
+    ).toThrowError(AppError);
+    try {
+      validateSection("newsletter_signup", { heading: "Stay in touch" });
+    } catch (err) {
+      expect(
+        (err as AppError).details?.some(
+          (d) => d.field === "config.buttonLabel",
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("sanitises declared rich-text paths (columns body)", () => {
     const withColumns = validateSection("rich_text", {
       layout: "two-column statements",
