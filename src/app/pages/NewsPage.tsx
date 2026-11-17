@@ -1,18 +1,20 @@
 import { useState } from "react";
 import { Search } from "lucide-react";
-import { usePage } from "../lib/api";
+import { useNews, usePage } from "../lib/api";
 import PageRenderer, { NewsRows, PageStatus } from "../components/PageRenderer";
 
 /**
  * News Clippings — content from the CMS (GET /api/pages/news) via
  * PageRenderer. The search box is the listing section's configuration
  * (enableSearch) rendered inside the hero band, as on the current site;
- * the query is page state shared between the band and the rows.
- * Article records are the temporary module data until Phase 5.
+ * the query is page state shared between the band and the rows. The
+ * query drives the module API (GET /api/news?search=, debounced in
+ * useNews) — rows render the API's results, not a client-side filter.
  */
 export default function NewsPage() {
   const { data: page, error } = usePage("news");
   const [query, setQuery] = useState("");
+  const news = useNews(query);
   if (error) return <PageStatus error />;
   if (!page) return <PageStatus />;
   return (
@@ -41,7 +43,7 @@ export default function NewsPage() {
             );
           }
           if (section.type === "news_listing") {
-            return <NewsRows query={query} />;
+            return <NewsRows articles={news.data?.items ?? []} query={query} />;
           }
           return undefined;
         }}

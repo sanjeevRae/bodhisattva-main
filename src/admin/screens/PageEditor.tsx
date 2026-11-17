@@ -56,7 +56,14 @@ import {
   Undo2,
 } from "lucide-react";
 import PageRenderer from "../../app/components/PageRenderer";
-import type { CmsPage } from "../../app/lib/api";
+import {
+  getCollections,
+  getExhibitions,
+  getFoundation,
+  getNewsPayload,
+  type CmsPage,
+  type ModuleData,
+} from "../../app/lib/api";
 import { ApiError, pagePath, pagesApi } from "../api";
 import { DESIGN_FIELDS, SECTION_SPECS, SECTION_TYPES, sectionSummary } from "../field-specs";
 import { FieldRenderer, moveIndex, removeIndex } from "../fields";
@@ -201,6 +208,26 @@ export default function PageEditor() {
   useEffect(() => {
     void loadAll();
   }, [loadAll]);
+
+  // Phase 5: the canvas renders module sections (collections,
+  // exhibitions, news, foundation) from the real public module
+  // endpoints, fetched once per editor session (the getters are
+  // promise-cached in lib/api). Failure leaves moduleData undefined —
+  // sections then render chrome only, exactly as the public renderer
+  // degrades.
+  const [moduleData, setModuleData] = useState<ModuleData | undefined>(undefined);
+  useEffect(() => {
+    let alive = true;
+    Promise.all([getCollections(), getExhibitions(), getNewsPayload(), getFoundation()]).then(
+      ([collections, exhibitions, news, foundation]) => {
+        if (alive) setModuleData({ collections, exhibitions, news, foundation });
+      },
+      () => undefined,
+    );
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // ----------------------------------------------------------- editing ---
   const commit = useCallback((next: LocalSection[], structural = false) => {
@@ -642,6 +669,7 @@ export default function PageEditor() {
                 )}
                 <div className={cx(!section.isVisible && "pointer-events-none opacity-40")}>
                   <PageRenderer
+                    moduleData={moduleData}
                     page={{
                       slug: page.slug,
                       title: page.title,
@@ -757,6 +785,7 @@ export default function PageEditor() {
               Unpublished draft — revision {preview.revisionId}
             </div>
             <PageRenderer
+              moduleData={moduleData}
               page={{
                 slug: preview.slug,
                 title: preview.title,

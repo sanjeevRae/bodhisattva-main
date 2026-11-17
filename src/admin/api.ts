@@ -15,19 +15,26 @@
  */
 import type {
   AdminUser,
+  CollectionAdmin,
   Draft,
+  ExhibitionAdmin,
+  FoundationProgramAdmin,
+  GalleryItemAdmin,
   Invitation,
   LoginResponse,
   MeResponse,
   MediaAsset,
   MediaFolder,
   Menu,
+  NewsArticleAdmin,
+  NewsCategoryAdmin,
   PageAdmin,
   PageMeta,
   PublicPage,
   Revision,
   RoleInfo,
   Setting,
+  TestimonialAdmin,
 } from "./types";
 
 export interface FieldIssue {
@@ -329,6 +336,154 @@ export const usersApi = {
   },
   revokeInvitation(id: number): Promise<Invitation> {
     return request(`/api/admin/invitations/${id}/revoke`, { method: "POST" });
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Museum modules (Phase 5) — collections, exhibitions (+ gallery items),
+// news (+ categories), foundation (programs + testimonials).
+//
+// Unlike the CMS endpoints above, the museum routes wrap payloads in
+// the shared success envelope ({ success, data, meta }), so every call
+// unwraps `.data` (and `.meta` for lists). Module writes are NOT
+// step-up gated — plain saves.
+// ---------------------------------------------------------------------------
+
+interface ModuleEnvelope<T> {
+  success: boolean;
+  data: T;
+  meta?: PageMeta;
+}
+
+async function moduleList<T>(path: string): Promise<{ items: T[]; meta: PageMeta }> {
+  const env = await request<ModuleEnvelope<T[]>>(path);
+  return {
+    items: env.data,
+    meta: env.meta ?? { page: 1, pageSize: env.data.length, total: env.data.length, totalPages: 1 },
+  };
+}
+
+async function moduleOne<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const env = await request<ModuleEnvelope<T>>(path, options);
+  return env.data;
+}
+
+function listQuery(page: number, pageSize: number): string {
+  return `?page=${page}&pageSize=${pageSize}`;
+}
+
+export const collectionsApi = {
+  list(page = 1, pageSize = 100): Promise<{ items: CollectionAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/collections${listQuery(page, pageSize)}`);
+  },
+  create(body: Record<string, unknown>): Promise<CollectionAdmin> {
+    return moduleOne("/api/admin/collections", { method: "POST", body });
+  },
+  update(id: number, body: Record<string, unknown>): Promise<CollectionAdmin> {
+    return moduleOne(`/api/admin/collections/${id}`, { method: "PATCH", body });
+  },
+  remove(id: number): Promise<unknown> {
+    return request(`/api/admin/collections/${id}`, { method: "DELETE" });
+  },
+  reorder(ids: number[]): Promise<unknown> {
+    return request("/api/admin/collections/reorder", { method: "POST", body: { ids } });
+  },
+};
+
+export const exhibitionsApi = {
+  list(page = 1, pageSize = 100): Promise<{ items: ExhibitionAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/exhibitions${listQuery(page, pageSize)}`);
+  },
+  create(body: Record<string, unknown>): Promise<ExhibitionAdmin> {
+    return moduleOne("/api/admin/exhibitions", { method: "POST", body });
+  },
+  update(id: number, body: Record<string, unknown>): Promise<ExhibitionAdmin> {
+    return moduleOne(`/api/admin/exhibitions/${id}`, { method: "PATCH", body });
+  },
+  remove(id: number): Promise<unknown> {
+    return request(`/api/admin/exhibitions/${id}`, { method: "DELETE" });
+  },
+  reorder(ids: number[]): Promise<unknown> {
+    return request("/api/admin/exhibitions/reorder", { method: "POST", body: { ids } });
+  },
+  listGalleryItems(exhibitionId: number, page = 1, pageSize = 100): Promise<{ items: GalleryItemAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/exhibitions/${exhibitionId}/gallery-items${listQuery(page, pageSize)}`);
+  },
+  createGalleryItem(exhibitionId: number, body: Record<string, unknown>): Promise<GalleryItemAdmin> {
+    return moduleOne(`/api/admin/exhibitions/${exhibitionId}/gallery-items`, { method: "POST", body });
+  },
+  updateGalleryItem(id: number, body: Record<string, unknown>): Promise<GalleryItemAdmin> {
+    return moduleOne(`/api/admin/gallery-items/${id}`, { method: "PATCH", body });
+  },
+  removeGalleryItem(id: number): Promise<unknown> {
+    return request(`/api/admin/gallery-items/${id}`, { method: "DELETE" });
+  },
+  reorderGalleryItems(ids: number[]): Promise<unknown> {
+    return request("/api/admin/gallery-items/reorder", { method: "POST", body: { ids } });
+  },
+};
+
+export const newsApi = {
+  listArticles(page = 1, pageSize = 100): Promise<{ items: NewsArticleAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/news${listQuery(page, pageSize)}`);
+  },
+  createArticle(body: Record<string, unknown>): Promise<NewsArticleAdmin> {
+    return moduleOne("/api/admin/news", { method: "POST", body });
+  },
+  updateArticle(id: number, body: Record<string, unknown>): Promise<NewsArticleAdmin> {
+    return moduleOne(`/api/admin/news/${id}`, { method: "PATCH", body });
+  },
+  removeArticle(id: number): Promise<unknown> {
+    return request(`/api/admin/news/${id}`, { method: "DELETE" });
+  },
+  async listCategories(): Promise<{ items: NewsCategoryAdmin[] }> {
+    // The categories list is the one unpaginated museum endpoint: its
+    // envelope data is { items } rather than the bare array sendList
+    // returns elsewhere.
+    const env = await request<ModuleEnvelope<{ items: NewsCategoryAdmin[] }>>("/api/admin/news/categories");
+    return { items: env.data.items };
+  },
+  createCategory(body: Record<string, unknown>): Promise<NewsCategoryAdmin> {
+    return moduleOne("/api/admin/news/categories", { method: "POST", body });
+  },
+  updateCategory(id: number, body: Record<string, unknown>): Promise<NewsCategoryAdmin> {
+    return moduleOne(`/api/admin/news/categories/${id}`, { method: "PATCH", body });
+  },
+  removeCategory(id: number): Promise<unknown> {
+    return request(`/api/admin/news/categories/${id}`, { method: "DELETE" });
+  },
+};
+
+export const foundationApi = {
+  listPrograms(page = 1, pageSize = 100): Promise<{ items: FoundationProgramAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/foundation-programs${listQuery(page, pageSize)}`);
+  },
+  createProgram(body: Record<string, unknown>): Promise<FoundationProgramAdmin> {
+    return moduleOne("/api/admin/foundation-programs", { method: "POST", body });
+  },
+  updateProgram(id: number, body: Record<string, unknown>): Promise<FoundationProgramAdmin> {
+    return moduleOne(`/api/admin/foundation-programs/${id}`, { method: "PATCH", body });
+  },
+  removeProgram(id: number): Promise<unknown> {
+    return request(`/api/admin/foundation-programs/${id}`, { method: "DELETE" });
+  },
+  reorderPrograms(ids: number[]): Promise<unknown> {
+    return request("/api/admin/foundation-programs/reorder", { method: "POST", body: { ids } });
+  },
+  listTestimonials(page = 1, pageSize = 100): Promise<{ items: TestimonialAdmin[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/testimonials${listQuery(page, pageSize)}`);
+  },
+  createTestimonial(body: Record<string, unknown>): Promise<TestimonialAdmin> {
+    return moduleOne("/api/admin/testimonials", { method: "POST", body });
+  },
+  updateTestimonial(id: number, body: Record<string, unknown>): Promise<TestimonialAdmin> {
+    return moduleOne(`/api/admin/testimonials/${id}`, { method: "PATCH", body });
+  },
+  removeTestimonial(id: number): Promise<unknown> {
+    return request(`/api/admin/testimonials/${id}`, { method: "DELETE" });
+  },
+  reorderTestimonials(ids: number[]): Promise<unknown> {
+    return request("/api/admin/testimonials/reorder", { method: "POST", body: { ids } });
   },
 };
 

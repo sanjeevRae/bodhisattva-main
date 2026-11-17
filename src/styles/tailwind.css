@@ -1,4 +1,12 @@
 @import 'tailwindcss' source(none);
 @source '../**/*.{js,ts,jsx,tsx}';
 
+/* News-category colour tokens are DATA (news_categories.color_token,
+   Phase 5) — the class names arrive from the API at runtime, so the
+   source scan above never sees them. The five tokens of the current
+   design vocabulary (CMS_CONTENT_MAPPING.md §N2) are generated
+   explicitly here; a new token invented in the admin needs a matching
+   entry in this list before it will render. */
+@source inline("text-amber-700 dark:text-amber-400 text-emerald-700 dark:text-emerald-400 text-blue-700 dark:text-blue-400 text-purple-700 dark:text-purple-400 text-rose-700 dark:text-rose-400");
+
 @import 'tw-animate-css';

@@ -12,7 +12,10 @@
  * derivative; they are files derived from `storage_name`, never rows.
  *
  * Deletes are soft and reference-blocked (§7.7): an asset referenced by a
- * page's og image or by any section config/design cannot be deleted.
+ * page's og image, by any section config/design, or by a museum-module
+ * record (Phase 5: collection/exhibition/news/program covers, gallery
+ * items, news documents, testimonial avatars — direct FK columns, counted
+ * without a JSON scan) cannot be deleted.
  * Files stay on disk after a soft delete — hard delete is an
  * admin-confirmed purge, out of scope here.
  */
@@ -27,10 +30,16 @@ import sharp from "sharp";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import {
+  collections,
+  exhibitions,
+  foundationPrograms,
+  galleryItems,
   mediaAssets,
   mediaFolders,
+  newsArticles,
   pageSections,
   pages,
+  testimonials,
 } from "../../database/schema/index.js";
 import type { AuthContext } from "../../middleware/authorization.js";
 import { writeAudit } from "../../services/audit.js";
@@ -645,6 +654,43 @@ export async function deleteAsset(
     .where(eq(pages.ogImageMediaId, assetId));
   let referenced = (ogRow?.value ?? 0) > 0;
 
+  // …then the museum-module records (Phase 5): plain FK columns, counted
+  // directly — every referencing row counts, including soft-deleted ones,
+  // exactly like the pages scan above (their FKs are RESTRICT).
+  if (!referenced) {
+    const museumRefs = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(collections)
+        .where(eq(collections.coverMediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(exhibitions)
+        .where(eq(exhibitions.coverMediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(galleryItems)
+        .where(eq(galleryItems.mediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(newsArticles)
+        .where(eq(newsArticles.coverMediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(newsArticles)
+        .where(eq(newsArticles.documentMediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(foundationPrograms)
+        .where(eq(foundationPrograms.coverMediaId, assetId)),
+      db
+        .select({ value: count() })
+        .from(testimonials)
+        .where(eq(testimonials.avatarMediaId, assetId)),
+    ]);
+    referenced = museumRefs.some(([row]) => (row?.value ?? 0) > 0);
+  }
+
   // …then section configs/designs. The LIKE patterns pre-filter candidate
   // rows in SQL; each candidate's JSON is then checked precisely in code.
   if (!referenced) {
@@ -669,7 +715,7 @@ export async function deleteAsset(
 
   if (referenced) {
     throw AppError.conflict(
-      "This media asset is referenced by page content and cannot be deleted.",
+      "This media asset is referenced by site content and cannot be deleted.",
     );
   }
 

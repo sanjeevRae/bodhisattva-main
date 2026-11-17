@@ -12,4 +12,5 @@ export * from './auth-challenges.js';
 export * from './authorization.js';
 export * from './cms.js';
 export * from './media.js';
+export * from './museum.js';
 export * from './system.js';

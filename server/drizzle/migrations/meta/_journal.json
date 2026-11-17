@@ -36,6 +36,20 @@
       "when": 1794902487545,
       "tag": "0004_preview_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794907445488,
+      "tag": "0005_museum",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794907764684,
+      "tag": "0006_museum_display_fields",
+      "breakpoints": true
     }
   ]
 }

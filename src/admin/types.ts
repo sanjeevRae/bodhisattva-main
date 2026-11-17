@@ -182,3 +182,125 @@ export interface PublicPage {
   preview?: boolean;
   revisionId?: number;
 }
+
+// ---------------------------------------------------------------------------
+// Museum module admin records (Phase 5) — mirror the admin views in
+// server/src/modules/museum/service.ts (full table rows, camelCase).
+// ---------------------------------------------------------------------------
+
+export interface CollectionAdmin {
+  id: number;
+  slug: string;
+  name: string;
+  category: string | null;
+  periodLabel: string | null;
+  description: string | null;
+  history: string | null;
+  coverMediaId: number | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  itemCount: number | null;
+  isFeatured: boolean;
+  isPublished: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExhibitionAdmin {
+  id: number;
+  slug: string;
+  title: string;
+  description: string | null;
+  coverMediaId: number | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  location: string | null;
+  curator: string | null;
+  category: string | null;
+  startsOn: string | null;
+  endsOn: string | null;
+  /** UPCOMING | CURRENT | PAST */
+  status: string;
+  coverAspect: string | null;
+  isFeatured: boolean;
+  isPublished: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GalleryItemAdmin {
+  id: number;
+  mediaId: number;
+  exhibitionId: number | null;
+  title: string | null;
+  caption: string | null;
+  category: string | null;
+  year: number | null;
+  sortOrder: number;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface NewsCategoryAdmin {
+  id: number;
+  slug: string;
+  name: string;
+  colorToken: string | null;
+  createdAt: string;
+}
+
+export interface NewsArticleAdmin {
+  id: number;
+  slug: string;
+  categoryId: number | null;
+  title: string;
+  outlet: string | null;
+  articleType: string | null;
+  summary: string | null;
+  publishedOn: string | null;
+  externalUrl: string | null;
+  documentMediaId: number | null;
+  coverMediaId: number | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  isPublished: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FoundationProgramAdmin {
+  id: number;
+  slug: string;
+  name: string;
+  category: string | null;
+  description: string | null;
+  impactLabel: string | null;
+  iconName: string | null;
+  coverMediaId: number | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  isFeatured: boolean;
+  isPublished: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TestimonialAdmin {
+  id: number;
+  quote: string;
+  authorName: string;
+  authorRole: string | null;
+  avatarMediaId: number | null;
+  imageUrl: string | null;
+  imageAlt: string | null;
+  /** Stored verbatim — the renderer matches "foundation" | "curator". */
+  context: string;
+  isPublished: boolean;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}

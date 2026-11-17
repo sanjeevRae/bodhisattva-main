@@ -36,6 +36,10 @@ import {
   createCmsPublicRouter,
 } from "./modules/cms/routes.js";
 import { createMediaRouters } from "./modules/media/media.routes.js";
+import {
+  createMuseumAdminRouter,
+  createMuseumPublicRouter,
+} from "./modules/museum/routes.js";
 import { createRolesRouter } from "./modules/roles/roles.routes.js";
 import {
   createHealthRouter,
@@ -98,6 +102,8 @@ export function createApp(deps: AppDeps): Express {
     const media = createMediaRouters({ db, config });
     app.use("/api", media.publicRouter);
     app.use("/api/admin", media.adminRouter);
+    app.use("/api", createMuseumPublicRouter({ db, config }));
+    app.use("/api/admin", createMuseumAdminRouter({ db, config }));
   }
 
   app.use(notFoundHandler);

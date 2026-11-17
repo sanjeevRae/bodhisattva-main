@@ -8,14 +8,9 @@ import {
 import {
   usePagePathMap, useSiteSettings, settingString,
   type CmsLinkRef, type CmsPage, type CmsSection,
+  type ExhibitionRecord, type ModuleData, type NewsArticleRecord,
 } from "../lib/api";
-import { SectionLabel, uimg } from "./shared";
-import {
-  TEMP_HOME_COLLECTIONS, TEMP_MUSEUM_COLLECTIONS, TEMP_MUSEUM_COLLECTION_FILTERS,
-  TEMP_HOME_FEATURED_EXHIBITION, TEMP_HOME_EXHIBITIONS, TEMP_GALLERY_EXHIBITIONS,
-  TEMP_HOME_NEWS, TEMP_NEWS_ARTICLES, TEMP_NEWS_TYPE_COLOR,
-  TEMP_FOUNDATION_PROGRAMS, TEMP_FOUNDATION_TESTIMONIALS,
-} from "./temporary-module-data";
+import { SectionLabel } from "./shared";
 
 /**
  * PageRenderer — ARCHITECTURE.md §8.2/§8.3 + amendment A10.
@@ -28,10 +23,40 @@ import {
  * Content sections render 100% from `config`. Module-reference sections
  * (collection_grid, exhibition_grid, news_listing, foundation_programs,
  * testimonial grids) render their chrome from config and their records
- * from temporary-module-data.ts until the Phase 5/6 module APIs land.
- * featured_products is the exception: it has no temporary data source, so
- * it renders chrome only until the Phase 6 ecommerce module lands.
+ * from the Phase 5 museum module APIs, passed in via the `moduleData`
+ * prop. When module data is absent or a list is empty, the section
+ * renders its chrome with no cards — there is no hardcoded fallback.
+ * featured_products is the exception: it has no data source yet, so it
+ * renders chrome only until the Phase 6 ecommerce module lands.
  */
+
+// ---------------------------------------------------------------------------
+// Module-record display helpers.
+// ---------------------------------------------------------------------------
+
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** "2026-08-05" → "05 Aug 2026" (the news cards'/rows' display format). */
+function formatNewsDate(iso: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return `${m[3]} ${MONTHS_SHORT[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+/** "2026-11-30" → "Nov 2026" (the Home exhibition "Until …" line). */
+function formatMonthYear(iso: string | null): string {
+  if (!iso) return "";
+  const m = /^(\d{4})-(\d{2})/.exec(iso);
+  if (!m) return "";
+  return `${MONTHS_SHORT[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+/** "{location} · Until {Mon YYYY}", tolerating either part missing. */
+function exhibitionLocLine(ex: ExhibitionRecord): string {
+  const until = ex.endsOn ? `Until ${formatMonthYear(ex.endsOn)}` : null;
+  return [ex.locationLabel, until].filter(Boolean).join(" · ");
+}
 
 // ---------------------------------------------------------------------------
 // Link plumbing. Section config links reference pages by id; the public
@@ -425,30 +450,37 @@ function StatisticsSection({ section }: { section: CmsSection }) {
 }
 
 // ---------------------------------------------------------------------------
-// Testimonials — single-featured (Home H5, embedded record in config) and
-// grid (Foundation F5, records from the module pool — temporary data).
+// Testimonials — single-featured (Home H5) and grid (Foundation F5).
+// Records come from the testimonials pool via moduleData (GET
+// /api/foundation). Grid mode filters by the config selection's context
+// ("context:foundation"); single-featured prefers the pool's
+// context=curator record and falls back to the testimonial embedded in
+// config (the registry schema's sanctioned alternative form).
 // ---------------------------------------------------------------------------
 
-function TestimonialsSection({ section }: { section: CmsSection }) {
+function TestimonialsSection({ section, moduleData }: { section: CmsSection; moduleData?: ModuleData }) {
   const config = section.config;
+  const records = moduleData?.foundation?.testimonials ?? [];
 
   if (config.displayMode === "grid") {
-    // TODO Phase 5/6 module data: records come from the testimonials pool.
+    const selection = typeof config.selection === "string" ? config.selection : "";
+    const context = selection.startsWith("context:") ? selection.slice("context:".length) : "foundation";
+    const items = records.filter((t) => t.context === context);
     return (
       <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
         <SectionLabel>{config.sectionLabel}</SectionLabel>
         <h2 className="font-display text-3xl md:text-4xl font-medium mb-12">{config.heading}</h2>
         <div className="grid md:grid-cols-3 gap-6">
-          {TEMP_FOUNDATION_TESTIMONIALS.map((s) => (
-            <div key={s.name} className="bg-secondary p-8 border border-border">
+          {items.map((s) => (
+            <div key={s.id} className="bg-secondary p-8 border border-border">
               <blockquote className="font-sans text-sm italic font-light leading-relaxed mb-6 text-foreground/80">&ldquo;{s.quote}&rdquo;</blockquote>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full overflow-hidden bg-muted shrink-0">
-                  <img src={uimg(s.imgId, 80, 80)} alt={s.name} className="w-full h-full object-cover" />
+                  {s.image && <img src={s.image.url} alt={s.authorName} className="w-full h-full object-cover" />}
                 </div>
                 <div>
-                  <div className="font-sans text-xs font-medium">{s.name}</div>
-                  <div className="font-mono text-[0.46rem] tracking-wider text-muted-foreground uppercase">{s.role}</div>
+                  <div className="font-sans text-xs font-medium">{s.authorName}</div>
+                  <div className="font-mono text-[0.46rem] tracking-wider text-muted-foreground uppercase">{s.authorRole}</div>
                 </div>
               </div>
             </div>
@@ -458,19 +490,26 @@ function TestimonialsSection({ section }: { section: CmsSection }) {
     );
   }
 
-  const t = config.testimonial as { quote: string; authorName: string; authorRole: string };
+  const fromPool = records.find((t) => t.context === "curator");
+  const t = (fromPool
+    ? { quote: fromPool.quote, authorName: fromPool.authorName, authorRole: fromPool.authorRole ?? "" }
+    : config.testimonial) as { quote: string; authorName: string; authorRole: string } | undefined;
   return (
     <section className="bg-foreground text-primary-foreground py-24">
       <div className="max-w-screen-lg mx-auto px-6 text-center">
         <SectionLabel light>{config.sectionLabel}</SectionLabel>
-        <blockquote className="font-sans text-2xl md:text-3xl lg:text-[2rem] font-light italic leading-[1.4] mb-8 text-primary-foreground/88">
-          &ldquo;{t.quote}&rdquo;
-        </blockquote>
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-10 h-px bg-accent" />
-          <span className="font-mono text-[0.52rem] tracking-[0.25em] uppercase text-primary-foreground/38">{t.authorName} · {t.authorRole}</span>
-          <div className="w-10 h-px bg-accent" />
-        </div>
+        {t && (
+          <>
+            <blockquote className="font-sans text-2xl md:text-3xl lg:text-[2rem] font-light italic leading-[1.4] mb-8 text-primary-foreground/88">
+              &ldquo;{t.quote}&rdquo;
+            </blockquote>
+            <div className="flex items-center justify-center gap-4">
+              <div className="w-10 h-px bg-accent" />
+              <span className="font-mono text-[0.52rem] tracking-[0.25em] uppercase text-primary-foreground/38">{t.authorName} · {t.authorRole}</span>
+              <div className="w-10 h-px bg-accent" />
+            </div>
+          </>
+        )}
       </div>
     </section>
   );
@@ -620,39 +659,43 @@ function TeamMembersSection({ section }: { section: CmsSection }) {
 
 // ---------------------------------------------------------------------------
 // Collection grid (module-reference) — Home featured cards (H3) and the
-// Museum category browser (M4). Chrome from config; records are the
-// temporary module data until Phase 5.
+// Museum category browser (M4). Chrome from config; records from
+// GET /api/collections via moduleData. The Museum filter buttons filter
+// by record category (Phase 5 — this fixes Audit D1, where the buttons
+// set state but the grid always rendered every record).
 // ---------------------------------------------------------------------------
 
-function CollectionGridSection({ section, pageSlug }: { section: CmsSection; pageSlug: string }) {
+function CollectionGridSection({ section, pageSlug, moduleData }: { section: CmsSection; pageSlug: string; moduleData?: ModuleData }) {
   const config = section.config;
   const goToPage = usePageNavigator();
   const [activeFilter, setActiveFilter] = useState("All");
+  const records = moduleData?.collections ?? [];
 
   if (pageSlug === "museum") {
-    // TODO Phase 5/6 module data: TEMP_MUSEUM_COLLECTIONS + its filter
-    // labels. As on the current site, the buttons set state but the grid
-    // renders every record (the records carry no category yet — Audit
-    // D1; the working filter arrives with the collections taxonomy).
+    const filters = [
+      "All",
+      ...Array.from(new Set(records.map((c) => c.category).filter((c): c is string => !!c))),
+    ];
+    const visible = activeFilter === "All" ? records : records.filter((c) => c.category === activeFilter);
     return (
       <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10">
           <div><SectionLabel>{config.sectionLabel}</SectionLabel><h2 className="font-display text-3xl md:text-4xl font-medium">{config.heading}</h2></div>
           <div className="flex gap-1 flex-wrap">
-            {TEMP_MUSEUM_COLLECTION_FILTERS.map((f) => (
+            {filters.map((f) => (
               <button key={f} onClick={() => setActiveFilter(f)} className={`font-mono text-[0.52rem] tracking-widest uppercase px-3.5 py-2 border transition-colors ${activeFilter === f ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"}`}>{f}</button>
             ))}
           </div>
         </div>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {TEMP_MUSEUM_COLLECTIONS.map((col, i) => (
-            <motion.div key={col.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }} className="group cursor-pointer">
+          {visible.map((col, i) => (
+            <motion.div key={col.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }} className="group cursor-pointer">
               <div className="aspect-[4/3] overflow-hidden bg-muted mb-3">
-                <img src={uimg(col.id, 600, 450)} alt={col.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                {col.image && <img src={col.image.url} alt={col.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
               </div>
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-base font-medium group-hover:text-accent transition-colors">{col.name}</h3>
-                <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{col.count.toLocaleString()} works</span>
+                {col.worksCountLabel && <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{col.worksCountLabel}</span>}
               </div>
             </motion.div>
           ))}
@@ -661,9 +704,9 @@ function CollectionGridSection({ section, pageSlug }: { section: CmsSection; pag
     );
   }
 
-  // Home featured collections.
-  // TODO Phase 5/6 module data: TEMP_HOME_COLLECTIONS.
+  // Home featured collections: the pool's featured records, in order.
   const limit = typeof config.limit === "number" ? config.limit : 3;
+  const featured = records.filter((c) => c.isFeatured).slice(0, limit);
   return (
     <section className="bg-secondary py-24">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
@@ -676,17 +719,17 @@ function CollectionGridSection({ section, pageSlug }: { section: CmsSection; pag
           )}
         </div>
         <div className="grid md:grid-cols-3 gap-6">
-          {TEMP_HOME_COLLECTIONS.slice(0, limit).map((col, i) => (
-            <motion.div key={col.title} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.1 }} className="group cursor-pointer" onClick={() => goToPage(config.viewAllLink?.pageId)}>
+          {featured.map((col, i) => (
+            <motion.div key={col.id} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.1 }} className="group cursor-pointer" onClick={() => goToPage(config.viewAllLink?.pageId)}>
               <div className="aspect-[3/4] overflow-hidden bg-muted mb-4">
-                <img src={uimg(col.id, 600, 800)} alt={col.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                {col.image && <img src={col.image.url} alt={col.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
               </div>
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-display text-lg font-medium mb-1 group-hover:text-accent transition-colors">{col.title}</h3>
-                  <p className="font-mono text-[0.52rem] tracking-widest uppercase text-muted-foreground">{col.period}</p>
+                  <h3 className="font-display text-lg font-medium mb-1 group-hover:text-accent transition-colors">{col.name}</h3>
+                  {col.periodLabel && <p className="font-mono text-[0.52rem] tracking-widest uppercase text-muted-foreground">{col.periodLabel}</p>}
                 </div>
-                <span className="font-mono text-[0.52rem] tracking-wider text-accent mt-1">{col.count}</span>
+                {col.worksCountLabel && <span className="font-mono text-[0.52rem] tracking-wider text-accent mt-1">{col.worksCountLabel}</span>}
               </div>
             </motion.div>
           ))}
@@ -701,19 +744,21 @@ function CollectionGridSection({ section, pageSlug }: { section: CmsSection; pag
 // Gallery masonry archive (G3, with the G2 filter bar as its chrome).
 // ---------------------------------------------------------------------------
 
-function ExhibitionGridSection({ section }: { section: CmsSection }) {
+function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; moduleData?: ModuleData }) {
   const config = section.config;
   const goToPage = usePageNavigator();
   const [year, setYear] = useState("all");
   const [cat, setCat] = useState("all");
+  const records = moduleData?.exhibitions ?? [];
 
   if (config.layout === "masonry") {
-    // TODO Phase 5/6 module data: TEMP_GALLERY_EXHIBITIONS. Filter options
-    // are derived from the records (mapping §G2), reproducing the current
-    // hardcoded lists exactly: years 2026→2023, the four categories.
-    const years = ["all", ...Array.from(new Set(TEMP_GALLERY_EXHIBITIONS.map((e) => e.year)))];
-    const cats = ["all", ...Array.from(new Set(TEMP_GALLERY_EXHIBITIONS.map((e) => e.cat)))];
-    const filtered = TEMP_GALLERY_EXHIBITIONS.filter((e) => (year === "all" || e.year === year) && (cat === "all" || e.cat === cat));
+    // Filter options are derived from the records (mapping §G2),
+    // reproducing the Phase 3 lists exactly: years 2026→2023 (the year
+    // of each record's startsOn, first-appearance order), the four
+    // categories.
+    const years = ["all", ...Array.from(new Set(records.map((e) => e.startsOn?.slice(0, 4)).filter((y): y is string => !!y)))];
+    const cats = ["all", ...Array.from(new Set(records.map((e) => e.category).filter((c): c is string => !!c)))];
+    const filtered = records.filter((e) => (year === "all" || e.startsOn?.startsWith(year)) && (cat === "all" || e.category === cat));
     return (
       <>
         <div className="border-b border-border sticky top-16 bg-background/96 backdrop-blur-md z-30">
@@ -752,17 +797,17 @@ function ExhibitionGridSection({ section }: { section: CmsSection }) {
             <div className="columns-1 sm:columns-2 lg:columns-3 gap-6">
               {filtered.map((ex, i) => (
                 <motion.div key={ex.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: i * 0.06 }} className="break-inside-avoid mb-6 group cursor-pointer">
-                  <div className={`overflow-hidden bg-muted ${ex.tall ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
-                    <img src={uimg(ex.imgId, 700, ex.tall ? 933 : 525)} alt={ex.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  <div className={`overflow-hidden bg-muted ${ex.coverAspect === "tall" ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
+                    {ex.image && <img src={ex.image.url} alt={ex.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
                   </div>
                   <div className="pt-4 pb-6 border-b border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{ex.cat}</span>
-                      <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{ex.date}</span>
+                      <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{ex.category}</span>
+                      <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{ex.dateLabel}</span>
                     </div>
                     <h3 className="font-display text-lg font-medium mb-1.5 group-hover:text-accent transition-colors">{ex.title}</h3>
-                    <p className="font-sans text-xs text-muted-foreground leading-relaxed mb-2 font-light">{ex.desc}</p>
-                    <p className="font-mono text-[0.48rem] tracking-widest uppercase text-muted-foreground/55">Curator: {ex.curator}</p>
+                    <p className="font-sans text-xs text-muted-foreground leading-relaxed mb-2 font-light">{ex.description}</p>
+                    {ex.curator && <p className="font-mono text-[0.48rem] tracking-widest uppercase text-muted-foreground/55">Curator: {ex.curator}</p>}
                   </div>
                 </motion.div>
               ))}
@@ -773,28 +818,40 @@ function ExhibitionGridSection({ section }: { section: CmsSection }) {
     );
   }
 
-  // featured-split (Home H4).
-  // TODO Phase 5/6 module data: TEMP_HOME_FEATURED_EXHIBITION + TEMP_HOME_EXHIBITIONS.
-  const featured = TEMP_HOME_FEATURED_EXHIBITION;
-  const list = TEMP_HOME_EXHIBITIONS.slice(0, Math.max(0, (typeof config.limit === "number" ? config.limit : 4) - 1));
+  // featured-split (Home H4): the featured current record large, the
+  // remaining current records as the side list (config limit includes
+  // the featured one). The "Until …" line derives from each record's
+  // endsOn. With no current records the section renders chrome only.
+  const current = records.filter((e) => e.status === "current");
+  const featured = current.find((e) => e.isFeatured) ?? current[0];
+  if (!featured) {
+    return (
+      <section className="py-28 max-w-screen-xl mx-auto px-6 lg:px-10">
+        <SectionLabel>{config.sectionLabel}</SectionLabel>
+      </section>
+    );
+  }
+  const list = current
+    .filter((e) => e.id !== featured.id)
+    .slice(0, Math.max(0, (typeof config.limit === "number" ? config.limit : 4) - 1));
   return (
     <section className="py-28 max-w-screen-xl mx-auto px-6 lg:px-10">
       <SectionLabel>{config.sectionLabel}</SectionLabel>
       <div className="grid lg:grid-cols-5 border border-border">
         <div className="lg:col-span-3 relative aspect-[16/10] overflow-hidden bg-muted">
-          <img src={uimg(featured.imgId, 1200, 800)} alt={featured.alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+          {featured.image && <img src={featured.image.url} alt={featured.image.alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />}
           <div className="absolute inset-0 bg-gradient-to-t from-[#1C1A16]/70 via-transparent to-transparent" />
           <div className="absolute bottom-8 left-8 right-8">
-            <span className="font-mono text-[0.52rem] tracking-widest uppercase text-white/48 block mb-2">{featured.loc}</span>
+            <span className="font-mono text-[0.52rem] tracking-widest uppercase text-white/48 block mb-2">{exhibitionLocLine(featured)}</span>
             <h3 className="font-display text-2xl md:text-3xl text-white font-medium">{featured.title}</h3>
           </div>
         </div>
         <div className="lg:col-span-2 flex flex-col divide-y divide-border border-l border-border">
           {list.map((ex) => (
-            <div key={ex.title} className="p-7 group cursor-pointer hover:bg-secondary/60 transition-colors" onClick={() => goToPage(config.viewAllLink?.pageId)}>
-              <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-2">{ex.loc}</span>
+            <div key={ex.id} className="p-7 group cursor-pointer hover:bg-secondary/60 transition-colors" onClick={() => goToPage(config.viewAllLink?.pageId)}>
+              <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-2">{exhibitionLocLine(ex)}</span>
               <h3 className="font-display text-base font-medium mb-2 group-hover:text-accent transition-colors">{ex.title}</h3>
-              <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{ex.desc}</p>
+              <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{ex.description}</p>
             </div>
           ))}
           <div className="p-7">
@@ -816,34 +873,45 @@ function ExhibitionGridSection({ section }: { section: CmsSection }) {
 // state (the search box itself lives in the page's hero band).
 // ---------------------------------------------------------------------------
 
-export function NewsRows({ query }: { query: string }) {
-  // TODO Phase 5/6 module data: TEMP_NEWS_ARTICLES.
-  const filtered = TEMP_NEWS_ARTICLES.filter(
-    (a) =>
-      query === "" ||
-      a.title.toLowerCase().includes(query.toLowerCase()) ||
-      a.outlet.toLowerCase().includes(query.toLowerCase()) ||
-      a.type.toLowerCase().includes(query.toLowerCase()),
-  );
+export function NewsRows({ articles, query }: { articles: NewsArticleRecord[]; query: string }) {
+  // Records arrive pre-filtered from the API (the News page's search
+  // drives GET /api/news?search=); `query` is only used for the
+  // empty-state message. The Download PDF / Read Article buttons keep
+  // their Phase 3 inert rendering unless the record carries a document
+  // or external URL, in which case they open it.
   return (
     <div className="max-w-screen-xl mx-auto px-6 lg:px-10 py-12">
-      {filtered.length === 0 && (
+      {articles.length === 0 && query && (
         <p className="py-16 text-center font-sans text-sm text-muted-foreground">No results for &ldquo;{query}&rdquo;</p>
       )}
       <div className="divide-y divide-border">
-        {filtered.map((article) => (
+        {articles.map((article) => (
           <article key={article.id} className="grid md:grid-cols-6 gap-6 py-10 group cursor-pointer hover:bg-secondary/40 -mx-6 lg:-mx-10 px-6 lg:px-10 transition-colors">
             <div className="md:col-span-1">
-              <span className={`font-mono text-[0.5rem] tracking-widest uppercase block mb-1 ${TEMP_NEWS_TYPE_COLOR[article.type] ?? "text-accent"}`}>{article.type}</span>
-              <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground block mb-2">{article.date}</span>
-              <span className="font-sans text-xs font-medium text-foreground block">{article.outlet}</span>
+              <span className={`font-mono text-[0.5rem] tracking-widest uppercase block mb-1 ${article.colorToken ?? "text-accent"}`}>{article.categoryName}</span>
+              <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground block mb-2">{formatNewsDate(article.publishedDate)}</span>
+              <span className="font-sans text-xs font-medium text-foreground block">{article.sourceName}</span>
             </div>
             <div className="md:col-span-5">
               <h3 className="font-display text-xl font-medium mb-3 group-hover:text-accent transition-colors leading-snug">{article.title}</h3>
               <p className="font-sans text-xs text-muted-foreground leading-relaxed mb-4 font-light max-w-2xl">{article.summary}</p>
               <div className="flex items-center gap-6">
-                <button className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"><Download size={11} /> Download PDF</button>
-                <button className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors">Read Article <ArrowRight size={11} /></button>
+                <button
+                  className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
+                  onClick={() => {
+                    if (article.documentUrl) window.open(article.documentUrl, "_blank", "noopener");
+                  }}
+                >
+                  <Download size={11} /> Download PDF
+                </button>
+                <button
+                  className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
+                  onClick={() => {
+                    if (article.externalUrl) window.open(article.externalUrl, "_blank", "noopener");
+                  }}
+                >
+                  Read Article <ArrowRight size={11} />
+                </button>
               </div>
             </div>
           </article>
@@ -853,17 +921,17 @@ export function NewsRows({ query }: { query: string }) {
   );
 }
 
-function NewsListingSection({ section }: { section: CmsSection }) {
+function NewsListingSection({ section, moduleData }: { section: CmsSection; moduleData?: ModuleData }) {
   const config = section.config;
   const goToPage = usePageNavigator();
 
   if (config.layout === "rows") {
-    return <NewsRows query="" />;
+    return <NewsRows articles={moduleData?.news?.items ?? []} query="" />;
   }
 
-  // cards (Home H7).
-  // TODO Phase 5/6 module data: TEMP_HOME_NEWS.
+  // cards (Home H7): the latest records, newest first (API order).
   const limit = typeof config.limit === "number" ? config.limit : 3;
+  const items = (moduleData?.news?.items ?? []).slice(0, limit);
   return (
     <section className="bg-secondary py-24">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
@@ -876,14 +944,14 @@ function NewsListingSection({ section }: { section: CmsSection }) {
           )}
         </div>
         <div className="grid md:grid-cols-3 gap-0 border-t border-border">
-          {TEMP_HOME_NEWS.slice(0, limit).map((item, i) => (
-            <article key={item.title} onClick={() => goToPage(config.viewAllLink?.pageId)} className={`pt-8 pb-8 pr-8 group cursor-pointer ${i > 0 ? "pl-8 border-l border-border" : ""}`}>
+          {items.map((item, i) => (
+            <article key={item.id} onClick={() => goToPage(config.viewAllLink?.pageId)} className={`pt-8 pb-8 pr-8 group cursor-pointer ${i > 0 ? "pl-8 border-l border-border" : ""}`}>
               <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{item.type}</span>
-                <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{item.date}</span>
+                <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{item.categoryName}</span>
+                <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{formatNewsDate(item.publishedDate)}</span>
               </div>
               <h3 className="font-display text-lg font-medium leading-snug mb-2 group-hover:text-accent transition-colors">{item.title}</h3>
-              <p className="font-sans text-xs text-muted-foreground">{item.outlet}</p>
+              <p className="font-sans text-xs text-muted-foreground">{item.sourceName}</p>
             </article>
           ))}
         </div>
@@ -898,10 +966,9 @@ function NewsListingSection({ section }: { section: CmsSection }) {
 
 const PROGRAM_ICONS: Record<string, LucideIcon> = { BookOpen, Award, Users, Leaf };
 
-function FoundationProgramsSection({ section }: { section: CmsSection }) {
+function FoundationProgramsSection({ section, moduleData }: { section: CmsSection; moduleData?: ModuleData }) {
   const config = section.config;
-  // TODO Phase 5/6 module data: TEMP_FOUNDATION_PROGRAMS.
-  const items = TEMP_FOUNDATION_PROGRAMS;
+  const items = moduleData?.foundation?.programs ?? [];
   const cols = 2;
   const lastRowStart = items.length - (items.length % cols === 0 ? cols : items.length % cols);
   return (
@@ -911,21 +978,23 @@ function FoundationProgramsSection({ section }: { section: CmsSection }) {
         <h2 className="font-display text-3xl md:text-4xl font-medium mb-14">{config.heading}</h2>
         <div className="grid md:grid-cols-2 gap-0 border border-border">
           {items.map((p, i) => {
-            const Icon = PROGRAM_ICONS[p.iconName] ?? BookOpen;
+            const Icon = PROGRAM_ICONS[p.iconName ?? ""] ?? BookOpen;
             return (
-              <div key={p.name} className={`p-10 border-border ${i % cols === 0 ? "border-r" : ""} ${i < lastRowStart ? "border-b" : ""}`}>
+              <div key={p.id} className={`p-10 border-border ${i % cols === 0 ? "border-r" : ""} ${i < lastRowStart ? "border-b" : ""}`}>
                 <div className="flex items-start gap-4 mb-6">
                   <div className="p-3 bg-accent/10 shrink-0"><Icon size={18} className="text-accent" /></div>
                   <div>
-                    <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-1">{p.cat}</span>
+                    <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-1">{p.categoryLabel}</span>
                     <h3 className="font-display text-xl font-medium">{p.name}</h3>
                   </div>
                 </div>
-                <p className="font-sans text-sm text-muted-foreground leading-relaxed mb-5 font-light">{p.desc}</p>
-                <div className="flex items-center gap-2">
-                  <Star size={11} className="text-accent fill-accent" />
-                  <span className="font-mono text-[0.52rem] tracking-wider text-accent uppercase">{p.impact}</span>
-                </div>
+                <p className="font-sans text-sm text-muted-foreground leading-relaxed mb-5 font-light">{p.description}</p>
+                {p.impactMetric && (
+                  <div className="flex items-center gap-2">
+                    <Star size={11} className="text-accent fill-accent" />
+                    <span className="font-mono text-[0.52rem] tracking-wider text-accent uppercase">{p.impactMetric}</span>
+                  </div>
+                )}
               </div>
             );
           })}
@@ -1168,7 +1237,7 @@ function NewsletterSignupSection({ section }: { section: CmsSection }) {
 // PageRenderer
 // ---------------------------------------------------------------------------
 
-function renderDefaultSection(section: CmsSection, pageSlug: string): ReactNode {
+function renderDefaultSection(section: CmsSection, pageSlug: string, moduleData?: ModuleData): ReactNode {
   switch (section.type) {
     case "hero":
       return <HeroSection section={section} />;
@@ -1179,7 +1248,7 @@ function renderDefaultSection(section: CmsSection, pageSlug: string): ReactNode 
     case "statistics":
       return <StatisticsSection section={section} />;
     case "testimonials":
-      return <TestimonialsSection section={section} />;
+      return <TestimonialsSection section={section} moduleData={moduleData} />;
     case "history_timeline":
       return <HistoryTimelineSection section={section} />;
     case "directory":
@@ -1191,13 +1260,13 @@ function renderDefaultSection(section: CmsSection, pageSlug: string): ReactNode 
     case "team_members":
       return <TeamMembersSection section={section} />;
     case "collection_grid":
-      return <CollectionGridSection section={section} pageSlug={pageSlug} />;
+      return <CollectionGridSection section={section} pageSlug={pageSlug} moduleData={moduleData} />;
     case "exhibition_grid":
-      return <ExhibitionGridSection section={section} />;
+      return <ExhibitionGridSection section={section} moduleData={moduleData} />;
     case "news_listing":
-      return <NewsListingSection section={section} />;
+      return <NewsListingSection section={section} moduleData={moduleData} />;
     case "foundation_programs":
-      return <FoundationProgramsSection section={section} />;
+      return <FoundationProgramsSection section={section} moduleData={moduleData} />;
     case "contact_information":
       return <ContactBand info={section} />;
     case "contact_form":
@@ -1227,9 +1296,16 @@ export interface PageRendererProps {
    * Return `undefined` to fall through to the default renderer.
    */
   renderSection?: (section: CmsSection, index: number) => ReactNode | undefined;
+  /**
+   * Phase 5 museum module records (collections, exhibitions, news,
+   * foundation) consumed by the module-reference sections. Pages fetch
+   * the slices they need via the hooks in lib/api and pass them down;
+   * absent data renders section chrome with no cards.
+   */
+  moduleData?: ModuleData;
 }
 
-export default function PageRenderer({ page, renderSection }: PageRendererProps) {
+export default function PageRenderer({ page, renderSection, moduleData }: PageRendererProps) {
   const out: ReactNode[] = [];
   const sections = page.sections;
   for (let i = 0; i < sections.length; i++) {
@@ -1250,7 +1326,7 @@ export default function PageRenderer({ page, renderSection }: PageRendererProps)
       i++;
       continue;
     }
-    out.push(<Fragment key={i}>{renderDefaultSection(section, page.slug)}</Fragment>);
+    out.push(<Fragment key={i}>{renderDefaultSection(section, page.slug, moduleData)}</Fragment>);
   }
   return <>{out}</>;
 }

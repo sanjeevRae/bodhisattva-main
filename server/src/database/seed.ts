@@ -14,7 +14,23 @@ import {
   pages as pagesTable,
   siteSettings as siteSettingsTable,
 } from './schema/cms.js';
+import {
+  collections as collectionsTable,
+  exhibitions as exhibitionsTable,
+  foundationPrograms as foundationProgramsTable,
+  newsArticles as newsArticlesTable,
+  newsCategories as newsCategoriesTable,
+  testimonials as testimonialsTable,
+} from './schema/museum.js';
 import { CMS_MENUS, CMS_PAGES, CMS_SETTINGS } from './seed-data/cms-content.js';
+import {
+  COLLECTIONS as MUSEUM_COLLECTIONS,
+  EXHIBITIONS as MUSEUM_EXHIBITIONS,
+  FOUNDATION_PROGRAMS as MUSEUM_PROGRAMS,
+  NEWS_ARTICLES as MUSEUM_ARTICLES,
+  NEWS_CATEGORIES as MUSEUM_CATEGORIES,
+  TESTIMONIALS as MUSEUM_TESTIMONIALS,
+} from './seed-data/museum-content.js';
 import {
   PERMISSION_SEEDS,
   ROLE_PERMISSIONS,
@@ -38,9 +54,10 @@ import {
  * Phase 2 state: three production steps seed the authorization reference
  * data — roles, permissions, role_permissions — from PERMISSIONS.md (§2, §4,
  * §5) via `seed-data/permissions.ts`. Phase 3 adds the `cms-content` step
- * (the seven migrated system pages, menus and public site settings). They
- * contain no accounts and no secrets, and are safe in every environment
- * including production (§13.3).
+ * (the seven migrated system pages, menus and public site settings). Phase 5
+ * adds the `museum-content` step (the canonical museum/news/foundation
+ * records). They contain no accounts and no secrets, and are safe in every
+ * environment including production (§13.3).
  * The `--dev` placeholder step exists only to prove the mechanism
  * end-to-end; it writes nothing.
  */
@@ -259,6 +276,157 @@ export const seedSteps: SeedStep[] = [
           settingKey: setting.key,
           settingValue: JSON.stringify(setting.value),
           isPublic: setting.isPublic,
+        });
+      }
+    },
+  },
+  {
+    // Phase 5 content migration (CMS_CONTENT_MAPPING.md §3–§8, §10): the
+    // canonical museum-module records from `seed-data/museum-content.ts`.
+    // Idempotent by natural key, same rule as cms-content: a record whose
+    // slug already exists is skipped whole (it may have been edited in the
+    // admin since); testimonials have no slug, so their natural key is the
+    // quote text. All records seed published. Field mappings (seed-data
+    // vocabulary → §8 columns): collections itemCount is parsed back out
+    // of the display string ("1,240 works" → 1240); exhibitions status
+    // current|past → CURRENT|PAST, locationLabel → location; news
+    // sourceName → outlet, publishedDate → published_on, articleType =
+    // the category's name, categories resolve by slug first; programs
+    // categoryLabel → category, impactMetric → impact_label; images land
+    // in the legacy image_url/image_alt pair (BD-2, see schema header).
+    name: 'museum-content',
+    async run(db) {
+      const existingCollectionSlugs = new Set(
+        (await db.select({ slug: collectionsTable.slug }).from(collectionsTable)).map(
+          (row) => row.slug,
+        ),
+      );
+      for (const record of MUSEUM_COLLECTIONS) {
+        if (existingCollectionSlugs.has(record.slug)) continue;
+        await db.insert(collectionsTable).values({
+          slug: record.slug,
+          name: record.name,
+          category: record.category,
+          periodLabel: record.periodLabel,
+          itemCount: Number(record.worksCountLabel.replace(/[^0-9]/g, '')) || null,
+          imageUrl: record.image.url,
+          imageAlt: record.image.alt,
+          isFeatured: record.isFeatured,
+          isPublished: true,
+          sortOrder: record.sortOrder,
+        });
+      }
+
+      const existingExhibitionSlugs = new Set(
+        (await db.select({ slug: exhibitionsTable.slug }).from(exhibitionsTable)).map(
+          (row) => row.slug,
+        ),
+      );
+      for (const record of MUSEUM_EXHIBITIONS) {
+        if (existingExhibitionSlugs.has(record.slug)) continue;
+        await db.insert(exhibitionsTable).values({
+          slug: record.slug,
+          title: record.title,
+          location: record.locationLabel,
+          description: record.description,
+          startsOn: record.startsOn,
+          endsOn: record.endsOn,
+          status: record.status === 'current' ? 'CURRENT' : 'PAST',
+          curator: record.curator,
+          category: record.category,
+          coverAspect: record.coverAspect,
+          imageUrl: record.image.url,
+          imageAlt: record.image.alt,
+          isFeatured: record.isFeatured,
+          isPublished: true,
+          sortOrder: record.sortOrder,
+        });
+      }
+
+      // News categories first — articles resolve their category by slug.
+      const categoryIdBySlug = new Map<string, number>();
+      const categoryNameBySlug = new Map<string, string>();
+      for (const row of await db
+        .select({ id: newsCategoriesTable.id, slug: newsCategoriesTable.slug, name: newsCategoriesTable.name })
+        .from(newsCategoriesTable)) {
+        categoryIdBySlug.set(row.slug, row.id);
+        categoryNameBySlug.set(row.slug, row.name);
+      }
+      for (const record of MUSEUM_CATEGORIES) {
+        if (categoryIdBySlug.has(record.slug)) continue;
+        const [inserted] = await db
+          .insert(newsCategoriesTable)
+          .values({ slug: record.slug, name: record.name, colorToken: record.colorToken })
+          .$returningId();
+        categoryIdBySlug.set(record.slug, inserted.id);
+        categoryNameBySlug.set(record.slug, record.name);
+      }
+
+      const existingArticleSlugs = new Set(
+        (await db.select({ slug: newsArticlesTable.slug }).from(newsArticlesTable)).map(
+          (row) => row.slug,
+        ),
+      );
+      for (const record of MUSEUM_ARTICLES) {
+        if (existingArticleSlugs.has(record.slug)) continue;
+        const categoryId = categoryIdBySlug.get(record.categorySlug);
+        if (categoryId === undefined) {
+          throw new Error(
+            `seed museum-content: article '${record.slug}' references unknown news category '${record.categorySlug}'`,
+          );
+        }
+        await db.insert(newsArticlesTable).values({
+          slug: record.slug,
+          title: record.title,
+          categoryId,
+          articleType: categoryNameBySlug.get(record.categorySlug) ?? null,
+          outlet: record.sourceName,
+          publishedOn: record.publishedDate,
+          summary: record.summary,
+          externalUrl: record.externalUrl,
+          imageUrl: record.image?.url ?? null,
+          imageAlt: record.image?.alt ?? null,
+          isPublished: true,
+        });
+      }
+
+      const existingProgramSlugs = new Set(
+        (
+          await db
+            .select({ slug: foundationProgramsTable.slug })
+            .from(foundationProgramsTable)
+        ).map((row) => row.slug),
+      );
+      for (const record of MUSEUM_PROGRAMS) {
+        if (existingProgramSlugs.has(record.slug)) continue;
+        await db.insert(foundationProgramsTable).values({
+          slug: record.slug,
+          name: record.name,
+          category: record.categoryLabel,
+          description: record.description,
+          impactLabel: record.impactMetric,
+          iconName: record.iconName,
+          isPublished: true,
+          sortOrder: record.sortOrder,
+        });
+      }
+
+      const existingQuotes = new Set(
+        (await db.select({ quote: testimonialsTable.quote }).from(testimonialsTable)).map(
+          (row) => row.quote,
+        ),
+      );
+      for (const record of MUSEUM_TESTIMONIALS) {
+        if (existingQuotes.has(record.quote)) continue;
+        await db.insert(testimonialsTable).values({
+          quote: record.quote,
+          authorName: record.authorName,
+          authorRole: record.authorRole,
+          context: record.context,
+          imageUrl: record.image?.url ?? null,
+          imageAlt: record.image?.alt ?? null,
+          isPublished: true,
+          sortOrder: record.sortOrder,
         });
       }
     },

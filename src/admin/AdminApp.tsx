@@ -21,12 +21,16 @@ import {
 } from "react";
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import {
+  CalendarRange,
   ExternalLink,
   FileText,
+  HeartHandshake,
   Images,
   LayoutDashboard,
+  Library,
   LogOut,
   Menu as MenuIcon,
+  Newspaper,
   Settings as SettingsIcon,
   Users as UsersIcon,
 } from "lucide-react";
@@ -42,6 +46,10 @@ import MediaLibrary from "./screens/MediaLibrary";
 import MenusScreen from "./screens/Menus";
 import SettingsScreen from "./screens/Settings";
 import UsersScreen from "./screens/Users";
+import CollectionsScreen from "./screens/Collections";
+import ExhibitionsScreen from "./screens/Exhibitions";
+import NewsScreen from "./screens/News";
+import FoundationScreen from "./screens/Foundation";
 
 export type AuthStatus = "loading" | "anonymous" | AuthLevel;
 
@@ -159,6 +167,10 @@ const NAV_ITEMS: Array<{
 }> = [
   { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={17} />, end: true },
   { to: "/admin/pages", label: "Pages", icon: <FileText size={17} />, permission: "cms.pages.read" },
+  { to: "/admin/collections", label: "Collections", icon: <Library size={17} />, permission: "museum.collections.manage" },
+  { to: "/admin/exhibitions", label: "Exhibitions", icon: <CalendarRange size={17} />, permission: "museum.exhibitions.manage" },
+  { to: "/admin/news", label: "News", icon: <Newspaper size={17} />, permission: "news.manage" },
+  { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
   { to: "/admin/media", label: "Media", icon: <Images size={17} />, permission: "media.read" },
   { to: "/admin/menus", label: "Menus", icon: <MenuIcon size={17} />, permission: "cms.menus.manage" },
   { to: "/admin/settings", label: "Settings", icon: <SettingsIcon size={17} />, permission: "settings.manage" },
@@ -238,6 +250,10 @@ function Shell() {
             <Route index element={<Dashboard />} />
             <Route path="pages" element={<PagesList />} />
             <Route path="pages/:id/edit" element={<PageEditor />} />
+            <Route path="collections" element={<CollectionsScreen />} />
+            <Route path="exhibitions" element={<ExhibitionsScreen />} />
+            <Route path="news" element={<NewsScreen />} />
+            <Route path="foundation" element={<FoundationScreen />} />
             <Route path="media" element={<MediaLibrary />} />
             <Route path="menus" element={<MenusScreen />} />
             <Route path="settings" element={<SettingsScreen />} />

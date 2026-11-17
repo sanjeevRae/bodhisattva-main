@@ -174,3 +174,188 @@ export function settingString(settings: SiteSettings | null, key: string, fallba
   const value = settings?.[key];
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
+
+// ---------------------------------------------------------------------------
+// Museum module records (Phase 5) — collections, exhibitions, news and
+// foundation content served by server/src/modules/museum. Unlike the
+// CMS endpoints above, the museum endpoints wrap their payload in the
+// shared success envelope ({ success, data }), so these getters unwrap
+// `.data`. PageRenderer consumes the records via its `moduleData` prop.
+// ---------------------------------------------------------------------------
+
+export interface MuseumImageRef {
+  url: string;
+  alt: string;
+}
+
+export interface CollectionRecord {
+  id: number;
+  slug: string;
+  name: string;
+  periodLabel: string | null;
+  worksCountLabel: string | null;
+  category: string | null;
+  isFeatured: boolean;
+  sortOrder: number;
+  image: MuseumImageRef | null;
+}
+
+export interface ExhibitionRecord {
+  id: number;
+  slug: string;
+  title: string;
+  locationLabel: string | null;
+  /** Lowercase: "upcoming" | "current" | "past". */
+  status: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  dateLabel: string;
+  description: string | null;
+  curator: string | null;
+  category: string | null;
+  coverAspect: "tall" | "standard" | null;
+  isFeatured: boolean;
+  sortOrder: number;
+  image: MuseumImageRef | null;
+}
+
+export interface NewsCategoryRef {
+  id: number;
+  slug: string;
+  name: string;
+  colorToken: string | null;
+}
+
+export interface NewsArticleRecord {
+  id: number;
+  slug: string;
+  title: string;
+  sourceName: string | null;
+  /** ISO date (YYYY-MM-DD). */
+  publishedDate: string | null;
+  summary: string | null;
+  categorySlug: string | null;
+  categoryName: string | null;
+  colorToken: string | null;
+  externalUrl: string | null;
+  documentUrl: string | null;
+  image: MuseumImageRef | null;
+}
+
+export interface NewsPayload {
+  categories: NewsCategoryRef[];
+  items: NewsArticleRecord[];
+}
+
+export interface FoundationProgramRecord {
+  id: number;
+  slug: string;
+  name: string;
+  categoryLabel: string | null;
+  description: string | null;
+  impactMetric: string | null;
+  iconName: string | null;
+  sortOrder: number;
+  image: MuseumImageRef | null;
+}
+
+export interface TestimonialRecord {
+  id: number;
+  quote: string;
+  authorName: string;
+  authorRole: string | null;
+  /** "foundation" | "curator" (stored verbatim). */
+  context: string;
+  sortOrder: number;
+  image: MuseumImageRef | null;
+}
+
+export interface FoundationPayload {
+  programs: FoundationProgramRecord[];
+  testimonials: TestimonialRecord[];
+}
+
+/** The module data PageRenderer's module sections consume. */
+export interface ModuleData {
+  collections?: CollectionRecord[];
+  exhibitions?: ExhibitionRecord[];
+  news?: NewsPayload;
+  foundation?: FoundationPayload;
+}
+
+async function fetchModuleJson<T>(url: string): Promise<T> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`GET ${url} failed: ${res.status}`);
+  const body = (await res.json()) as { data: T };
+  return body.data;
+}
+
+export function getCollections(): Promise<CollectionRecord[]> {
+  return cached("module:collections", async () => {
+    const data = await fetchModuleJson<{ items: CollectionRecord[] }>("/api/collections");
+    return data.items;
+  });
+}
+
+export function getExhibitions(): Promise<ExhibitionRecord[]> {
+  return cached("module:exhibitions", async () => {
+    const data = await fetchModuleJson<{ items: ExhibitionRecord[] }>("/api/exhibitions");
+    return data.items;
+  });
+}
+
+export function getNewsPayload(): Promise<NewsPayload> {
+  return cached("module:news", () => fetchModuleJson<NewsPayload>("/api/news"));
+}
+
+export function getFoundation(): Promise<FoundationPayload> {
+  return cached("module:foundation", () => fetchModuleJson<FoundationPayload>("/api/foundation"));
+}
+
+export function useCollections(): AsyncState<CollectionRecord[]> {
+  return useCached(getCollections);
+}
+
+export function useExhibitions(): AsyncState<ExhibitionRecord[]> {
+  return useCached(getExhibitions);
+}
+
+export function useFoundation(): AsyncState<FoundationPayload> {
+  return useCached(getFoundation);
+}
+
+/**
+ * News with optional server-side search/category. With no filters it
+ * serves the shared cached payload (Home cards, editor canvas); with a
+ * search term or category slug it fetches `/api/news?search=&category=`
+ * debounced by ~300ms, so the News page's search box drives the API
+ * instead of filtering client-side.
+ */
+export function useNews(search = "", category = ""): AsyncState<NewsPayload> {
+  const [state, setState] = useState<AsyncState<NewsPayload>>({ data: null, error: false });
+  useEffect(() => {
+    let alive = true;
+    const load = (): Promise<NewsPayload> => {
+      const term = search.trim();
+      if (!term && !category) return getNewsPayload();
+      const params = new URLSearchParams();
+      if (term) params.set("search", term);
+      if (category) params.set("category", category);
+      return fetchModuleJson<NewsPayload>(`/api/news?${params.toString()}`);
+    };
+    const timer = setTimeout(
+      () => {
+        load().then(
+          (data) => alive && setState({ data, error: false }),
+          () => alive && setState({ data: null, error: true }),
+        );
+      },
+      search || category ? 300 : 0,
+    );
+    return () => {
+      alive = false;
+      clearTimeout(timer);
+    };
+  }, [search, category]);
+  return state;
+}

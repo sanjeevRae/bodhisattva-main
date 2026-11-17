@@ -181,3 +181,29 @@ must pass on the cPanel host before Phase 2 relies on Argon2id parameters
 or Phase 3 relies on Sharp re-encoding (hosting verification gate —
 `DEPLOYMENT_REQUIREMENTS.md`; fallbacks in `SECURITY_THREAT_MODEL.md` /
 ARCHITECTURE.md §14.1).
+
+## Museum content modules (Phase 5)
+
+Migrations `0005_museum` (the seven module tables) and `0006_museum_display_fields`
+(curator/category/cover-aspect on exhibitions, colour tokens on news categories,
+article slugs, program icon names) extend the schema; `npm run db:migrate` applies
+them like the rest. The `museum-content` seed step (part of `npm run db:seed`)
+loads the canonical record sets — 6 collections, 9 exhibitions, 5 news categories,
+8 news articles, 4 foundation programs, 4 testimonials — skipping records that
+already exist, so it is safe to re-run.
+
+Public reads: `GET /api/collections`, `GET /api/exhibitions`, `GET /api/news`
+(supports `?search=` full-text and `?category=<slug>`), `GET /api/foundation`.
+Admin CRUD lives under `/api/admin/collections`, `/api/admin/exhibitions`
+(+ `/api/admin/exhibitions/:id/gallery-items`), `/api/admin/news`
+(+ `/api/admin/news/categories`), `/api/admin/foundation` (programs +
+testimonials), each gated by its module permission (`museum.*.manage`,
+`news.manage`, `foundation.manage`). The admin SPA has matching screens
+(Collections, Exhibitions, News, Foundation) and the page editor's canvas now
+renders real module records.
+
+Record images are dual-sourced until the client decides on media migration:
+an uploaded `cover_media_id` wins; otherwise the record's legacy `image_url` /
+`image_alt` pair is used. Deleting a media asset is blocked while any module
+record references it. The museum integration suite uses its own database
+(`bodhisattva_test_museum`); `npm run test:integration` runs all three suites.
