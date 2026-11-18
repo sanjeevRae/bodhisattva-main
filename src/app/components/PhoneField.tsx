@@ -121,7 +121,7 @@ export function PhoneField({
           className={authInputCls}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="98XXXXXXXX or +…"
+          placeholder="98XXXXXXXX"
         />
       </div>
     </div>
