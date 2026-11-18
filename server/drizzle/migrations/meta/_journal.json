@@ -85,6 +85,13 @@
       "when": 1794990000000,
       "tag": "0011_news_clippings",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1794993600000,
+      "tag": "0012_contact_submissions",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,30 @@ everything below is implemented, tested and verified **locally**;
 
 ## Unreleased — 2026-11-18
 
+- **About-page contact form now delivers email** (owner task
+  2026-11-18). The form previously submitted nowhere; it now posts
+  to the new `POST /api/contact`, which stores each message
+  (migration 0012, `contact_submissions`) and emails it from the
+  configured alerts@ identity to info@ with the visitor as
+  Reply-To. Strict validation (subject allowlist read live from the
+  published CMS About config), honeypot, MySQL rate limits, and
+  config-gated Cloudflare Turnstile; the mailer's optional
+  from/replyTo support is used by no other caller. The Subject
+  dropdown's white-on-white bug (near-white select text, unstyled
+  native option popup, missing chevron) is fixed. QA found and we
+  fixed a same-task double-click duplicate submission (synchronous
+  ref lock) and a misleading 401 on `GET /api/contact` (now 405).
+  Reviews: CONTACT_FORM_REVIEW.md.
+- **Swagger UI / OpenAPI 3.0 for the whole API** (owner task
+  2026-11-18). `GET /api/docs` + `GET /api/docs.json` document all
+  167 operations (122 paths), generated with swagger-jsdoc from
+  `@openapi` annotations in the route files plus shared component
+  schemas in `server/src/config/swagger.ts`; the served spec was
+  diffed against every route registration in code (zero phantom,
+  zero missing — this also settles the endpoint count at 167).
+  Authorize uses the platform's session cookie; production exposure
+  is off unless `API_DOCS_ENABLED=true`. No endpoint behaviour
+  changed (route-file diffs are comment-only).
 - **Phone number required at signup, with real international
   validation** (owner decision 2026-11-18). Registration now requires
   a phone that is a real number under its country's numbering plan —

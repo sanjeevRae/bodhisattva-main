@@ -1,17 +1,19 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import { motion } from "motion/react";
 import {
   ArrowRight, BookOpen, Award, Users, Leaf, Star, Play, Download,
-  MapPin, Clock, Phone, Mail, Globe, type LucideIcon,
+  MapPin, Clock, Phone, Mail, Globe, CheckCircle2, ChevronDown, Loader2,
+  type LucideIcon,
 } from "lucide-react";
 import {
   useFeaturedProducts, usePagePathMap, useSiteSettings, settingString,
   type CmsLinkRef, type CmsPage, type CmsSection,
   type ExhibitionRecord, type ModuleData, type NewsArticleRecord,
 } from "../lib/api";
-import { formatRs } from "../lib/shop";
+import { formatRs, shopRequest, ShopApiError, getShopCsrfToken, setShopCsrfToken } from "../lib/shop";
 import { SectionLabel } from "./shared";
+import { TurnstileWidget, TURNSTILE_SITE_KEY } from "./Turnstile";
 
 /**
  * PageRenderer — ARCHITECTURE.md §8.2/§8.3 + amendment A10.
@@ -1050,35 +1052,294 @@ function ContactInformationColumn({ section }: { section: CmsSection }) {
   );
 }
 
+type ContactStatus = "idle" | "submitting" | "success" | "error";
+
+const CONTACT_TEXT_FIELDS = ["firstName", "lastName", "email"] as const;
+
 function ContactFormColumn({ section }: { section: CmsSection }) {
   const config = section.config;
   const fields: { name: string; label: string }[] = config.fields ?? [];
   const byName = new Map(fields.map((f) => [f.name, f.label]));
   const subjectOptions: string[] = config.subjectOptions ?? [];
+  const turnstileEnabled = Boolean(TURNSTILE_SITE_KEY);
+
+  const [values, setValues] = useState({
+    firstName: "",
+    lastName: "",
+    email: "",
+    subject: "",
+    message: "",
+    website: "",
+  });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [status, setStatus] = useState<ContactStatus>("idle");
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileReset, setTurnstileReset] = useState(0);
+  // Synchronous submit lock: React state (`busy`) has not applied when a
+  // second click lands in the same task, so the state check alone lets a
+  // rapid double-click submit twice (QA defect D-1). The ref flips before
+  // the first await and is released on every failure path via failWith.
+  const submitLock = useRef(false);
+
+  const busy = status === "submitting";
   const inputClass =
-    "bg-primary-foreground/8 border border-primary-foreground/15 px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent text-primary-foreground placeholder:text-primary-foreground/25";
+    "w-full bg-primary-foreground/8 border border-primary-foreground/15 px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/40 text-primary-foreground placeholder:text-primary-foreground/25 disabled:opacity-60";
+  const labelClass =
+    "font-mono text-[0.48rem] tracking-widest uppercase text-primary-foreground/55 block mb-1.5";
+  const errorClass = "text-[#f0a198] text-xs font-sans mt-1.5";
+
+  const setField = (name: keyof typeof values) => (e: { target: { value: string } }) => {
+    setValues((v) => ({ ...v, [name]: e.target.value }));
+    setFieldErrors((errs) => {
+      if (!errs[name]) return errs;
+      const next = { ...errs };
+      delete next[name];
+      return next;
+    });
+  };
+
+  const validate = (): Record<string, string> => {
+    const errs: Record<string, string> = {};
+    if (!values.firstName.trim()) errs.firstName = "Please enter your first name.";
+    if (!values.lastName.trim()) errs.lastName = "Please enter your last name.";
+    if (!values.email.trim()) errs.email = "Please enter your email address.";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email.trim())) {
+      errs.email = "Please enter a valid email address.";
+    }
+    if (!values.subject) errs.subject = "Please choose a subject.";
+    const message = values.message.trim();
+    if (!message) errs.message = "Please write your message.";
+    else if (message.length < 10) errs.message = "Your message needs at least 10 characters.";
+    else if (message.length > 5000) errs.message = "Your message is too long (5,000 characters maximum).";
+    return errs;
+  };
+
+  const failWith = (message: string, errs: Record<string, string> = {}) => {
+    submitLock.current = false;
+    setFieldErrors(errs);
+    setFormError(message);
+    setStatus("error");
+    // Turnstile tokens are single-use: issue a fresh challenge for the retry.
+    setTurnstileToken(null);
+    setTurnstileReset((n) => n + 1);
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (submitLock.current) return;
+    submitLock.current = true;
+    setFormError(null);
+    const errs = validate();
+    if (Object.keys(errs).length > 0) {
+      submitLock.current = false;
+      setFieldErrors(errs);
+      setFormError("Please check the highlighted fields.");
+      setStatus("error");
+      return;
+    }
+    if (turnstileEnabled && !turnstileToken) {
+      submitLock.current = false;
+      setFormError("Please complete the verification check below, then send again.");
+      setStatus("error");
+      return;
+    }
+    setStatus("submitting");
+    try {
+      // The contact post is state-changing, so it rides the platform's
+      // double-submit CSRF pair. An anonymous visitor may not hold a
+      // csrf cookie yet — fetch one on demand (GET /api/auth/csrf-token
+      // issues it) so shopRequest can echo it in the header.
+      if (!getShopCsrfToken()) {
+        try {
+          const issued = await shopRequest<{ csrfToken?: string }>("/api/auth/csrf-token");
+          if (issued?.csrfToken) setShopCsrfToken(issued.csrfToken);
+        } catch {
+          // Proceed anyway: if the endpoint is CSRF-exempt the post
+          // still succeeds; otherwise the error path below reports it.
+        }
+      }
+      await shopRequest<{ success: boolean; data: { submitted: boolean } }>("/api/contact", {
+        method: "POST",
+        body: {
+          firstName: values.firstName.trim(),
+          lastName: values.lastName.trim(),
+          email: values.email.trim(),
+          subject: values.subject,
+          message: values.message.trim(),
+          website: values.website,
+          ...(turnstileEnabled ? { turnstileToken } : {}),
+        },
+      });
+      // Success is shown only after the server has accepted the message.
+      setStatus("success");
+    } catch (err) {
+      if (err instanceof ShopApiError && err.code === "VALIDATION_FAILED") {
+        const serverErrs: Record<string, string> = {};
+        for (const d of err.details) {
+          if (d && typeof d.field === "string" && typeof d.issue === "string") {
+            serverErrs[d.field] = d.issue;
+          }
+        }
+        failWith("Please check the highlighted fields.", serverErrs);
+      } else if (err instanceof ShopApiError && (err.code === "RATE_LIMITED" || err.status === 429)) {
+        failWith("Too many messages — please wait a few minutes and try again.");
+      } else {
+        failWith("Your message could not be sent. Please try again.");
+      }
+    }
+  };
+
+  const fieldError = (name: string) =>
+    fieldErrors[name] ? (
+      <p id={`contact-${name}-error`} className={errorClass} role="alert">
+        {fieldErrors[name]}
+      </p>
+    ) : null;
+
+  const describedBy = (name: string) => (fieldErrors[name] ? `contact-${name}-error` : undefined);
+
   return (
     <div>
       <h3 className="font-display text-2xl font-medium mb-7">{config.heading}</h3>
-      {/* Submission stays a no-op for now, exactly as on the current site;
-          the contact endpoint is a later phase. */}
-      <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
-        <div className="grid grid-cols-2 gap-4">
-          <input type="text" placeholder={byName.get("firstName")} className={inputClass} />
-          <input type="text" placeholder={byName.get("lastName")} className={inputClass} />
+      {status === "success" ? (
+        <div className="border border-accent/50 bg-primary-foreground/5 px-6 py-8 text-center" role="status">
+          <CheckCircle2 size={30} className="text-accent mx-auto mb-4" />
+          <p className="font-display text-xl font-medium mb-2">Thank you — your message has been sent.</p>
+          <p className="font-sans text-sm font-light text-primary-foreground/65">
+            We have received your enquiry and will reply to {values.email.trim()} as soon as we can.
+          </p>
         </div>
-        <input type="email" placeholder={byName.get("email")} className={`w-full ${inputClass}`} />
-        <select className="w-full bg-primary-foreground/8 border border-primary-foreground/15 px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent text-primary-foreground/65 appearance-none">
-          <option value="">{byName.get("subject")}</option>
-          {subjectOptions.map((option) => (
-            <option key={option}>{option}</option>
-          ))}
-        </select>
-        <textarea rows={4} placeholder={byName.get("message")} className={`w-full ${inputClass} resize-none`} />
-        <button type="submit" className="w-full bg-accent text-accent-foreground py-4 text-[0.58rem] tracking-[0.22em] uppercase font-sans hover:opacity-90 transition-opacity">
-          {config.submitLabel}
-        </button>
-      </form>
+      ) : (
+        <form className="space-y-4 relative" onSubmit={submit} noValidate>
+          {formError && (
+            <div className="border border-[#f0a198]/40 bg-[#f0a198]/10 px-4 py-3" role="alert">
+              <p className="font-sans text-sm text-[#f5c6c0]">{formError}</p>
+            </div>
+          )}
+          <div className="grid grid-cols-2 gap-4">
+            {CONTACT_TEXT_FIELDS.slice(0, 2).map((name) =>
+              byName.has(name) ? (
+                <div key={name}>
+                  <label className={labelClass} htmlFor={`contact-${name}`}>
+                    {byName.get(name)}
+                  </label>
+                  <input
+                    id={`contact-${name}`}
+                    type="text"
+                    autoComplete={name === "firstName" ? "given-name" : "family-name"}
+                    placeholder={byName.get(name)}
+                    className={inputClass}
+                    value={values[name]}
+                    onChange={setField(name)}
+                    disabled={busy}
+                    aria-invalid={Boolean(fieldErrors[name])}
+                    aria-describedby={describedBy(name)}
+                  />
+                  {fieldError(name)}
+                </div>
+              ) : null,
+            )}
+          </div>
+          {byName.has("email") && (
+            <div>
+              <label className={labelClass} htmlFor="contact-email">
+                {byName.get("email")}
+              </label>
+              <input
+                id="contact-email"
+                type="email"
+                autoComplete="email"
+                placeholder={byName.get("email")}
+                className={inputClass}
+                value={values.email}
+                onChange={setField("email")}
+                disabled={busy}
+                aria-invalid={Boolean(fieldErrors.email)}
+                aria-describedby={describedBy("email")}
+              />
+              {fieldError("email")}
+            </div>
+          )}
+          {byName.has("subject") && (
+            <div>
+              <label className={labelClass} htmlFor="contact-subject">
+                {byName.get("subject")}
+              </label>
+              <div className="relative">
+                <select
+                  id="contact-subject"
+                  className={`contact-subject-select ${inputClass} appearance-none pr-11`}
+                  value={values.subject}
+                  onChange={setField("subject")}
+                  disabled={busy}
+                  aria-invalid={Boolean(fieldErrors.subject)}
+                  aria-describedby={describedBy("subject")}
+                >
+                  <option value="">{byName.get("subject")}</option>
+                  {subjectOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="text-primary-foreground/50 absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none"
+                />
+              </div>
+              {fieldError("subject")}
+            </div>
+          )}
+          {byName.has("message") && (
+            <div>
+              <label className={labelClass} htmlFor="contact-message">
+                {byName.get("message")}
+              </label>
+              <textarea
+                id="contact-message"
+                rows={4}
+                placeholder={byName.get("message")}
+                className={`${inputClass} resize-none`}
+                value={values.message}
+                onChange={setField("message")}
+                disabled={busy}
+                aria-invalid={Boolean(fieldErrors.message)}
+                aria-describedby={describedBy("message")}
+              />
+              {fieldError("message")}
+            </div>
+          )}
+          {/* Honeypot: real visitors never see or fill this field; bots do.
+              A populated value is submitted as `website` and the server
+              discards the submission. */}
+          <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden opacity-0">
+            <input
+              type="text"
+              name="website"
+              tabIndex={-1}
+              autoComplete="off"
+              value={values.website}
+              onChange={setField("website")}
+            />
+          </div>
+          {turnstileEnabled && <TurnstileWidget onToken={setTurnstileToken} resetSignal={turnstileReset} />}
+          <button
+            type="submit"
+            disabled={busy}
+            className="w-full bg-accent text-accent-foreground py-4 text-[0.58rem] tracking-[0.22em] uppercase font-sans hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          >
+            {busy ? (
+              <>
+                <Loader2 size={14} className="animate-spin" />
+                Sending…
+              </>
+            ) : (
+              config.submitLabel
+            )}
+          </button>
+        </form>
+      )}
     </div>
   );
 }

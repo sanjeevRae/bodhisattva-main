@@ -193,3 +193,231 @@ export function createAdminMfaRouter(deps: MfaRouterDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (the user router mounts at
+ * /api/auth/mfa and the admin router at /api/admin/mfa in src/app.ts).
+ * Every route here requires the session cookie and the X-CSRF-Token
+ * header; each route also pins the session auth levels it serves.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/auth/mfa/enrol:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Begin TOTP enrolment
+ *     description: Generates a fresh TOTP secret for the signed-in admin (session level enrolment_required, or full for re-enrolment) and returns it with the otpauth URL for the authenticator app. Confirm with POST /api/auth/mfa/confirm.
+ *     operationId: mfaEnrol
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     responses:
+ *       '200':
+ *         description: Enrolment secret issued.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MfaEnrolResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/auth/mfa/confirm:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Confirm TOTP enrolment with a code
+ *     description: Verifies the first code from the authenticator app, activates MFA and returns the one-time recovery codes.
+ *     operationId: mfaConfirm
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TotpCodeRequest'
+ *     responses:
+ *       '200':
+ *         description: MFA active; recovery codes issued once.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/MfaConfirmResponse'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '429':
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+
+/**
+ * @openapi
+ * /api/auth/mfa/verify:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Verify a TOTP code at login
+ *     description: Completes the MFA step for a session at level mfa_pending, raising it to full.
+ *     operationId: mfaVerify
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TotpCodeRequest'
+ *     responses:
+ *       '200':
+ *         description: Session raised to full.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authLevel:
+ *                   type: string
+ *                   example: full
+ *               required: [authLevel]
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '429':
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+
+/**
+ * @openapi
+ * /api/auth/mfa/recover:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Recover a session with a recovery code
+ *     description: Alternative to TOTP verification for a session at level mfa_pending. The recovery code is consumed on use.
+ *     operationId: mfaRecover
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RecoveryCodeRequest'
+ *     responses:
+ *       '200':
+ *         description: Session raised to full.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 authLevel:
+ *                   type: string
+ *                   example: full
+ *               required: [authLevel]
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '429':
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+
+/**
+ * @openapi
+ * /api/auth/mfa/step-up:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Step-up verification for sensitive admin actions
+ *     description: Re-verifies the TOTP code on a full session and stamps the step-up time; privileged routes (role assignment, invitation create, MFA reset) require a recent step-up.
+ *     operationId: mfaStepUp
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TotpCodeRequest'
+ *     responses:
+ *       '200':
+ *         description: Step-up recorded.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 stepUpAt:
+ *                   type: string
+ *                   format: date-time
+ *               required: [stepUpAt]
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '429':
+ *         $ref: '#/components/responses/TooManyRequests'
+ */
+
+/**
+ * @openapi
+ * /api/admin/mfa/reset/{userId}:
+ *   post:
+ *     tags: [MFA]
+ *     summary: Reset another user's MFA (admin)
+ *     description: Clears the target user's TOTP credential and recovery codes so they must re-enrol at next login. Requires a full session, the users.manage permission and a recent step-up.
+ *     operationId: mfaAdminReset
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: MFA reset for the target user.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 userId:
+ *                   type: integer
+ *                 mfaReset:
+ *                   type: boolean
+ *                   example: true
+ *               required: [userId, mfaReset]
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */

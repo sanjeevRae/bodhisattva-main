@@ -343,3 +343,49 @@ runs all five suites.
   its own database `bodhisattva_test_news` (create + grant it like
   the other suite databases). Reviews: NEWS_CLIPPINGS_REVIEW.md;
   walkthrough: docs/news-clippings/walkthrough.md.
+
+## About-page contact form & email (2026-11-18)
+
+- **Migration 0012** adds `contact_submissions` (the form's messages,
+  with delivery status RECEIVED → SENT/FAILED and the SMTP message
+  id). Run `npm run db:migrate` after pulling.
+- **Endpoint** `POST /api/contact` (public). The About page form now
+  really submits: the message is stored, then emailed from the
+  configured website identity to the configured inbox with the
+  visitor as Reply-To. Sender/recipient are server config only —
+  `CONTACT_FROM_EMAIL` (default alerts@bodhisattvainternational.com),
+  `CONTACT_FROM_NAME`, `CONTACT_TO_EMAIL` (default
+  info@bodhisattvainternational.com) in `server/.env`; delivery uses
+  the platform's existing SMTP settings (`SMTP_HOST`/`SMTP_PORT`/
+  `SMTP_USER`/`SMTP_PASSWORD`, port 465 = implicit TLS).
+- **Protections**: global Origin check, strict validation (subject
+  must match the published About page's CMS subject list), honeypot,
+  MySQL rate limits (3/10 min + 5/hour per IP, 5/hour per email;
+  tunable via `CONTACT_RATE_LIMIT_WINDOW_MS`/`CONTACT_RATE_LIMIT_MAX`),
+  and Cloudflare Turnstile when configured — set
+  `TURNSTILE_SECRET_KEY` (server) and `VITE_TURNSTILE_SITE_KEY`
+  (frontend build) to enable it. Without the secret the form still
+  works, but the server logs a warning at production startup: the
+  rate limits are then the only anti-spam brake.
+- The Subject dropdown's white-on-white bug is fixed in
+  `src/styles/theme.css` (explicit `option` colours) with a custom
+  chevron in the form component.
+- Tests: `server/tests/contact.integration.test.ts` on its own
+  database `bodhisattva_test_contact`. Reviews:
+  CONTACT_FORM_REVIEW.md.
+
+## Interactive API documentation — Swagger UI (2026-11-18)
+
+- With the API running, open **http://localhost:4000/api/docs** for
+  the Swagger UI and **http://localhost:4000/api/docs.json** for the
+  raw OpenAPI 3.0 spec (167 operations, generated from `@openapi`
+  annotations in the route files + `server/src/config/swagger.ts`).
+- Auth is the platform's session cookie (no JWT): log in via the
+  website in the same browser and Try-it-out sends the cookie
+  automatically, or use the **Authorize** button with a copied
+  `session` cookie value. Mutating calls also need the
+  `X-CSRF-Token` header filled with the `csrf` cookie value.
+- Availability: on by default outside production; in production the
+  docs are OFF unless `API_DOCS_ENABLED=true` is set in
+  `server/.env`. Only the docs path gets a relaxed CSP — the global
+  helmet policy is unchanged.

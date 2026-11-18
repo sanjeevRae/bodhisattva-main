@@ -5,8 +5,8 @@ import PageRenderer, { PageStatus } from "../components/PageRenderer";
  * About — content from the CMS (GET /api/pages/about) via PageRenderer.
  * The contact_information + contact_form sections compose into the
  * single dark band inside PageRenderer; contact values come from site
- * settings, the form renders from config and its submission stays a
- * no-op (contact endpoint is a later phase).
+ * settings, and the form renders from config and submits to
+ * POST /api/contact (see ContactFormColumn in PageRenderer).
  */
 export default function AboutPage() {
   const { data: page, error } = usePage("about");

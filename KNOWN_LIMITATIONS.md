@@ -203,3 +203,21 @@ tested and verified **locally**; **nothing is deployed**.
     malformed-but-plausible PDF that passes signature checks is
     stored and served as uploaded; the viewer degrades to
     open/download links if PDF.js cannot parse it.
+43. **Contact form anti-spam depends on Turnstile being configured.**
+    Until the owner sets `TURNSTILE_SECRET_KEY` (server) and
+    `VITE_TURNSTILE_SITE_KEY` (frontend), the public contact form's
+    only brakes are the IP/email rate limits and the honeypot; a
+    distributed flood could burn the shared cPanel SMTP quota used
+    by OTP and order mail. The server warns about this at production
+    startup.
+44. **Contact submissions have no retention or admin viewer.**
+    `contact_submissions` rows (name, email, message) accumulate
+    indefinitely and are readable only via the database; delivery
+    to info@ is the operational channel. A purge policy and an
+    admin screen are future work.
+45. **Contact "SENT" means SMTP acceptance, not inbox delivery.**
+    A submission marked SENT was accepted by the configured SMTP
+    server; final delivery still depends on the domain's SPF/DKIM/
+    DMARC posture and the receiving server (platform mail currently
+    lands in Gmail spam until the DNS authentication records are
+    completed).

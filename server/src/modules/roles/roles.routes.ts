@@ -107,3 +107,103 @@ export function createRolesRouter(deps: RolesRouterDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (this router mounts at
+ * /api/admin in src/app.ts). All routes require a full admin session;
+ * the mutation also requires the X-CSRF-Token header and a recent
+ * step-up.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/admin/roles:
+ *   get:
+ *     tags: [Roles & Users]
+ *     summary: List roles and their permissions
+ *     description: Requires the roles.read permission.
+ *     operationId: rolesList
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: Roles with their permission sets.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/users:
+ *   get:
+ *     tags: [Roles & Users]
+ *     summary: List users
+ *     description: Requires the roles.read permission.
+ *     operationId: usersList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated users.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/users/{userId}/roles:
+ *   put:
+ *     tags: [Roles & Users]
+ *     summary: Assign a user's role
+ *     description: Replaces the user's role and revokes their existing sessions. Requires the roles.manage permission and a recent step-up. The Super Admin cap (3) applies — promoting beyond it conflicts.
+ *     operationId: usersAssignRole
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AssignRoleRequest'
+ *     responses:
+ *       '200':
+ *         description: Role assignment result, with a human-readable message.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */

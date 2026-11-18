@@ -306,3 +306,309 @@ export function createMediaRouters(deps: MediaRouterDeps): {
 
   return { adminRouter, publicRouter };
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (the public router mounts at
+ * /api, the admin router at /api/admin). Admin routes require a full
+ * session plus the named permission; mutations also require the
+ * X-CSRF-Token header.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/media/{id}/file/{variant}:
+ *   get:
+ *     tags: [Media]
+ *     summary: Serve a media file variant (public)
+ *     description: Streams the stored image for the asset. Variants are master (original), thumb and medium. PDF document assets are deliberately NOT served here — they return 404 and are only available through the gated News PDF endpoints.
+ *     operationId: mediaGetFile
+ *     security: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - name: variant
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [master, thumb, medium]
+ *     responses:
+ *       '200':
+ *         description: The image file.
+ *         content:
+ *           image/png:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/jpeg:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *           image/webp:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/media:
+ *   post:
+ *     tags: [Media]
+ *     summary: Upload an image (admin)
+ *     description: Multipart upload; the file is stored unmodified as the master and thumb/medium variants are derived for images. Requires the media.create permission.
+ *     operationId: mediaUpload
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/MediaUploadRequest'
+ *     responses:
+ *       '201':
+ *         description: Asset created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '413':
+ *         $ref: '#/components/responses/PayloadTooLarge'
+ *   get:
+ *     tags: [Media]
+ *     summary: List media assets (admin)
+ *     description: Requires the media.read permission.
+ *     operationId: mediaList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *       - name: folderId
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Paginated media assets.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/media/folders:
+ *   get:
+ *     tags: [Media]
+ *     summary: List media folders (admin)
+ *     description: Requires the media.read permission.
+ *     operationId: mediaListFolders
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: The folder tree.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Media]
+ *     summary: Create a media folder (admin)
+ *     description: Requires the media.update permission.
+ *     operationId: mediaCreateFolder
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateFolderRequest'
+ *     responses:
+ *       '201':
+ *         description: Folder created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/media/folders/{folderId}:
+ *   patch:
+ *     tags: [Media]
+ *     summary: Update a media folder (admin)
+ *     description: Requires the media.update permission.
+ *     operationId: mediaUpdateFolder
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: folderId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateFolderRequest'
+ *     responses:
+ *       '200':
+ *         description: Folder updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   delete:
+ *     tags: [Media]
+ *     summary: Delete a media folder (admin)
+ *     description: Requires the media.update permission.
+ *     operationId: mediaDeleteFolder
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: folderId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Folder deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/media/{id}:
+ *   patch:
+ *     tags: [Media]
+ *     summary: Update a media asset (admin)
+ *     description: Requires the media.update permission.
+ *     operationId: mediaUpdateAsset
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateMediaAssetRequest'
+ *     responses:
+ *       '200':
+ *         description: Asset updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   delete:
+ *     tags: [Media]
+ *     summary: Delete a media asset (admin)
+ *     description: Blocked with 409 while the asset is still referenced (page covers, product images, news covers or PDF attachments — including replaced news PDFs). Requires the media.delete permission.
+ *     operationId: mediaDeleteAsset
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Asset and its stored files deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */

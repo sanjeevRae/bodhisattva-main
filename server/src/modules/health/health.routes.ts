@@ -49,3 +49,60 @@ export function createHealthRouter(deps: HealthDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (this router mounts at
+ * /health in src/app.ts). Served at /api/docs when API docs are enabled.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     tags: [System]
+ *     summary: Liveness probe
+ *     description: Returns 200 whenever the process is up. Never touches the database.
+ *     operationId: healthLiveness
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: The process is up.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ok
+ *               required: [status]
+ */
+
+/**
+ * @openapi
+ * /health/ready:
+ *   get:
+ *     tags: [System]
+ *     summary: Readiness probe
+ *     description: Performs a real SELECT 1 through the database pool. Returns 503 with the shared error envelope when the database is unreachable or not configured.
+ *     operationId: healthReadiness
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: The database connection is ready.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: ready
+ *                 database:
+ *                   type: string
+ *                   example: ok
+ *               required: [status, database]
+ *       '503':
+ *         $ref: '#/components/responses/ServiceUnavailable'
+ */

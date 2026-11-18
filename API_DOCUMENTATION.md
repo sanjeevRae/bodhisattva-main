@@ -231,3 +231,20 @@ preferring the media asset (see KNOWN_LIMITATIONS).
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/audit-logs` | `full` + `audit.read` (Super Admin only in the role matrix; there is no audit update/delete for anyone) | Filters: `from`/`to`, actor (id or email substring), role, action prefix, result, targetType; newest-first, paginated |
+
+## Contact — public `/api`
+
+| Method | Path | Auth | Notes |
+|---|---|---|---|
+| POST | `/contact` | none (public) | About-page contact form. Body: `firstName`, `lastName`, `email`, `subject`, `message` (10–5000 chars), optional honeypot `website`, optional `turnstileToken`. Strict schema — unknown keys (e.g. `to`, `cc`) are rejected 400. `subject` must match the published About page's CMS `contact_form` subject list. Protections in order: Origin allowlist → honeypot (filled = fake 200, nothing stored/sent) → rate limits 3/10 min + 5/hour per IP and 5/hour per email (429 `RATE_LIMITED`) → Turnstile server-side verification when `TURNSTILE_SECRET_KEY` is configured (fail-closed) → stored in `contact_submissions`, then emailed (From = configured `CONTACT_FROM_*`, To = `CONTACT_TO_EMAIL`, Reply-To = the visitor) and marked SENT with the SMTP message id. SMTP failure → 503 `SERVICE_UNAVAILABLE` with a generic message; the row stays recorded as FAILED. Any other method on this path answers 405 `METHOD_NOT_ALLOWED` with `Allow: POST`. |
+
+## Interactive documentation (Swagger UI)
+
+The full API is also documented as OpenAPI 3.0, generated from
+`@openapi` annotations in the route files (167 operations / 122
+paths — the tables above remain the prose reference). With the API
+running: **`/api/docs`** serves the Swagger UI and **`/api/docs.json`**
+the raw spec. Authorize with the `session` cookie (see SETUP.md);
+mutating Try-it-out calls also need the `X-CSRF-Token` header set to
+the `csrf` cookie value. In production the docs are disabled unless
+`API_DOCS_ENABLED=true`.

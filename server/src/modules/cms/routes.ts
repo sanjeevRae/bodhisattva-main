@@ -386,3 +386,593 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (the public router mounts at
+ * /api, the admin router at /api/admin). Public payloads return the
+ * resource object directly (no envelope). Admin routes require a full
+ * session plus the named permission; mutations also require the
+ * X-CSRF-Token header.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/pages/{slug}:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Get a published page by slug
+ *     description: Returns the published page payload (sections included). During a database outage the last-good cached payload may be served, marked with the X-Content-Source response header.
+ *     operationId: cmsGetPublicPage
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The published page payload.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               description: Page object with its sections (shape defined by the CMS registry).
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/pages/{slug}/preview:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Preview an unpublished page revision
+ *     description: Bearer-token preview of draft content. The token comes from POST /api/admin/pages/{id}/preview-token and is passed as the token query parameter. Responses are never cached or indexed.
+ *     operationId: cmsPreviewPage
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: token
+ *         in: query
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The preview token issued by an admin.
+ *     responses:
+ *       '200':
+ *         description: The draft page payload.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/menus/{code}:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Get a navigation menu by code
+ *     operationId: cmsGetPublicMenu
+ *     security: []
+ *     parameters:
+ *       - name: code
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Menu code, e.g. main or footer.
+ *     responses:
+ *       '200':
+ *         description: The menu with its visible items.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/site:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Get the public site settings
+ *     description: Returns the settings flagged public (contact details, social links and similar). During a database outage the last-good cached payload may be served.
+ *     operationId: cmsGetSite
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: Public settings object.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 settings:
+ *                   type: object
+ *               required: [settings]
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages:
+ *   get:
+ *     tags: [CMS]
+ *     summary: List CMS pages (admin)
+ *     description: Requires the cms.pages.read permission.
+ *     operationId: cmsAdminListPages
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: All pages.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [CMS]
+ *     summary: Create a CMS page (admin)
+ *     description: Requires the cms.pages.create permission.
+ *     operationId: cmsAdminCreatePage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreatePageRequest'
+ *     responses:
+ *       '201':
+ *         description: Page created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Get a CMS page (admin)
+ *     description: Requires the cms.pages.read permission.
+ *     operationId: cmsAdminGetPage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The page with admin metadata.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [CMS]
+ *     summary: Update page metadata (admin)
+ *     description: Requires the cms.pages.update permission.
+ *     operationId: cmsAdminUpdatePage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdatePageRequest'
+ *     responses:
+ *       '200':
+ *         description: Page updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [CMS]
+ *     summary: Delete a CMS page (admin)
+ *     description: Requires the cms.pages.delete permission.
+ *     operationId: cmsAdminDeletePage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Page deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}/draft:
+ *   get:
+ *     tags: [CMS]
+ *     summary: Get the working draft of a page (admin)
+ *     description: Requires the cms.pages.read permission.
+ *     operationId: cmsAdminGetDraft
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The draft revision with its sections.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   put:
+ *     tags: [CMS]
+ *     summary: Save the working draft of a page (admin)
+ *     description: Optimistic concurrency — the save is refused with 409 when the draft pointer or version has moved since the editor loaded it. Requires the cms.pages.update permission.
+ *     operationId: cmsAdminSaveDraft
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/SaveDraftRequest'
+ *     responses:
+ *       '200':
+ *         description: Draft saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}/publish:
+ *   post:
+ *     tags: [CMS]
+ *     summary: Publish the current draft (admin)
+ *     description: Requires the cms.pages.publish permission.
+ *     operationId: cmsAdminPublishPage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Page published.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}/rollback/{revisionId}:
+ *   post:
+ *     tags: [CMS]
+ *     summary: Roll a page back to a previous revision (admin)
+ *     description: Requires the cms.pages.restore permission.
+ *     operationId: cmsAdminRollbackPage
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - name: revisionId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Page restored to the revision.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}/revisions:
+ *   get:
+ *     tags: [CMS]
+ *     summary: List a page's revisions (admin)
+ *     description: Requires the cms.pages.read permission.
+ *     operationId: cmsAdminListRevisions
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Revision history.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/pages/{id}/preview-token:
+ *   post:
+ *     tags: [CMS]
+ *     summary: Create a page preview token (admin)
+ *     description: Issues a short-lived bearer token for GET /api/pages/{slug}/preview. Requires the cms.pages.read permission.
+ *     operationId: cmsAdminCreatePreviewToken
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '201':
+ *         description: Preview token created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/menus:
+ *   get:
+ *     tags: [CMS]
+ *     summary: List menus (admin)
+ *     description: Requires the cms.menus.manage permission.
+ *     operationId: cmsAdminListMenus
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: All menus with their items.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/menus/{code}:
+ *   put:
+ *     tags: [CMS]
+ *     summary: Replace a menu's items (admin)
+ *     description: Requires the cms.menus.manage permission.
+ *     operationId: cmsAdminReplaceMenuItems
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: code
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReplaceMenuItemsRequest'
+ *     responses:
+ *       '200':
+ *         description: Menu items replaced.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/settings:
+ *   get:
+ *     tags: [CMS]
+ *     summary: List all site settings (admin)
+ *     description: Requires the settings.manage permission.
+ *     operationId: cmsAdminListSettings
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: All settings, public and private.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ItemsResponse'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   put:
+ *     tags: [CMS]
+ *     summary: Update site settings (admin)
+ *     description: Requires the settings.manage or store.settings.manage permission.
+ *     operationId: cmsAdminUpdateSettings
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateSettingsRequest'
+ *     responses:
+ *       '200':
+ *         description: Settings updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */

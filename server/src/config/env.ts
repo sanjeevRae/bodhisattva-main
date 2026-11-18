@@ -40,6 +40,17 @@ const envSchema = z
       .enum(["fatal", "error", "warn", "info", "debug", "trace", "silent"])
       .default("info"),
 
+    // Interactive API documentation (Swagger UI at /api/docs, raw spec at
+    // /api/docs.json). Optional boolean: when unset it defaults to enabled
+    // outside production and disabled in production, so the docs surface
+    // is never exposed publicly unless an operator opts in explicitly.
+    API_DOCS_ENABLED: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) =>
+        value === undefined ? undefined : value === "true",
+      ),
+
     // Database: DATABASE_URL (option A) or the discrete DB_* set (option B).
     DATABASE_URL: z.string().min(1).optional(),
     DB_HOST: z.string().default("localhost"),
@@ -78,6 +89,35 @@ const envSchema = z
     RATE_LIMIT_ADMIN_LOGIN_MAX_FAILURES: z.coerce.number().int().positive().default(3),
     RATE_LIMIT_REGISTRATION_PER_HOUR: z.coerce.number().int().positive().default(3),
     RATE_LIMIT_RECOVERY_PER_HOUR: z.coerce.number().int().positive().default(3),
+
+    // About-page contact form (server-side only — none of these may ever
+    // be exposed to the frontend). The visitor can never choose the
+    // sender or recipient: both come from here.
+    CONTACT_TO_EMAIL: z
+      .string()
+      .email()
+      .default("info@bodhisattvainternational.com"),
+    CONTACT_FROM_EMAIL: z
+      .string()
+      .email()
+      .default("alerts@bodhisattvainternational.com"),
+    CONTACT_FROM_NAME: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .default("Bodhisattva International Website"),
+    // Cloudflare Turnstile secret key (OPTIONAL). When unset, contact-form
+    // bot protection is rate limiting + honeypot only, and production
+    // boot logs a warning (server.ts) — it never fails startup and never
+    // weakens the mail transport. The matching SITE key is public and
+    // lives in the frontend's own configuration, never here.
+    TURNSTILE_SECRET_KEY: z.string().min(1).optional(),
+    // Optional overrides for the contact short-window IP limit
+    // (defaults: 3 submissions per 10 minutes; the hourly caps are
+    // fixed policy in the contact service).
+    CONTACT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().optional(),
+    CONTACT_RATE_LIMIT_MAX: z.coerce.number().int().positive().optional(),
   })
   .superRefine((env, ctx) => {
     // The three secrets serve different purposes and must never be reused
@@ -147,6 +187,8 @@ export interface AppConfig {
   appUrl: string;
   corsOrigins: string[];
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
+  /** Whether Swagger UI (/api/docs) and the raw spec (/api/docs.json) are served. */
+  apiDocsEnabled: boolean;
   /** Full connection URL when DATABASE_URL is used (option A). */
   databaseUrl?: string;
   db: {
@@ -183,6 +225,18 @@ export interface AppConfig {
     registrationPerHour: number;
     recoveryPerHour: number;
   };
+  contact: {
+    /** Mailbox that receives contact-form messages. */
+    toEmail: string;
+    /** Authenticated sending identity for contact-form mail. */
+    fromEmail: string;
+    fromName: string;
+    /** Short-window IP limit: max submissions per windowMs. */
+    rateLimitWindowMs: number;
+    rateLimitMax: number;
+  };
+  /** Turnstile secret; undefined → server-side verification is skipped. */
+  turnstileSecretKey?: string;
 }
 
 /**
@@ -211,6 +265,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     appUrl: env.APP_URL,
     corsOrigins,
     logLevel: env.LOG_LEVEL,
+    apiDocsEnabled: env.API_DOCS_ENABLED ?? env.NODE_ENV !== "production",
     databaseUrl: env.DATABASE_URL,
     db: {
       host: env.DB_HOST,
@@ -246,6 +301,14 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       registrationPerHour: env.RATE_LIMIT_REGISTRATION_PER_HOUR,
       recoveryPerHour: env.RATE_LIMIT_RECOVERY_PER_HOUR,
     },
+    contact: {
+      toEmail: env.CONTACT_TO_EMAIL,
+      fromEmail: env.CONTACT_FROM_EMAIL,
+      fromName: env.CONTACT_FROM_NAME,
+      rateLimitWindowMs: env.CONTACT_RATE_LIMIT_WINDOW_MS ?? 600_000,
+      rateLimitMax: env.CONTACT_RATE_LIMIT_MAX ?? 3,
+    },
+    turnstileSecretKey: env.TURNSTILE_SECRET_KEY,
   };
 }
 

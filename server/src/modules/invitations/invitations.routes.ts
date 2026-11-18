@@ -137,3 +137,128 @@ export function createInvitationAcceptRouter(
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (the admin router mounts at
+ * /api/admin/invitations, the accept router at /api/auth/invitations).
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/admin/invitations:
+ *   post:
+ *     tags: [Invitations]
+ *     summary: Invite a new admin user
+ *     description: Creates a single-use invitation (expires after 7 days) and emails the accept link. Requires a full session, the invitations.create permission and a recent step-up. Invitations can never grant the CUSTOMER role.
+ *     operationId: invitationsCreate
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CreateInvitationRequest'
+ *     responses:
+ *       '201':
+ *         description: Invitation created and emailed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   get:
+ *     tags: [Invitations]
+ *     summary: List invitations
+ *     description: Requires a full session and the invitations.read permission.
+ *     operationId: invitationsList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated invitations.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invitations/{id}/revoke:
+ *   post:
+ *     tags: [Invitations]
+ *     summary: Revoke a pending invitation
+ *     description: Requires a full session and the invitations.revoke permission.
+ *     operationId: invitationsRevoke
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Invitation revoked.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/auth/invitations/accept:
+ *   post:
+ *     tags: [Invitations]
+ *     summary: Accept an invitation and set the account password
+ *     description: Pre-session and CSRF-exempt — the single-use invitation token is the credential. On success the account is created with the invited role and the user is signed in (session and CSRF cookies are set); admin roles must then enrol MFA.
+ *     operationId: invitationsAccept
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/AcceptInvitationRequest'
+ *     responses:
+ *       '201':
+ *         description: Account created and signed in.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */

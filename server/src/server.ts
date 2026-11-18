@@ -29,6 +29,16 @@ function main(): void {
   }
 
   const logger = createLogger(config);
+  if (config.isProduction && !config.turnstileSecretKey) {
+    // Deliberately a warning, never a boot failure: the contact form
+    // keeps working on rate limits + honeypot, but the operator must
+    // know bot protection is reduced (contact spec Phase 3/6.3).
+    logger.warn(
+      "TURNSTILE_SECRET_KEY is not set: contact-form bot protection is " +
+        "reduced to rate limiting and the honeypot. Set it in the " +
+        "production environment to enable Turnstile verification.",
+    );
+  }
   const database = createDatabase(config);
   const app = createApp({ config, database, logger });
 

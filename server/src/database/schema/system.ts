@@ -7,6 +7,7 @@ import {
   int,
   json,
   mysqlTable,
+  text,
   uniqueIndex,
   varchar,
 } from 'drizzle-orm/mysql-core';
@@ -129,6 +130,49 @@ export const emailOutbox = mysqlTable(
     })
       .onDelete('restrict')
       .onUpdate('restrict'),
+  ],
+);
+
+/**
+ * Website contact-form submissions (migration 0012; the CMS seed's
+ * ContactFormConfig has anticipated this table since Phase 4). Every
+ * accepted About-page message is persisted BEFORE the email send is
+ * attempted, so an SMTP outage never loses a visitor's message.
+ *
+ * Status vocabulary (VARCHAR by design, like the outbox):
+ *   RECEIVED  persisted; the send has not completed yet (transient)
+ *   SENT      the mailer accepted the message; `emailMessageId` holds
+ *             the SMTP message id. This is acceptance, NOT delivery —
+ *             no stronger signal exists, and none is claimed.
+ *   FAILED    the send failed; the visitor was told to try again.
+ *
+ * Deliberately minimal (§Phase 7 data minimisation): no IP address, no
+ * user agent, no headers — the sender's name/email/subject/message and
+ * the delivery outcome are all the site needs to answer enquiries.
+ */
+export const contactSubmissions = mysqlTable(
+  'contact_submissions',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    firstName: varchar('first_name', { length: 80 }).notNull(),
+    lastName: varchar('last_name', { length: 80 }).notNull(),
+    email: varchar('email', { length: 254 }).notNull(),
+    subject: varchar('subject', { length: 120 }).notNull(),
+    message: text('message').notNull(),
+    // RECEIVED | SENT | FAILED (see header).
+    status: varchar('status', { length: 16 }).notNull().default('RECEIVED'),
+    emailMessageId: varchar('email_message_id', { length: 255 }),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+    updatedAt: datetime('updated_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`)
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('idx_contact_submissions_created').on(table.createdAt),
+    index('idx_contact_submissions_status').on(table.status, table.createdAt),
   ],
 );
 

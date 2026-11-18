@@ -47,3 +47,82 @@ export function createAuditRouter(deps: AuditRouteDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (this router mounts at
+ * /api/admin in src/app.ts). The audit log is read-only by design.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/admin/audit-logs:
+ *   get:
+ *     tags: [Audit]
+ *     summary: Query the audit log
+ *     description: Read-only record of security and admin events. Requires a full session and the audit.read permission (Super Admin only in the role matrix). The action filter matches by prefix, so action=store.orders matches store.orders.approve, .cancel and .update, and action=auth matches every auth event.
+ *     operationId: auditList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - name: from
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: ISO date or timestamp bounding created_at from below.
+ *       - name: to
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: ISO date or timestamp bounding created_at from above.
+ *       - name: actor
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 254
+ *         description: Numeric value matches the actor id; anything else matches a substring of the actor email snapshot.
+ *       - name: role
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: Exact actor role snapshot (SUPER_ADMIN, ADMIN, STORE_ADMIN, CUSTOMER or SYSTEM).
+ *       - name: action
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 80
+ *         description: Action prefix, doubling as the module filter.
+ *       - name: result
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [SUCCESS, FAILURE, DENIED]
+ *       - name: targetType
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *     responses:
+ *       '200':
+ *         description: Paginated audit entries.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */

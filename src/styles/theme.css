@@ -346,3 +346,23 @@
   border-top: 1px solid var(--border);
   margin: 2.2em 0;
 }
+
+/**
+ * Contact form subject select (About page, dark ContactBand).
+ * The closed control is styled dark-on-dark by Tailwind classes, but the
+ * native option popup is painted by the OS/browser on its default white
+ * surface while the options inherit the select's foreground colour —
+ * with the band's near-white text that rendered white-on-white. These
+ * rules pin the popup list to a light background with dark text in the
+ * browsers that honour option styling (Chrome, Edge, Firefox). The
+ * :checked rule keeps the current selection legible in the open list.
+ */
+.contact-subject-select option {
+  background-color: #ffffff;
+  color: #1c1917;
+}
+
+.contact-subject-select option:checked {
+  background-color: #efe9da;
+  color: #1c1917;
+}

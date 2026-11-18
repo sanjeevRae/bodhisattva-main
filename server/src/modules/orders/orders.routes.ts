@@ -419,3 +419,675 @@ export function createOrdersCustomerRouter(deps: OrdersRouteDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. The customer router mounts at /api (full session; documents
+ * are scoped to the signed-in customer's own orders — foreign ids answer
+ * 404). The admin router mounts at /api/admin behind store.orders.* /
+ * store.invoices.* / store.invoice_templates.manage permissions.
+ * Order lifecycle: PENDING_APPROVAL → APPROVED → PROCESSING → SHIPPED →
+ * DELIVERED, with reject/cancel exits; each step is its own POST below.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/orders/{id}/invoice:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Read my order's invoice (customer)
+ *     description: The invoice view for an order the signed-in customer owns, once approval has issued it.
+ *     operationId: ordersCustomerGetInvoice
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order id.
+ *     responses:
+ *       '200':
+ *         description: The invoice.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/orders/{id}/invoice.pdf:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download my order's invoice PDF (customer)
+ *     operationId: ordersCustomerDownloadInvoice
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order id.
+ *     responses:
+ *       '200':
+ *         description: The invoice PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/orders/{id}/credit-note.pdf:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download my order's credit note PDF (customer)
+ *     description: Answers 404 when the order has no credit note.
+ *     operationId: ordersCustomerDownloadCreditNote
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order id.
+ *     responses:
+ *       '200':
+ *         description: The credit note PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders:
+ *   get:
+ *     tags: [Orders]
+ *     summary: List orders (admin, store.orders.read)
+ *     operationId: ordersAdminList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *       - name: status
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [PENDING_APPROVAL, APPROVED, PROCESSING, SHIPPED, DELIVERED, CANCELLED]
+ *       - name: from
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: Placed-at lower bound (YYYY-MM-DD or ISO timestamp).
+ *       - name: to
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: Placed-at upper bound (YYYY-MM-DD or ISO timestamp).
+ *     responses:
+ *       '200':
+ *         description: Paginated orders.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Read an order (admin, store.orders.read)
+ *     description: Full order detail — lines, totals, address snapshot, status history and invoice state.
+ *     operationId: ordersAdminDetail
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/approve:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Approve a pending order (admin, store.orders.approve)
+ *     description: Approval issues exactly one invoice for the order; the transition is guarded so a repeat can never create a second invoice.
+ *     operationId: ordersAdminApprove
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/reject:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Reject a pending order (admin, store.orders.cancel)
+ *     description: A reason is required. Rejection releases the order's stock reservations exactly once.
+ *     operationId: ordersAdminReject
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/cancel:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Cancel an order (admin, store.orders.cancel)
+ *     description: A reason is required. Cancellation restores reserved stock exactly once.
+ *     operationId: ordersAdminCancel
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/process:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Move an approved order to PROCESSING (admin, store.orders.update)
+ *     operationId: ordersAdminProcess
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/ship:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Mark an order SHIPPED (admin, store.orders.update)
+ *     operationId: ordersAdminShip
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/deliver:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Mark an order DELIVERED (admin, store.orders.update)
+ *     description: Delivery completes the COD order; payment collection is reflected on the order/invoice state.
+ *     operationId: ordersAdminDeliver
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OrderTransitionRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated order detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/orders/{id}/invoice/resend:
+ *   post:
+ *     tags: [Orders]
+ *     summary: Resend an order's invoice email (admin, store.invoices.resend)
+ *     operationId: ordersAdminResendInvoice
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Order id.
+ *     responses:
+ *       '200':
+ *         description: The invoice view after queueing the resend.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoices:
+ *   get:
+ *     tags: [Orders]
+ *     summary: List invoices (admin, store.invoices.manage)
+ *     operationId: ordersAdminListInvoices
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated invoices.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoices/{id}:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Read an invoice (admin, store.invoices.manage)
+ *     operationId: ordersAdminGetInvoice
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Invoice id.
+ *     responses:
+ *       '200':
+ *         description: The invoice.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoices/{id}/download:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download an invoice PDF (admin, store.invoices.manage)
+ *     operationId: ordersAdminDownloadInvoice
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Invoice id.
+ *     responses:
+ *       '200':
+ *         description: The invoice PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoices/{id}/credit-note.pdf:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Download an invoice's credit note PDF (admin, store.invoices.manage)
+ *     description: Answers 404 when the invoice has no credit note.
+ *     operationId: ordersAdminDownloadCreditNote
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Invoice id.
+ *     responses:
+ *       '200':
+ *         description: The credit note PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoice-template:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Read the invoice template (admin, store.invoice_templates.manage)
+ *     description: The active invoice template — validated configuration only (company identity, prefix, colours, footer/terms, field toggles). Admins configure; they never supply markup or template code.
+ *     operationId: ordersAdminGetInvoiceTemplate
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: The template state (name + config).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   put:
+ *     tags: [Orders]
+ *     summary: Replace the invoice template configuration (admin)
+ *     operationId: ordersAdminUpdateInvoiceTemplate
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/UpdateInvoiceTemplateRequest'
+ *     responses:
+ *       '200':
+ *         description: The updated template state.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/invoice-template/preview.pdf:
+ *   get:
+ *     tags: [Orders]
+ *     summary: Preview the invoice template as a PDF (admin, store.invoice_templates.manage)
+ *     description: Renders a sample invoice with the current template configuration.
+ *     operationId: ordersAdminPreviewInvoiceTemplate
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: The preview PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */

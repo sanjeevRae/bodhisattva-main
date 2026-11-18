@@ -23,6 +23,7 @@ import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { createLogger, httpLogger } from "./middleware/logger.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./modules/auth/routes.js";
+import { createContactRouter } from "./modules/contact/routes.js";
 import {
   createAdminInvitationsRouter,
   createInvitationAcceptRouter,
@@ -56,6 +57,7 @@ import {
   type ReadinessProbe,
 } from "./modules/health/health.routes.js";
 import { getMailer, type Mailer } from "./services/mailer.js";
+import { mountApiDocs } from "./config/swagger.js";
 
 export interface AppDeps {
   config: AppConfig;
@@ -91,11 +93,30 @@ export function createApp(deps: AppDeps): Express {
 
   app.use("/health", createHealthRouter({ database: deps.database }));
 
+  // Interactive API documentation (Swagger UI + raw OpenAPI JSON).
+  // Gated by config.apiDocsEnabled (API_DOCS_ENABLED; off in production
+  // unless explicitly enabled). Mounted BEFORE the database modules on
+  // purpose: the customer routers mounted at /api guard every
+  // fall-through path with a session check, which would otherwise answer
+  // /api/docs with 401. The docs paths collide with no existing route,
+  // and the docs routes are plain GETs, so CSRF/origin middleware pass
+  // them without any exemption.
+  mountApiDocs(app, config);
+
   if (deps.database?.db) {
     const db = deps.database.db;
     app.use(
       "/api/auth",
       createAuthRouter({
+        db,
+        config,
+        logger,
+        mailer: deps.mailer ?? getMailer(config),
+      }),
+    );
+    app.use(
+      "/api",
+      createContactRouter({
         db,
         config,
         logger,

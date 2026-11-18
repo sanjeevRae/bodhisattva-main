@@ -27,6 +27,18 @@ export interface MailMessage {
   subject: string;
   text: string;
   html?: string;
+  /**
+   * Per-message From override (contact form, migration 0012: the
+   * configured contact identity "Name <alerts@…>", which may differ
+   * from the platform-wide SMTP_FROM). Absent → config.smtp.from.
+   * Callers must only ever pass server-configured values here.
+   */
+  from?: string;
+  /**
+   * Per-message Reply-To (contact form: the visitor's validated email,
+   * so staff can simply hit reply). Absent → no Reply-To header.
+   */
+  replyTo?: string;
   /** Phase 7: the invoice PDF rides the outbox invoice mail. */
   attachments?: MailAttachment[];
   /**
@@ -38,8 +50,13 @@ export interface MailMessage {
   messageId?: string;
 }
 
+export interface MailSendResult {
+  /** The message id assigned by the sending server, when it reports one. */
+  messageId?: string;
+}
+
 export interface Mailer {
-  sendMail(message: MailMessage): Promise<void>;
+  sendMail(message: MailMessage): Promise<MailSendResult>;
 }
 
 export function createMailer(
@@ -51,8 +68,12 @@ export function createMailer(
     nodemailer.createTransport({
       host: config.smtp.host,
       port: config.smtp.port,
-      // Implicit TLS only on the standard SMTPS port; the local catcher and
-      // typical submission ports use plain/STARTTLS connections.
+      // TLS semantics (verified against the nodemailer SMTP docs for the
+      // contact-form spec, Phase 2.3): port 465 → implicit TLS
+      // (secure=true); any other port (587 submission) → plain connect
+      // upgraded via STARTTLS when the server advertises it
+      // (secure=false). Certificate validation stays at nodemailer's
+      // default (rejectUnauthorized is never disabled here).
       secure: config.smtp.port === 465,
       // Explicit timeouts (Phase 8, Phase 7 review disposition 2): a
       // hung connection must fail fast — far below the outbox's
@@ -66,12 +87,13 @@ export function createMailer(
     });
 
   return {
-    async sendMail(message: MailMessage): Promise<void> {
-      await transporter.sendMail({
-        from: config.smtp.from,
+    async sendMail(message: MailMessage): Promise<MailSendResult> {
+      const info = await transporter.sendMail({
+        from: message.from ?? config.smtp.from,
         to: message.to,
         subject: message.subject,
         text: message.text,
+        ...(message.replyTo ? { replyTo: message.replyTo } : {}),
         ...(message.messageId ? { messageId: message.messageId } : {}),
         ...(message.html ? { html: message.html } : {}),
         ...(message.attachments && message.attachments.length > 0
@@ -84,6 +106,7 @@ export function createMailer(
             }
           : {}),
       });
+      return { messageId: info.messageId };
     },
   };
 }

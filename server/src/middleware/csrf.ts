@@ -46,6 +46,13 @@ const EXEMPT_PATHS = new Set([
   // at Phase 2 integration — without it, a fresh invitee with no cookies
   // would be 403-blocked from ever accepting.
   "/api/auth/invitations/accept",
+  // About-page contact form (migration 0012): a public, unauthenticated
+  // endpoint by design — there is no session and no ambient authority for
+  // CSRF to abuse (the request carries no credentials and can only send a
+  // message to the site's own configured mailbox). Its protections are
+  // the global Origin check, MySQL-backed rate limits, the honeypot and,
+  // when configured, Turnstile server-side verification.
+  "/api/contact",
 ]);
 
 function csrfCookieOptions(config: AppConfig) {

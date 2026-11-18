@@ -875,3 +875,1853 @@ export function createMuseumAdminRouter(deps: MuseumRouteDeps): Router {
 
   return router;
 }
+
+/* ==========================================================================
+ * OpenAPI documentation (swagger-jsdoc) — documentation only, no runtime
+ * behaviour. Paths are the full public paths (the public router mounts at
+ * /api, the admin router at /api/admin). Admin routes require a full
+ * session plus the module permission (museum.collections.manage,
+ * museum.exhibitions.manage, museum.gallery.manage, news.manage or
+ * foundation.manage); mutations also require the X-CSRF-Token header.
+ * ======================================================================== */
+
+/**
+ * @openapi
+ * /api/collections:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List published collections (public)
+ *     operationId: museumPublicCollections
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: Published collections in the success envelope (data.items).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ */
+
+/**
+ * @openapi
+ * /api/exhibitions:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List published exhibitions (public)
+ *     operationId: museumPublicExhibitions
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: Published exhibitions in the success envelope (data.items).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ */
+
+/**
+ * @openapi
+ * /api/news:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Browse the News Clippings archive (public)
+ *     description: Published articles only. Without a page parameter the legacy shape is returned (all matches with the category list); with page supplied, a pagination meta is added at the envelope level. Full-text search runs over title, summary, outlet, author and the plain-text body projection.
+ *     operationId: newsPublicList
+ *     security: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *       - name: category
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 120
+ *         description: Category slug.
+ *       - name: publication
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 160
+ *         description: Outlet name filter (facet value).
+ *       - name: year
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1900
+ *           maximum: 2200
+ *       - name: dateFrom
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: '^\d{4}-\d{2}-\d{2}$'
+ *       - name: dateTo
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           pattern: '^\d{4}-\d{2}-\d{2}$'
+ *       - name: type
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           maxLength: 40
+ *         description: Article type filter (facet value).
+ *       - name: hasPdf
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - name: featured
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - name: sort
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [newest, oldest, added, alpha]
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *     responses:
+ *       '200':
+ *         description: Matching published articles (list items never include the article body).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ */
+
+/**
+ * @openapi
+ * /api/news/facets:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: News archive filter facets (public)
+ *     description: Publications, years, types and categories with published-article counts, for building the archive filter UI.
+ *     operationId: newsPublicFacets
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: Facet lists with counts.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ */
+
+/**
+ * @openapi
+ * /api/news/preview/{token}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Preview a draft news article (token)
+ *     description: Returns the full article detail for a draft behind a single-article preview token issued from the admin (POST /api/admin/news/{id}/preview). Tokens are stored hashed, expire after 30 minutes, and unknown tokens answer an oracle-free 404. The token authorizes the article text only — a draft PDF stays behind the admin endpoints. Responses carry no-store and no-referrer headers.
+ *     operationId: newsPreviewByToken
+ *     security: []
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The article detail, including body and related articles.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/news/{slug}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Read a published news article (public)
+ *     description: Full detail — body, byline, tags, PDF descriptor and related articles. Reading increments the article view counter.
+ *     operationId: newsPublicDetail
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The article detail.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/news/{slug}/attachments:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List a published article's public attachments
+ *     operationId: newsPublicAttachments
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The article's active public PDF attachment descriptor.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/news/{slug}/pdf/view:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: View the original clipping PDF inline (public)
+ *     description: Streams the stored PDF byte-identically with Content-Disposition inline. Only for published articles with an active public attachment. Supports single-range requests (206) for the in-browser viewer; responses carry X-Content-Type-Options nosniff and a sandboxed Content-Security-Policy.
+ *     operationId: newsPublicPdfView
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: Range
+ *         in: header
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Optional single byte range, e.g. bytes=0-1023.
+ *     responses:
+ *       '200':
+ *         description: The PDF file (full body).
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '206':
+ *         description: The requested byte range of the PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '416':
+ *         description: Requested range not satisfiable.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/news/{slug}/pdf/download:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Download the original clipping PDF (public)
+ *     description: Same gating as the inline view, with Content-Disposition attachment and the original filename. Downloading increments the article PDF download counter.
+ *     operationId: newsPublicPdfDownload
+ *     security: []
+ *     parameters:
+ *       - name: slug
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - name: Range
+ *         in: header
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The PDF file.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '206':
+ *         description: The requested byte range of the PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '416':
+ *         description: Requested range not satisfiable.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+
+/**
+ * @openapi
+ * /api/foundation:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Foundation page content (public)
+ *     description: Published foundation programs and testimonials for the Foundation page.
+ *     operationId: museumPublicFoundation
+ *     security: []
+ *     responses:
+ *       '200':
+ *         description: Foundation programs and testimonials.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ */
+
+/* --------------------------------------------------------------------------
+ * OpenAPI documentation — admin museum routes (same swagger-jsdoc block;
+ * permission for every route below is museum.collections.manage unless
+ * another module permission is named in the summary).
+ * ------------------------------------------------------------------------ */
+
+/**
+ * @openapi
+ * /api/admin/collections:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List collections (admin)
+ *     operationId: museumAdminListCollections
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated collections, drafts included.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a collection (admin)
+ *     operationId: museumAdminCreateCollection
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CollectionRequest'
+ *     responses:
+ *       '201':
+ *         description: Collection created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/collections/reorder:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Reorder collections (admin)
+ *     operationId: museumAdminReorderCollections
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReorderRequest'
+ *     responses:
+ *       '200':
+ *         description: Order saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/collections/{id}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Get a collection (admin)
+ *     operationId: museumAdminGetCollection
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The collection.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a collection (admin)
+ *     operationId: museumAdminUpdateCollection
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/CollectionPatch'
+ *     responses:
+ *       '200':
+ *         description: Collection updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a collection (admin)
+ *     operationId: museumAdminDeleteCollection
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Collection deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/exhibitions:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List exhibitions (admin, museum.exhibitions.manage)
+ *     operationId: museumAdminListExhibitions
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated exhibitions, drafts included.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create an exhibition (admin)
+ *     operationId: museumAdminCreateExhibition
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ExhibitionRequest'
+ *     responses:
+ *       '201':
+ *         description: Exhibition created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/exhibitions/reorder:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Reorder exhibitions (admin)
+ *     operationId: museumAdminReorderExhibitions
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReorderRequest'
+ *     responses:
+ *       '200':
+ *         description: Order saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/exhibitions/{id}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Get an exhibition (admin)
+ *     operationId: museumAdminGetExhibition
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The exhibition.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update an exhibition (admin)
+ *     operationId: museumAdminUpdateExhibition
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ExhibitionPatch'
+ *     responses:
+ *       '200':
+ *         description: Exhibition updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete an exhibition (admin)
+ *     operationId: museumAdminDeleteExhibition
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Exhibition deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/exhibitions/{id}/gallery-items:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List an exhibition's gallery items (admin, museum.gallery.manage)
+ *     operationId: museumAdminListGalleryItems
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated gallery items.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Add a gallery item to an exhibition (admin)
+ *     operationId: museumAdminCreateGalleryItem
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GalleryItemRequest'
+ *     responses:
+ *       '201':
+ *         description: Gallery item created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/gallery-items/reorder:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Reorder gallery items (admin, museum.gallery.manage)
+ *     operationId: museumAdminReorderGalleryItems
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReorderRequest'
+ *     responses:
+ *       '200':
+ *         description: Order saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/gallery-items/{id}:
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a gallery item (admin, museum.gallery.manage)
+ *     operationId: museumAdminUpdateGalleryItem
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/GalleryItemPatch'
+ *     responses:
+ *       '200':
+ *         description: Gallery item updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a gallery item (admin, museum.gallery.manage)
+ *     operationId: museumAdminDeleteGalleryItem
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Gallery item deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/* --------------------------------------------------------------------------
+ * OpenAPI documentation — admin News Clippings, foundation programs and
+ * testimonials (permission news.manage for the news routes,
+ * foundation.manage for the rest).
+ * ------------------------------------------------------------------------ */
+
+/**
+ * @openapi
+ * /api/admin/news/categories:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List news categories (admin)
+ *     operationId: newsAdminListCategories
+ *     security:
+ *       - cookieAuth: []
+ *     responses:
+ *       '200':
+ *         description: All news categories.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a news category (admin)
+ *     operationId: newsAdminCreateCategory
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsCategoryRequest'
+ *     responses:
+ *       '201':
+ *         description: Category created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/categories/{id}:
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a news category (admin)
+ *     operationId: newsAdminUpdateCategory
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsCategoryPatch'
+ *     responses:
+ *       '200':
+ *         description: Category updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a news category (admin)
+ *     description: Conflicts with 409 while articles still reference the category.
+ *     operationId: newsAdminDeleteCategory
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Category deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List news articles (admin)
+ *     description: Drafts included, with the PDF descriptor and authoring metadata the editor needs.
+ *     operationId: newsAdminList
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *       - name: categoryId
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - name: status
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [published, draft, all]
+ *       - name: featured
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - name: hasPdf
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: ['true', 'false']
+ *       - name: sort
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [updated, published, title]
+ *     responses:
+ *       '200':
+ *         description: Paginated articles.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a news article (admin)
+ *     operationId: newsAdminCreate
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsArticleRequest'
+ *     responses:
+ *       '201':
+ *         description: Article created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/bulk:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Bulk publish, unpublish or archive articles (admin)
+ *     operationId: newsAdminBulk
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsBulkRequest'
+ *     responses:
+ *       '200':
+ *         description: Per-article outcome of the bulk action.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Get a news article for editing (admin)
+ *     description: Full record including body, tags and the active PDF attachment.
+ *     operationId: newsAdminGet
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The article.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a news article (admin)
+ *     description: The body is sanitised on save and its plain-text projection is re-indexed for search. Sending tags replaces the tag set; omitting tags leaves them untouched.
+ *     operationId: newsAdminUpdate
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsArticlePatch'
+ *     responses:
+ *       '200':
+ *         description: Article updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a news article (admin)
+ *     description: Soft delete; the stored PDF file is retained while any attachment record references it.
+ *     operationId: newsAdminDelete
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Article deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/publish:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Publish a news article (admin)
+ *     operationId: newsAdminPublish
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Article published.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/unpublish:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Unpublish a news article (admin)
+ *     description: The article and its PDF immediately stop being served publicly.
+ *     operationId: newsAdminUnpublish
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Article unpublished.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/duplicate:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Duplicate a news article (admin)
+ *     description: Creates an unpublished copy. The copy references the same stored PDF file — no second copy is written.
+ *     operationId: newsAdminDuplicate
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '201':
+ *         description: The duplicated article.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/preview:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a draft preview token (admin)
+ *     description: Issues a single-article preview token (30 minutes, stored hashed) for GET /api/news/preview/{token}.
+ *     operationId: newsAdminCreatePreview
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '201':
+ *         description: Preview token and path.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/pdf:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Upload or replace the article PDF (admin)
+ *     description: Multipart upload of the original clipping PDF (max 25 MiB, signature and structure validated, SHA-256 recorded, stored unmodified). Replacement is serialised on the article row — the previous attachment becomes REPLACED and its file is kept for history.
+ *     operationId: newsAdminUploadPdf
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/NewsPdfUploadRequest'
+ *     responses:
+ *       '201':
+ *         description: The new active attachment.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '413':
+ *         $ref: '#/components/responses/PayloadTooLarge'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Remove the article PDF (admin)
+ *     description: Marks the active attachment REMOVED; the article keeps no public PDF afterwards.
+ *     operationId: newsAdminRemovePdf
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Attachment removed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/pdf/view:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: View an article PDF in the admin (works for drafts)
+ *     description: Streams the active attachment regardless of publication state, behind the news.manage permission. Supports single-range requests.
+ *     operationId: newsAdminPdfView
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *       - name: Range
+ *         in: header
+ *         required: false
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: The PDF file.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '206':
+ *         description: The requested byte range of the PDF.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/news/{id}/pdf/download:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Download an article PDF in the admin
+ *     operationId: newsAdminPdfDownload
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The PDF file as an attachment with its original filename.
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/foundation-programs:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List foundation programs (admin, foundation.manage)
+ *     operationId: museumAdminListFoundationPrograms
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated programs.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a foundation program (admin)
+ *     operationId: museumAdminCreateFoundationProgram
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FoundationProgramRequest'
+ *     responses:
+ *       '201':
+ *         description: Program created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/foundation-programs/reorder:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Reorder foundation programs (admin)
+ *     operationId: museumAdminReorderFoundationPrograms
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReorderRequest'
+ *     responses:
+ *       '200':
+ *         description: Order saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/foundation-programs/{id}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Get a foundation program (admin)
+ *     operationId: museumAdminGetFoundationProgram
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The program.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a foundation program (admin)
+ *     operationId: museumAdminUpdateFoundationProgram
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FoundationProgramPatch'
+ *     responses:
+ *       '200':
+ *         description: Program updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a foundation program (admin)
+ *     operationId: museumAdminDeleteFoundationProgram
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Program deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
+
+/**
+ * @openapi
+ * /api/admin/testimonials:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: List testimonials (admin, foundation.manage)
+ *     operationId: museumAdminListTestimonials
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/PageQuery'
+ *       - $ref: '#/components/parameters/PageSizeQuery'
+ *       - $ref: '#/components/parameters/SearchQuery'
+ *     responses:
+ *       '200':
+ *         description: Paginated testimonials.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ListEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Create a testimonial (admin)
+ *     operationId: museumAdminCreateTestimonial
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TestimonialRequest'
+ *     responses:
+ *       '201':
+ *         description: Testimonial created.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/testimonials/reorder:
+ *   post:
+ *     tags: [Museum & News]
+ *     summary: Reorder testimonials (admin)
+ *     operationId: museumAdminReorderTestimonials
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ReorderRequest'
+ *     responses:
+ *       '200':
+ *         description: Order saved.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ */
+
+/**
+ * @openapi
+ * /api/admin/testimonials/{id}:
+ *   get:
+ *     tags: [Museum & News]
+ *     summary: Get a testimonial (admin)
+ *     operationId: museumAdminGetTestimonial
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: The testimonial.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   patch:
+ *     tags: [Museum & News]
+ *     summary: Update a testimonial (admin)
+ *     operationId: museumAdminUpdateTestimonial
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/TestimonialPatch'
+ *     responses:
+ *       '200':
+ *         description: Testimonial updated.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '400':
+ *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *   delete:
+ *     tags: [Museum & News]
+ *     summary: Delete a testimonial (admin)
+ *     operationId: museumAdminDeleteTestimonial
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Testimonial deleted.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ */
