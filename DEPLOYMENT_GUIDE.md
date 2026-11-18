@@ -164,8 +164,9 @@ npm run db:seed       # roles/permissions, CMS content, museum + store
                       # seed data, invoice template (idempotent)
 ```
 
-3. Create the first Super Admin (one-time; refuses to run once one
-   exists):
+3. Create the first Super Admin (the platform allows at most 3 Super
+   Admin accounts; the CLI refuses to run once 3 active Super Admins
+   exist):
 
 ```bash
 BOOTSTRAP_SUPER_ADMIN_EMAIL=<owner email> \

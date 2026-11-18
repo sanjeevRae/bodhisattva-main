@@ -8,6 +8,10 @@
  *  - The token is a ≥256-bit CSPRNG value; only its SHA-256 hash is stored.
  *    The raw token exists only in this return value and the email.
  *  - One live invitation per email: re-issue revokes predecessors.
+ *  - SUPER_ADMIN invitations count against the MAX_SUPER_ADMINS cap
+ *    (config/limits.ts): creation is refused when active Super Admins
+ *    plus live Super Admin invitations reach the cap, and acceptance
+ *    re-checks the ceiling before consuming the invitation.
  *  - Acceptance consumes the invitation with ONE conditional UPDATE
  *    (status pending + unexpired), so concurrent accepts cannot both win;
  *    the account email is taken from the invitation row — it cannot be
@@ -18,6 +22,7 @@ import { AppError } from "@bodhisattva/shared/errors";
 import type { PaginationParams } from "@bodhisattva/shared/pagination";
 import { and, count, desc, eq, gt, isNull } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
+import { MAX_SUPER_ADMINS } from "../../config/limits.js";
 import type { Database } from "../../database/client.js";
 import {
   invitations,
@@ -35,6 +40,11 @@ import {
 } from "../../services/permissions.js";
 import { hashPassword } from "../../utils/password.js";
 import { generateToken, hashToken } from "../../utils/tokens.js";
+import {
+  countActiveSuperAdmins,
+  countPendingSuperAdminInvitations,
+  superAdminLimitError,
+} from "../roles/super-admin-cap.js";
 import type {
   AcceptInvitationInput,
   CreateInvitationInput,
@@ -181,6 +191,21 @@ export async function createInvitation(
           isNull(invitations.revokedAt),
         ),
       );
+    // Super Admin cap (owner decision 2026-11-18, config/limits.ts):
+    // a SUPER_ADMIN invitation reserves a slot, so it is refused when
+    // active Super Admins + live Super Admin invitations already reach
+    // MAX_SUPER_ADMINS. Checked after the revocation above, so a
+    // re-issued invitation for the same email never counts its own
+    // just-revoked predecessors against itself.
+    if (input.role === "SUPER_ADMIN") {
+      const txDb = tx as unknown as Database;
+      const activeSuperAdmins = await countActiveSuperAdmins(txDb);
+      const pendingSuperAdmins =
+        await countPendingSuperAdminInvitations(txDb);
+      if (activeSuperAdmins + pendingSuperAdmins >= MAX_SUPER_ADMINS) {
+        throw superAdminLimitError();
+      }
+    }
     const [created] = await tx
       .insert(invitations)
       .values({
@@ -372,6 +397,29 @@ export async function acceptInvitation(
 
   try {
     await db.transaction(async (tx) => {
+      // Super Admin cap (owner decision 2026-11-18, config/limits.ts):
+      // slots can fill between invitation and acceptance (e.g. a direct
+      // promotion), so acceptance re-checks the ceiling BEFORE consuming.
+      // Locking every SUPER_ADMIN assignment row serializes acceptances
+      // against promotions/demotions. Throwing here rolls the whole
+      // transaction back, so the invitation is NOT consumed and stays
+      // usable once a slot frees up.
+      if (invitation.roleCode === "SUPER_ADMIN") {
+        await tx
+          .select({ userId: userRoles.userId })
+          .from(userRoles)
+          .where(eq(userRoles.roleId, inv.roleId))
+          .for("update");
+        const activeSuperAdmins = await countActiveSuperAdmins(
+          tx as unknown as Database,
+        );
+        if (activeSuperAdmins >= MAX_SUPER_ADMINS) {
+          throw AppError.conflict(
+            `The Super Admin limit (${MAX_SUPER_ADMINS}) has been reached, so this invitation cannot be accepted. Ask an existing Super Admin to free a slot first.`,
+          );
+        }
+      }
+
       // Atomic consume: a single conditional UPDATE is the single-use gate —
       // pending, unrevoked and unexpired at the moment of the write.
       const consumed = await tx

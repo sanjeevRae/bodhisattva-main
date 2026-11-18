@@ -9,6 +9,9 @@
  *    membership alone, except assigning CUSTOMER, which clears all
  *    administrative roles.
  *  - The LAST active SUPER_ADMIN can never be demoted (lockout guard).
+ *  - At most MAX_SUPER_ADMINS active SUPER_ADMINs may exist (owner
+ *    decision 2026-11-18, config/limits.ts): promotions beyond the cap
+ *    are refused inside the assignment transaction.
  *  - A privilege change revokes the target's sessions (revoke reason
  *    ROLE_CHANGE) and bumps their session_version (amendment A9).
  *  - Every assignment is audited with from/to roles.
@@ -17,6 +20,7 @@ import { AppError } from "@bodhisattva/shared/errors";
 import { isRole, type Role } from "@bodhisattva/shared/permissions";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
+import { MAX_SUPER_ADMINS } from "../../config/limits.js";
 import type { Database } from "../../database/client.js";
 import {
   permissions as permissionsTable,
@@ -34,6 +38,10 @@ import {
   isAdminRole,
 } from "../../services/permissions.js";
 import { createSessionService } from "../../services/session.js";
+import {
+  countActiveSuperAdmins,
+  superAdminLimitError,
+} from "./super-admin-cap.js";
 
 export interface RolesDeps {
   db: Database;
@@ -161,18 +169,6 @@ export async function listUsers(
   };
 }
 
-async function countActiveSuperAdmins(db: Database): Promise<number> {
-  const [row] = await db
-    .select({ value: count() })
-    .from(userRoles)
-    .innerJoin(rolesTable, eq(userRoles.roleId, rolesTable.id))
-    .innerJoin(users, eq(userRoles.userId, users.id))
-    .where(
-      and(eq(rolesTable.code, "SUPER_ADMIN"), eq(users.status, "ACTIVE")),
-    );
-  return row?.value ?? 0;
-}
-
 export interface AssignRoleResult {
   userId: number;
   role: Role;
@@ -259,6 +255,30 @@ export async function assignRole(
           throw AppError.conflict(
             "This user is the last active Super Admin and cannot be demoted. Promote another Super Admin first.",
           );
+        }
+      }
+    }
+
+    // Super Admin cap (owner decision 2026-11-18, config/limits.ts):
+    // a promotion TO SUPER_ADMIN is refused once MAX_SUPER_ADMINS active
+    // Super Admins exist. Enforced inside the transaction with the same
+    // locking pattern as the demotion guard — locking every SUPER_ADMIN
+    // assignment row serializes promotions against each other and
+    // against demotions, and the count then reads the latest committed
+    // state.
+    if (currentAdmin !== "SUPER_ADMIN" && newAdmin === "SUPER_ADMIN") {
+      const superAdminRoleId = roleIdByCode.get("SUPER_ADMIN");
+      if (superAdminRoleId) {
+        await tx
+          .select({ userId: userRoles.userId })
+          .from(userRoles)
+          .where(eq(userRoles.roleId, superAdminRoleId))
+          .for("update");
+        const activeSuperAdmins = await countActiveSuperAdmins(
+          tx as unknown as Database,
+        );
+        if (activeSuperAdmins >= MAX_SUPER_ADMINS) {
+          throw superAdminLimitError();
         }
       }
     }

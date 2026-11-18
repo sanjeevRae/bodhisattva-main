@@ -6,6 +6,20 @@ hashes are on `sanjeevRae/bodhisattva-main` `main`. Status discipline:
 everything below is implemented, tested and verified **locally**;
 **nothing is deployed**.
 
+## Unreleased — 2026-11-18
+
+- **Super Admin cap raised to 3** (owner decision 2026-11-18). The
+  platform now allows at most 3 active Super Admin accounts
+  (`MAX_SUPER_ADMINS` in `server/src/config/limits.ts`), enforced on
+  every creation path: the bootstrap CLI (previously refused when any
+  Super Admin existed), role assignment (promotions beyond the cap
+  are refused inside the transaction), and invitations (pending Super
+  Admin invitations reserve slots at creation; acceptance re-checks
+  the ceiling before consuming the invitation, so an invitation stays
+  usable when the cap is temporarily full). The minimum-1 floor — the
+  last active Super Admin cannot be demoted — is unchanged. Covered by
+  a new integration suite (`super-admin-cap`, own test database).
+
 ## Pre-platform — 2026-11-17
 
 - `e4981f37` — The original single-page Figma bundle split into seven
