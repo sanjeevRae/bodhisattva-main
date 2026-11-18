@@ -1,6 +1,14 @@
 import { useEffect, useState, type FormEvent } from "react";
+import type { CountryCode } from "libphonenumber-js/min";
 import AccountLayout from "./AccountLayout";
 import { authInputCls, authLabelCls } from "./auth-shared";
+import {
+  buildPhonePayload,
+  DEFAULT_PHONE_COUNTRY,
+  isValidPhoneValue,
+  PhoneField,
+  splitStoredPhone,
+} from "../components/PhoneField";
 import {
   createAddress,
   deleteAddress,
@@ -46,6 +54,7 @@ export default function AccountAddressesPage() {
   const [addresses, setAddresses] = useState<CustomerAddress[] | null>(null);
   const [editing, setEditing] = useState<CustomerAddress | "new" | null>(null);
   const [form, setForm] = useState<AddressInput>(EMPTY);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
@@ -62,12 +71,17 @@ export default function AccountAddressesPage() {
 
   const openNew = () => {
     setForm(EMPTY);
+    setPhoneCountry(DEFAULT_PHONE_COUNTRY);
     setEditing("new");
     setError(null);
   };
 
   const openEdit = (a: CustomerAddress) => {
-    setForm(toInput(a));
+    // Stored phones are E.164: split into selector country + national
+    // part so the pair round-trips through the same validation.
+    const split = splitStoredPhone(a.phone);
+    setForm({ ...toInput(a), phone: split.national });
+    setPhoneCountry(split.country);
     setEditing(a);
     setError(null);
   };
@@ -77,10 +91,15 @@ export default function AccountAddressesPage() {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!isValidPhoneValue(form.phone, phoneCountry)) {
+      setError("Enter a valid phone number, including the country code.");
+      return;
+    }
     setBusy(true);
     setError(null);
     const payload: AddressInput = {
       ...form,
+      ...buildPhonePayload(form.phone, phoneCountry),
       label: form.label?.trim() ? form.label : null,
       district: form.district?.trim() ? form.district : null,
       postalCode: form.postalCode?.trim() ? form.postalCode : null,
@@ -226,10 +245,15 @@ export default function AccountAddressesPage() {
                   <label className={authLabelCls} htmlFor="addr-name">Recipient name</label>
                   <input id="addr-name" required className={authInputCls} value={form.recipientName} onChange={set("recipientName")} placeholder="Who receives the parcel" />
                 </div>
-                <div>
-                  <label className={authLabelCls} htmlFor="addr-phone">Phone</label>
-                  <input id="addr-phone" required type="tel" className={authInputCls} value={form.phone} onChange={set("phone")} placeholder="+977 …" />
-                </div>
+                <PhoneField
+                  id="addr-phone"
+                  label="Phone"
+                  required
+                  country={phoneCountry}
+                  onCountryChange={setPhoneCountry}
+                  value={form.phone}
+                  onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+                />
                 <div>
                   <label className={authLabelCls} htmlFor="addr-city">City</label>
                   <input id="addr-city" required className={authInputCls} value={form.city} onChange={set("city")} placeholder="Kathmandu" />

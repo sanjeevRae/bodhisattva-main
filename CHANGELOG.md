@@ -8,6 +8,30 @@ everything below is implemented, tested and verified **locally**;
 
 ## Unreleased — 2026-11-18
 
+- **Phone number required at signup, with real international
+  validation** (owner decision 2026-11-18). Registration now requires
+  a phone that is a real number under its country's numbering plan —
+  customers may be from any country, so all numbering-plan knowledge
+  comes from `libphonenumber-js` metadata; nothing country-specific
+  (lists, dial codes, lengths, patterns) is hardcoded. Input is either
+  international form ("+…") or a national number plus its ISO country
+  code (`phoneCountry`); the stored value is always E.164
+  (`users.phone`, normalised on both the new-account and the
+  unverified re-registration paths). Delivery-address and inline
+  checkout phones get the same validation + normalisation. Existing
+  accounts are unaffected — the column stays nullable and login never
+  demands a phone. The register, checkout and address forms gained a
+  metadata-driven country selector (default Nepal) with a client-side
+  pre-check; the server remains authoritative. Following the
+  independent reviews (`PHONE_REVIEW.md`), the server validates with
+  the strict `libphonenumber-js/max` metadata (an empirical
+  differential test found the `/min` build accepts numbers in
+  unallocated ranges) and a strict input-shape guard rejects
+  extensions and surrounding text instead of silently stripping or
+  extracting them. Covered by new unit tests (`phone.test.ts`, 22
+  cases across NP/IN/US/GB/CA/JM plans) and new auth-flows integration
+  cases (missing/invalid phone → 400 with the `phone` field error;
+  stored value asserted in E.164 in the DB).
 - **Super Admin cap raised to 3** (owner decision 2026-11-18). The
   platform now allows at most 3 active Super Admin accounts
   (`MAX_SUPER_ADMINS` in `server/src/config/limits.ts`), enforced on

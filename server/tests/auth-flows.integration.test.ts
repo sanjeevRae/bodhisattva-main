@@ -217,7 +217,7 @@ describe.skipIf(!RUN)("Phase 2 auth flows (integration)", () => {
     const cust = newAgent();
     const reg = await cust
       .post("/api/auth/register")
-      .send({ name: "Customer One", email: EMAILS.cust1, password: PASSWORDS.cust1 });
+      .send({ name: "Customer One", email: EMAILS.cust1, password: PASSWORDS.cust1, phone: "+9779812345678" });
     expect(reg.status).toBe(200);
     expect(reg.body.verificationRequired).toBe(true);
 
@@ -271,6 +271,98 @@ describe.skipIf(!RUN)("Phase 2 auth flows (integration)", () => {
     expect(meAfter.status).toBe(401);
 
     Object.assign(state, { cust1Agent: cust });
+  }, 120000);
+
+  it("requires a plan-valid phone at registration and stores it in E.164 form", async () => {
+    const email = `phone-${runId}@example.com`;
+    const password = "phone-customer-pass";
+    // Dedicated IPs: registration is capped at 3/IP/hour and the
+    // service-level attempts below consume that budget.
+    const ipA = "203.0.113.201";
+    const ipB = "203.0.113.202";
+
+    // Missing phone: the DTO itself rejects it (field "phone").
+    const missing = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ipA)
+      .send({ name: "Phone Customer", email, password });
+    expect(missing.status).toBe(400);
+    expect(missing.body.error.code).toBe("VALIDATION_FAILED");
+    expect(
+      (missing.body.error.details as { field: string }[]).some(
+        (d) => d.field === "phone",
+      ),
+    ).toBe(true);
+
+    // National number without its country cannot be interpreted.
+    const noCountry = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ipA)
+      .send({ name: "Phone Customer", email, password, phone: "9812345678" });
+    expect(noCountry.status).toBe(400);
+    expect(noCountry.body.error.code).toBe("VALIDATION_FAILED");
+    expect(
+      (noCountry.body.error.details as { field: string; issue: string }[]).some(
+        (d) => d.field === "phone" && d.issue.includes("valid phone number"),
+      ),
+    ).toBe(true);
+
+    // A number that is not real under the plan is refused the same way.
+    const invalid = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ipA)
+      .send({
+        name: "Phone Customer",
+        email,
+        password,
+        phone: "12345",
+        phoneCountry: "NP",
+      });
+    expect(invalid.status).toBe(400);
+    expect(invalid.body.error.code).toBe("VALIDATION_FAILED");
+    expect(
+      (invalid.body.error.details as { field: string }[]).some(
+        (d) => d.field === "phone",
+      ),
+    ).toBe(true);
+
+    // Valid national form + country: registers, and the stored value is
+    // the normalised E.164 form (asserted in the DB — storage format is
+    // the point; the verification code still arrives by mail as usual).
+    const ok = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ipB)
+      .send({
+        name: "Phone Customer",
+        email,
+        password,
+        phone: "9812345678",
+        phoneCountry: "NP",
+      });
+    expect(ok.status).toBe(200);
+    const [rows] = await handle.pool.query(
+      "SELECT phone FROM users WHERE email = ?",
+      [email],
+    );
+    expect((rows as { phone: string }[])[0]?.phone).toBe("+9779812345678");
+
+    // Re-registering while still unverified refreshes the stored phone,
+    // again normalised (here an international-form US number).
+    const refresh = await request(app)
+      .post("/api/auth/register")
+      .set("X-Forwarded-For", ipB)
+      .send({
+        name: "Phone Customer",
+        email,
+        password,
+        phone: "+14155552671",
+      });
+    expect(refresh.status).toBe(200);
+    const [rows2] = await handle.pool.query(
+      "SELECT phone FROM users WHERE email = ?",
+      [email],
+    );
+    expect((rows2 as { phone: string }[])[0]?.phone).toBe("+14155552671");
   }, 120000);
 
   it("resets a password via the emailed token and revokes existing sessions", async () => {
@@ -444,7 +536,7 @@ describe.skipIf(!RUN)("Phase 2 auth flows (integration)", () => {
     const cust = newAgent();
     await cust
       .post("/api/auth/register")
-      .send({ name: "Customer Two", email: EMAILS.cust2, password: PASSWORDS.cust2 });
+      .send({ name: "Customer Two", email: EMAILS.cust2, password: PASSWORDS.cust2, phone: "+9779812345678" });
     const mail = await waitForMail(mailFor(EMAILS.cust2));
     const verify = await cust
       .post("/api/auth/verify-email")

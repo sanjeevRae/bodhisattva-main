@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router";
 import { CheckCircle2 } from "lucide-react";
+import type { CountryCode } from "libphonenumber-js/min";
+import {
+  buildPhonePayload,
+  DEFAULT_PHONE_COUNTRY,
+  isValidPhoneValue,
+  PhoneField,
+} from "../components/PhoneField";
 import { useCustomer } from "../lib/customer";
 import { authInputCls, authLabelCls, apiErrorText } from "./auth-shared";
 import { formatPlacedAt, statusLabel } from "./AccountOrdersPage";
@@ -44,6 +51,7 @@ export default function CheckoutPage() {
   const [addresses, setAddresses] = useState<CustomerAddress[] | null>(null);
   const [selected, setSelected] = useState<number | "new" | null>(null);
   const [form, setForm] = useState<AddressInput>(EMPTY_ADDRESS);
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY);
   const [saveNew, setSaveNew] = useState(true);
   const [notes, setNotes] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -151,6 +159,10 @@ export default function CheckoutPage() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!cart || cart.items.length === 0) return;
+    if (selected === "new" && !isValidPhoneValue(form.phone, phoneCountry)) {
+      setError("Enter a valid phone number, including the country code.");
+      return;
+    }
     setPlacing(true);
     setError(null);
     try {
@@ -158,7 +170,7 @@ export default function CheckoutPage() {
       if (selected === "new") {
         const inline: NonNullable<CheckoutInput["address"]> = {
           recipientName: form.recipientName.trim(),
-          phone: form.phone.trim(),
+          ...buildPhonePayload(form.phone, phoneCountry),
           addressLine: form.addressLine.trim(),
           city: form.city.trim(),
           district: form.district?.trim() ? form.district : null,
@@ -275,10 +287,15 @@ export default function CheckoutPage() {
                 <label className={authLabelCls} htmlFor="co-name">Recipient name</label>
                 <input id="co-name" required={selected === "new"} className={authInputCls} value={form.recipientName} onChange={set("recipientName")} placeholder="Who receives the parcel" />
               </div>
-              <div>
-                <label className={authLabelCls} htmlFor="co-phone">Phone</label>
-                <input id="co-phone" required={selected === "new"} type="tel" className={authInputCls} value={form.phone} onChange={set("phone")} placeholder="+977 …" />
-              </div>
+              <PhoneField
+                id="co-phone"
+                label="Phone"
+                required={selected === "new"}
+                country={phoneCountry}
+                onCountryChange={setPhoneCountry}
+                value={form.phone}
+                onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))}
+              />
               <div className="sm:col-span-2">
                 <label className={authLabelCls} htmlFor="co-line">Address line</label>
                 <input id="co-line" required={selected === "new"} className={authInputCls} value={form.addressLine} onChange={set("addressLine")} placeholder="Street, ward, landmark" />

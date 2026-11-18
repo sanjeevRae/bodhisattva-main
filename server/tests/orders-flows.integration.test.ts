@@ -204,7 +204,7 @@ describe.skipIf(!RUN)("Phase 7 orders & invoices flows (integration)", () => {
     const agent = request.agent(app);
     const reg = await agent
       .post("/api/auth/register")
-      .send({ name, email, password });
+      .send({ name, email, password, phone: "+9779812345678" });
     expect(reg.status).toBe(200);
     expect(reg.body.verificationRequired).toBe(true);
     const mail = await waitForMail(mailFor(email));
@@ -430,7 +430,7 @@ describe.skipIf(!RUN)("Phase 7 orders & invoices flows (integration)", () => {
       .set("X-CSRF-Token", state.csrfA!)
       .send({
         recipientName: "Customer A",
-        phone: "9800000001",
+        phone: "+9779800000001",
         addressLine: "Kupondole Heights",
         city: "Lalitpur",
       });

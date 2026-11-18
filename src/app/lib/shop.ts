@@ -109,6 +109,8 @@ export interface AddressInput {
   label?: string | null;
   recipientName: string;
   phone: string;
+  /** ISO country code for a national-format phone; omitted for "+…" input. */
+  phoneCountry?: string;
   addressLine: string;
   city: string;
   district?: string | null;
@@ -363,6 +365,7 @@ export interface CheckoutInput {
   address?: {
     recipientName: string;
     phone: string;
+    phoneCountry?: string;
     addressLine: string;
     city: string;
     district?: string | null;

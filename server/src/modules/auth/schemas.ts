@@ -10,6 +10,7 @@
  * customer-only, so 10 applies here).
  */
 import { z } from "zod";
+import { phoneCountrySchema, phoneSchema } from "../../utils/phone.js";
 
 export const PASSWORD_MIN_LENGTH_CUSTOMER = 10;
 export const PASSWORD_MIN_LENGTH_ADMIN = 12;
@@ -33,7 +34,14 @@ export const registerSchema = z
     name: z.string().trim().min(2, "Name is too short").max(120),
     email: emailField,
     password: passwordField(PASSWORD_MIN_LENGTH_CUSTOMER),
-    phone: z.string().trim().min(5).max(32).optional(),
+    // Phone is REQUIRED at signup (owner decision 2026-11-18) and is
+    // validated against the real numbering plan in the service
+    // (utils/phone.ts), which stores the E.164 form. phoneCountry is
+    // the ISO code for national-format input; international ("+…")
+    // input needs none. Existing accounts are unaffected: the column
+    // stays nullable and login never demands a phone.
+    phone: phoneSchema,
+    phoneCountry: phoneCountrySchema,
   })
   .strict();
 export type RegisterInput = z.infer<typeof registerSchema>;

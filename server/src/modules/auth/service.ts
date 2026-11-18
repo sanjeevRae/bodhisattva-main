@@ -33,6 +33,7 @@ import {
   type SessionService,
 } from "../../services/session.js";
 import { hashPassword, verifyPassword } from "../../utils/password.js";
+import { normalizePhone } from "../../utils/phone.js";
 import { generateOtpCode, hashOtp, verifyOtp } from "../../utils/otp.js";
 import { generateToken, hashToken } from "../../utils/tokens.js";
 import * as repo from "./repository.js";
@@ -210,6 +211,9 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     }
 
     const emailNormalized = normaliseEmail(input.email);
+    // Phone is required and plan-validated; stored in E.164 form. This
+    // throws VALIDATION_FAILED (field "phone") before any account work.
+    const phone = normalizePhone(input.phone, input.phoneCountry);
     const passwordHash = await hashPassword(input.password);
     const existing = await repo.findUserByEmailNormalized(db, emailNormalized);
 
@@ -234,16 +238,16 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
       // credentials and issue a new code (the old code is invalidated).
       await repo.updateUnverifiedUserCredentials(db, existing.id, {
         fullName: input.name,
-        phone: input.phone ?? null,
+        phone,
         passwordHash,
       });
-      user = { ...existing, fullName: input.name, phone: input.phone ?? null, passwordHash };
+      user = { ...existing, fullName: input.name, phone, passwordHash };
     } else {
       const userId = await repo.createUser(db, {
         fullName: input.name,
         email: input.email.trim(),
         emailNormalized,
-        phone: input.phone ?? null,
+        phone,
         passwordHash,
       });
       await repo.assignRoleByCode(db, userId, "CUSTOMER");

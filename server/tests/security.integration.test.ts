@@ -185,7 +185,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
     const reg = await agent
       .post("/api/auth/register")
       .set("X-Forwarded-For", ip)
-      .send({ name, email, password });
+      .send({ name, email, password, phone: "+9779812345678" });
     expect(reg.status, JSON.stringify(reg.body)).toBe(200);
     const mail = await waitForMail(mailFor(email));
     const verify = await agent
@@ -321,7 +321,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
     const reg = await sReg
       .post("/api/auth/register")
       .set("X-Forwarded-For", "198.51.100.13")
-      .send({ name: "Store Admin", email: EMAIL_S, password: PASSWORD_S });
+      .send({ name: "Store Admin", email: EMAIL_S, password: PASSWORD_S, phone: "+9779812345678" });
     expect(reg.status, JSON.stringify(reg.body)).toBe(200);
     const sMail = await waitForMail(mailFor(EMAIL_S));
     const sVerify = await sReg
@@ -381,7 +381,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
       .set("X-CSRF-Token", state.csrfA!)
       .send({
         recipientName: "Customer A",
-        phone: "9800000011",
+        phone: "+9779800000011",
         addressLine: "Kupondole Heights",
         city: "Lalitpur",
       });
@@ -817,7 +817,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
     const reg = await agent
       .post("/api/auth/register")
       .set("X-Forwarded-For", "198.51.100.15")
-      .send({ name: "OTP Victim", email: EMAIL_V, password: "sec-otp-password" });
+      .send({ name: "OTP Victim", email: EMAIL_V, password: "sec-otp-password", phone: "+9779812345678" });
     expect(reg.status, JSON.stringify(reg.body)).toBe(200);
     const mail = await waitForMail(mailFor(EMAIL_V));
     const realCode = extractOtp(mail);
@@ -850,6 +850,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
         .send({
           name: `Rate Probe ${i}`,
           email: `sec-rate-${i}-${runId}@example.com`,
+          phone: "+9779812345678",
           password: "sec-rate-password",
         });
       expect(res.status, `registration ${i + 1}`).toBe(200);
@@ -860,6 +861,7 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
       .send({
         name: "Rate Probe 4",
         email: `sec-rate-4-${runId}@example.com`,
+        phone: "+9779812345678",
         password: "sec-rate-password",
       });
     expect(fourth.status).toBe(429);

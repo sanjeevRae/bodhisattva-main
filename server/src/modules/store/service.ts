@@ -74,6 +74,7 @@ import {
   users,
 } from "../../database/schema/index.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
+import { normalizePhone } from "../../utils/phone.js";
 import { mediaFileUrl } from "../media/media.service.js";
 import type {
   AddCartItemInput,
@@ -925,6 +926,8 @@ export async function createAddress(
   input: CreateAddressInput,
 ): Promise<AddressView> {
   const { db } = deps;
+  // Plan-validated, stored in E.164 form (utils/phone.ts).
+  const phone = normalizePhone(input.phone, input.phoneCountry);
   let created: AddressRow | undefined;
   await db.transaction(async (tx) => {
     const existing = await tx
@@ -950,7 +953,7 @@ export async function createAddress(
         userId,
         label: input.label ?? null,
         recipientName: input.recipientName,
-        phone: input.phone,
+        phone,
         addressLine: input.addressLine,
         city: input.city,
         district: input.district ?? null,
@@ -977,6 +980,15 @@ export async function updateAddress(
 ): Promise<AddressView> {
   const { db } = deps;
   await getOwnAddressOrThrow(db, userId, addressId);
+  // phoneCountry is an input hint, never a column: strip it from the
+  // patch, and normalise a supplied phone to E.164 before storing.
+  const { phoneCountry, phone: rawPhone, ...rest } = input;
+  const patch = definedPatch({
+    ...rest,
+    ...(rawPhone !== undefined
+      ? { phone: normalizePhone(rawPhone, phoneCountry) }
+      : {}),
+  });
   await db.transaction(async (tx) => {
     if (input.isDefault === true) {
       await tx
@@ -984,10 +996,12 @@ export async function updateAddress(
         .set({ isDefault: false })
         .where(eq(customerAddresses.userId, userId));
     }
-    await tx
-      .update(customerAddresses)
-      .set(definedPatch(input))
-      .where(eq(customerAddresses.id, addressId));
+    if (Object.keys(patch).length > 0) {
+      await tx
+        .update(customerAddresses)
+        .set(patch)
+        .where(eq(customerAddresses.id, addressId));
+    }
   });
   return getOwnAddressOrThrow(db, userId, addressId);
 }
@@ -1286,7 +1300,9 @@ export async function checkout(
         const address = input.address!;
         snapshot = {
           recipientName: address.recipientName,
-          phone: address.phone,
+          // Inline delivery phone gets the same plan validation +
+          // E.164 normalisation as saved addresses (utils/phone.ts).
+          phone: normalizePhone(address.phone, address.phoneCountry),
           addressLine: address.addressLine,
           city: address.city,
           district: address.district ?? null,

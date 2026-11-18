@@ -13,6 +13,7 @@
 import { isMoneyString } from "@bodhisattva/shared/money";
 import { slugSchema } from "@bodhisattva/shared/ids";
 import { z } from "zod";
+import { phoneCountrySchema, phoneSchema } from "../../utils/phone.js";
 
 const nullableText = (max: number) =>
   z.string().max(max).nullable().optional();
@@ -69,7 +70,11 @@ export const updateCartItemSchema = z.object({
 const addressFields = {
   label: nullableText(60),
   recipientName: z.string().min(1).max(120),
-  phone: z.string().min(1).max(32),
+  // Delivery phone: plan-validated + normalised to E.164 in the service
+  // (utils/phone.ts), same rule as signup. phoneCountry interprets a
+  // national-format number; international ("+…") input needs none.
+  phone: phoneSchema,
+  phoneCountry: phoneCountrySchema,
   addressLine: z.string().min(1).max(255),
   city: z.string().min(1).max(120),
   district: nullableText(120),
@@ -85,6 +90,7 @@ export const updateAddressSchema = z
     label: addressFields.label,
     recipientName: addressFields.recipientName.optional(),
     phone: addressFields.phone.optional(),
+    phoneCountry: addressFields.phoneCountry,
     addressLine: addressFields.addressLine.optional(),
     city: addressFields.city.optional(),
     district: addressFields.district,
@@ -98,6 +104,7 @@ export const updateAddressSchema = z
 export const checkoutAddressSchema = z.object({
   recipientName: addressFields.recipientName,
   phone: addressFields.phone,
+  phoneCountry: addressFields.phoneCountry,
   addressLine: addressFields.addressLine,
   city: addressFields.city,
   district: addressFields.district,
