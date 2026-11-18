@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { eq } from 'drizzle-orm';
 import { drizzle, type MySql2Database } from 'drizzle-orm/mysql2';
 import { createPool, type Pool } from 'mysql2/promise';
