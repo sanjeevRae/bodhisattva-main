@@ -256,8 +256,11 @@ export interface NewsArticleAdmin {
   id: number;
   slug: string;
   categoryId: number | null;
+  /** Nested category when the API includes it; categoryId is canonical. */
+  category?: { id: number; name: string; slug: string } | null;
   title: string;
   outlet: string | null;
+  author: string | null;
   articleType: string | null;
   summary: string | null;
   publishedOn: string | null;
@@ -267,8 +270,61 @@ export interface NewsArticleAdmin {
   imageUrl: string | null;
   imageAlt: string | null;
   isPublished: boolean;
+  isFeatured: boolean;
+  /** Press-archive (N1) list enrichments. */
+  hasPdf: boolean;
+  pdfOriginalName: string | null;
+  createdByName: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * The original newspaper-clipping PDF attached to an article, as the
+ * API's attachment view returns it (upload time is `createdAt`).
+ */
+export interface NewsPdfAttachmentAdmin {
+  id: number;
+  originalName: string | null;
+  fileSize: number | null;
+  createdAt: string | null;
+}
+
+/** A news tag as the API returns it (the editor edits tag names). */
+export interface NewsTagRef {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+/** Full article for the editor: list fields + body, tags and PDF info. */
+export interface NewsArticleDetailAdmin extends NewsArticleAdmin {
+  content: string | null;
+  tags: NewsTagRef[];
+  attachment: NewsPdfAttachmentAdmin | null;
+}
+
+export interface NewsArticleListParams {
+  page?: number;
+  pageSize?: number;
+  search?: string;
+  categoryId?: number;
+  status?: "published" | "draft" | "all";
+  featured?: boolean;
+  hasPdf?: boolean;
+  sort?: string;
+}
+
+export interface NewsBulkResultItem {
+  id: number;
+  ok: boolean;
+  error?: string;
+}
+
+export interface NewsPreviewAdmin {
+  token: string;
+  url: string;
+  expiresAt: string;
 }
 
 export interface FoundationProgramAdmin {

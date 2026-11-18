@@ -34,7 +34,12 @@ import type {
   MediaFolder,
   Menu,
   NewsArticleAdmin,
+  NewsArticleDetailAdmin,
+  NewsArticleListParams,
+  NewsBulkResultItem,
   NewsCategoryAdmin,
+  NewsPdfAttachmentAdmin,
+  NewsPreviewAdmin,
   PageAdmin,
   PageMeta,
   ProductAdmin,
@@ -435,8 +440,21 @@ export const exhibitionsApi = {
 };
 
 export const newsApi = {
-  listArticles(page = 1, pageSize = 100): Promise<{ items: NewsArticleAdmin[]; meta: PageMeta }> {
-    return moduleList(`/api/admin/news${listQuery(page, pageSize)}`);
+  listArticles(params: NewsArticleListParams = {}): Promise<{ items: NewsArticleAdmin[]; meta: PageMeta }> {
+    const query = new URLSearchParams({
+      page: String(params.page ?? 1),
+      pageSize: String(params.pageSize ?? 25),
+    });
+    if (params.search) query.set("search", params.search);
+    if (params.categoryId != null) query.set("categoryId", String(params.categoryId));
+    if (params.status) query.set("status", params.status);
+    if (params.featured) query.set("featured", "true");
+    if (params.hasPdf) query.set("hasPdf", "true");
+    if (params.sort) query.set("sort", params.sort);
+    return moduleList(`/api/admin/news?${query.toString()}`);
+  },
+  getArticle(id: number): Promise<NewsArticleDetailAdmin> {
+    return moduleOne(`/api/admin/news/${id}`);
   },
   createArticle(body: Record<string, unknown>): Promise<NewsArticleAdmin> {
     return moduleOne("/api/admin/news", { method: "POST", body });
@@ -446,6 +464,95 @@ export const newsApi = {
   },
   removeArticle(id: number): Promise<unknown> {
     return request(`/api/admin/news/${id}`, { method: "DELETE" });
+  },
+  publishArticle(id: number): Promise<NewsArticleAdmin> {
+    return moduleOne(`/api/admin/news/${id}/publish`, { method: "POST", body: {} });
+  },
+  unpublishArticle(id: number): Promise<NewsArticleAdmin> {
+    return moduleOne(`/api/admin/news/${id}/unpublish`, { method: "POST", body: {} });
+  },
+  duplicateArticle(id: number): Promise<NewsArticleAdmin> {
+    return moduleOne(`/api/admin/news/${id}/duplicate`, { method: "POST", body: {} });
+  },
+  async bulk(
+    ids: number[],
+    action: "publish" | "unpublish" | "archive",
+  ): Promise<{ succeeded: number; failed: Array<{ id: number; error?: string }> }> {
+    const data = await moduleOne<{ results?: NewsBulkResultItem[] } | NewsBulkResultItem[]>(
+      "/api/admin/news/bulk",
+      { method: "POST", body: { ids, action } },
+    );
+    const results = Array.isArray(data) ? data : data?.results;
+    if (Array.isArray(results)) {
+      return {
+        succeeded: results.filter((r) => r.ok).length,
+        failed: results.filter((r) => !r.ok).map((r) => ({ id: r.id, error: r.error })),
+      };
+    }
+    // No per-id breakdown in the response — the request itself succeeded.
+    return { succeeded: ids.length, failed: [] };
+  },
+  createPreview(id: number): Promise<NewsPreviewAdmin> {
+    return moduleOne(`/api/admin/news/${id}/preview`, { method: "POST", body: {} });
+  },
+
+  /**
+   * Upload (or replace) the article's original PDF clipping. Uses XHR
+   * because fetch has no upload-progress events; CSRF handling mirrors
+   * the fetch wrapper (in-memory token, `csrf` cookie fallback).
+   */
+  uploadPdf(id: number, file: File, onProgress?: (fraction: number) => void): Promise<NewsPdfAttachmentAdmin> {
+    return new Promise((resolve, reject) => {
+      const form = new FormData();
+      form.append("file", file);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `/api/admin/news/${id}/pdf`);
+      xhr.withCredentials = true;
+      const token = getCsrfToken();
+      if (token) xhr.setRequestHeader("X-CSRF-Token", token);
+      if (onProgress) {
+        xhr.upload.onprogress = (event) => {
+          if (event.lengthComputable && event.total > 0) onProgress(event.loaded / event.total);
+        };
+      }
+      xhr.onload = () => {
+        if (xhr.status === 401) unauthorizedHandler?.();
+        let data: any = null;
+        try {
+          data = JSON.parse(xhr.responseText);
+        } catch {
+          data = null;
+        }
+        if (xhr.status >= 200 && xhr.status < 300) {
+          // Same success envelope as the other museum-module routes.
+          resolve((data?.data ?? data) as NewsPdfAttachmentAdmin);
+          return;
+        }
+        const err = data?.error ?? {};
+        reject(
+          new ApiError(
+            xhr.status,
+            typeof err.code === "string" ? err.code : "UNKNOWN",
+            typeof err.message === "string" ? err.message : `Upload failed (${xhr.status}).`,
+            Array.isArray(err.details) ? err.details : [],
+          ),
+        );
+      };
+      xhr.onerror = () =>
+        reject(new ApiError(0, "NETWORK", "Could not reach the server. Check your connection and try again."));
+      xhr.send(form);
+    });
+  },
+  removePdf(id: number): Promise<unknown> {
+    return request(`/api/admin/news/${id}/pdf`, { method: "DELETE" });
+  },
+  /** Inline, range-capable view URL for the admin PDF preview. */
+  pdfViewUrl(id: number): string {
+    return `/api/admin/news/${id}/pdf/view`;
+  },
+  /** Attachment-disposition download URL for the original PDF. */
+  pdfDownloadUrl(id: number): string {
+    return `/api/admin/news/${id}/pdf/download`;
   },
   async listCategories(): Promise<{ items: NewsCategoryAdmin[] }> {
     // The categories list is the one unpaginated museum endpoint: its

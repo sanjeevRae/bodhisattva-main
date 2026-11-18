@@ -378,3 +378,186 @@ export function useNews(search = "", category = ""): AsyncState<NewsPayload> {
   }, [search, category]);
   return state;
 }
+
+// ---------------------------------------------------------------------------
+// News archive (press clippings) — the archive endpoints layered over the
+// same GET /api/news resource: server-side search / filters / pagination
+// for the /news page, the facets that drive its filter bar, the article
+// detail for /news/:slug and the tokenised draft preview. List items keep
+// every NewsArticleRecord field and add the archive fields below. These
+// getters are NOT module-cached (queries vary per call); errors carry the
+// HTTP status so pages can tell a 404 (unknown/draft slug) from a failure.
+// ---------------------------------------------------------------------------
+
+/** Fetch error carrying the HTTP status (see the archive getters below). */
+export class ApiError extends Error {
+  status: number;
+  constructor(url: string, status: number) {
+    super(`GET ${url} failed: ${status}`);
+    this.status = status;
+  }
+}
+
+export interface NewsTagRef {
+  id: number;
+  name: string;
+  slug: string;
+}
+
+export interface NewsArchiveItem extends NewsArticleRecord {
+  author: string | null;
+  isFeatured: boolean;
+  hasPdf: boolean;
+  readingTimeMinutes: number | null;
+  tags: NewsTagRef[];
+  /** Editorial type label (e.g. "Interview"); null when untyped. */
+  type: string | null;
+}
+
+export interface NewsListMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
+
+export type NewsSort = "newest" | "oldest" | "added" | "alpha";
+
+export interface NewsArchiveParams {
+  search?: string;
+  category?: string;
+  publication?: string;
+  year?: number;
+  dateFrom?: string;
+  dateTo?: string;
+  type?: string;
+  hasPdf?: boolean;
+  featured?: boolean;
+  sort?: NewsSort;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface NewsArchiveResult {
+  items: NewsArchiveItem[];
+  categories: NewsCategoryRef[];
+  meta: NewsListMeta;
+}
+
+export interface NewsFacetCategory {
+  id: number;
+  name: string;
+  slug: string;
+  count: number;
+}
+
+export interface NewsFacets {
+  categories: NewsFacetCategory[];
+  publications: { name: string; count: number }[];
+  years: number[];
+  types: string[];
+}
+
+export interface NewsPdfRef {
+  viewUrl: string;
+  downloadUrl: string;
+  originalName: string;
+  fileSize: number;
+}
+
+export interface NewsArticleDetail extends NewsArchiveItem {
+  /** Sanitized article HTML, or null when the clipping is PDF-only. */
+  content: string | null;
+  pdf: NewsPdfRef | null;
+  related: NewsArchiveItem[];
+  /** True when served through the draft-preview token route. */
+  preview?: boolean;
+}
+
+async function fetchNewsEnvelope<T>(url: string): Promise<{ data: T; meta?: NewsListMeta }> {
+  const res = await fetch(url);
+  if (!res.ok) throw new ApiError(url, res.status);
+  return (await res.json()) as { data: T; meta?: NewsListMeta };
+}
+
+/**
+ * Fill the archive fields' defaults on a raw list item, so a payload
+ * that predates a field (or omits it on some rows) can never crash the
+ * rendering components, which treat the fields as always present.
+ */
+function normalizeArchiveItem(raw: NewsArchiveItem): NewsArchiveItem {
+  return {
+    ...raw,
+    author: raw.author ?? null,
+    isFeatured: raw.isFeatured ?? false,
+    hasPdf: raw.hasPdf ?? false,
+    readingTimeMinutes: raw.readingTimeMinutes ?? null,
+    tags: raw.tags ?? [],
+    type: raw.type ?? null,
+  };
+}
+
+export async function getNewsArchive(params: NewsArchiveParams = {}): Promise<NewsArchiveResult> {
+  const query = new URLSearchParams();
+  if (params.search?.trim()) query.set("search", params.search.trim());
+  if (params.category) query.set("category", params.category);
+  if (params.publication) query.set("publication", params.publication);
+  if (params.year) query.set("year", String(params.year));
+  if (params.dateFrom) query.set("dateFrom", params.dateFrom);
+  if (params.dateTo) query.set("dateTo", params.dateTo);
+  if (params.type) query.set("type", params.type);
+  if (params.hasPdf) query.set("hasPdf", "true");
+  if (params.featured) query.set("featured", "true");
+  if (params.sort) query.set("sort", params.sort);
+  const page = params.page ?? 1;
+  const pageSize = params.pageSize ?? 10;
+  query.set("page", String(page));
+  query.set("pageSize", String(pageSize));
+  const body = await fetchNewsEnvelope<{
+    items: NewsArchiveItem[];
+    categories: NewsCategoryRef[];
+    meta?: NewsListMeta;
+  }>(`/api/news?${query.toString()}`);
+  const items = (body.data.items ?? []).map(normalizeArchiveItem);
+  // The pagination meta may ride on the envelope (store convention) or
+  // inside the payload; fall back to a single-page meta when absent.
+  const meta =
+    body.meta ??
+    body.data.meta ?? { page, pageSize, total: items.length, totalPages: 1 };
+  return { items, categories: body.data.categories ?? [], meta };
+}
+
+export function getNewsFacets(): Promise<NewsFacets> {
+  return cached("module:news-facets", async () => {
+    const body = await fetchNewsEnvelope<NewsFacets>("/api/news/facets");
+    return {
+      categories: body.data.categories ?? [],
+      publications: body.data.publications ?? [],
+      years: body.data.years ?? [],
+      types: body.data.types ?? [],
+    };
+  });
+}
+
+function normalizeArticleDetail(raw: NewsArticleDetail): NewsArticleDetail {
+  return {
+    ...normalizeArchiveItem(raw),
+    content: raw.content ?? null,
+    pdf: raw.pdf ?? null,
+    related: (raw.related ?? []).map(normalizeArchiveItem),
+  };
+}
+
+export async function getNewsArticle(slug: string): Promise<NewsArticleDetail> {
+  const body = await fetchNewsEnvelope<NewsArticleDetail>(
+    `/api/news/${encodeURIComponent(slug)}`,
+  );
+  return normalizeArticleDetail(body.data);
+}
+
+export async function getNewsPreview(token: string): Promise<NewsArticleDetail> {
+  const body = await fetchNewsEnvelope<NewsArticleDetail>(
+    `/api/news/preview/${encodeURIComponent(token)}`,
+  );
+  return { ...normalizeArticleDetail(body.data), preview: true };
+}

@@ -11,6 +11,7 @@ import MuseumPage from "./pages/MuseumPage";
 import GalleryPage from "./pages/GalleryPage";
 import GiftShopPage from "./pages/GiftShopPage";
 import NewsPage from "./pages/NewsPage";
+import NewsArticlePage from "./pages/NewsArticlePage";
 import FoundationPage from "./pages/FoundationPage";
 import AboutPage from "./pages/AboutPage";
 import LoginPage from "./pages/LoginPage";
@@ -52,6 +53,12 @@ function Shell() {
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/shop" element={<GiftShopPage />} />
                 <Route path="/news" element={<NewsPage />} />
+                {/* News Clippings article reader + draft preview (the
+                    preview route must precede :slug is unnecessary —
+                    React Router ranks the static segment higher — but
+                    keep them adjacent for readers). */}
+                <Route path="/news/preview/:token" element={<NewsArticlePage preview />} />
+                <Route path="/news/:slug" element={<NewsArticlePage />} />
                 <Route path="/foundation" element={<FoundationPage />} />
                 <Route path="/about" element={<AboutPage />} />
                 {/* Customer accounts + checkout (Phase 6). These paths are

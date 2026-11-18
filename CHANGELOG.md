@@ -46,6 +46,26 @@ everything below is implemented, tested and verified **locally**;
 
 ## Pre-platform — 2026-11-17
 
+- **News Clippings & Digital Press Archive module** (owner
+  specification 2026-11-18). `/news` becomes a database-driven
+  press archive: articles gain a rich-text body, author, featured
+  flag, tags and view/download counters (migration 0011, existing
+  rows untouched); original newspaper PDFs are stored unmodified
+  with SHA-256 checksums and a full replacement history
+  (`news_attachments`), and are served only through
+  publication-gated, range-capable endpoints. Public archive with
+  facet filters, full-text search over a plain-text projection of
+  the body, an article reader page at `/news/:slug`, and a PDF.js
+  viewer (zoom, fit, fullscreen, download); admin "News Clippings"
+  screen with bulk actions, tag editor, and a PDF panel (upload
+  with progress, preview, replace, remove) — all under the existing
+  `news.manage` permission and audit log. Independent reviews
+  (ChatGPT 8.7/10, Gemini 8.6/10) drove a hardening round before
+  release: serialized PDF replacement, the generic media route
+  closed to documents, sandboxed PDF responses, and markup-free
+  search indexing. New integration suite: 28 tests; platform
+  totals 97 integration + 121 unit, all passing. Details:
+  NEWS_CLIPPINGS_REVIEW.md, docs/news-clippings/walkthrough.md.
 - `e4981f37` — The original single-page Figma bundle split into seven
   routed React Router pages (Home, Museum, Gallery, Gift Shop, News,
   Foundation, About) with shared Nav/Footer. Content and design

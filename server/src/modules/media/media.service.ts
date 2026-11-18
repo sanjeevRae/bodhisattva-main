@@ -19,7 +19,7 @@
  * Files stay on disk after a soft delete — hard delete is an
  * admin-confirmed purge, out of scope here.
  */
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { mkdir, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { AppError } from "@bodhisattva/shared/errors";
@@ -37,6 +37,7 @@ import {
   mediaAssets,
   mediaFolders,
   newsArticles,
+  newsAttachments,
   pageSections,
   pages,
   productImages,
@@ -530,6 +531,11 @@ export async function resolveMediaFile(
       return null;
     }
   }
+  // Documents are NEVER served through this public route, whatever the
+  // storage name looks like: a news PDF is gated behind the news
+  // endpoints, which check the article's publication state and the
+  // attachment's visibility before streaming a single byte.
+  if (asset.mimeType === "application/pdf") return null;
   const filePath = variantFilePath(config, asset.storageName, variant);
   try {
     const stats = await stat(filePath);
@@ -542,6 +548,193 @@ export async function resolveMediaFile(
     };
   } catch {
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Documents (News Clippings PDFs, migration 0011). Unlike images, documents
+// are NEVER re-encoded: the original bytes are the archival record, so the
+// pipeline is validate (size, signature, structure markers) → hash →
+// store verbatim under a random name → media_assets row. Validation never
+// trusts the client-supplied filename or Content-Type: the `%PDF-` header
+// and the `%%EOF` trailer are checked against the actual bytes.
+// ---------------------------------------------------------------------------
+
+/** Hard ceiling for a single PDF document: 25 MiB. */
+export const PDF_MAX_BYTES = 25 * 1024 * 1024;
+
+const PDF_STORAGE_NAME_PATTERN = /^[a-f0-9]{32}\.pdf$/;
+const PDF_HEADER = Buffer.from("%PDF-", "ascii");
+const PDF_EOF_MARKER = Buffer.from("%%EOF", "ascii");
+/** The EOF marker must appear within the last 2 KiB (trailing newline /
+ * incremental-update padding tolerated, a truncated file is not). */
+const PDF_EOF_WINDOW = 2048;
+
+export interface StoreDocumentInput {
+  buffer: Buffer;
+  originalName: string | null;
+  uploadedBy: number;
+}
+
+export interface StoredDocument {
+  asset: MediaAssetRow;
+  /** SHA-256 hex of the original uploaded bytes. */
+  checksum: string;
+}
+
+function assertValidPdf(buffer: Buffer, originalName: string | null): void {
+  const invalid = (issue: string): AppError =>
+    AppError.validation([{ field: "file", issue }], issue);
+  if (buffer.length === 0) {
+    throw invalid("The uploaded file is empty.");
+  }
+  if (buffer.length > PDF_MAX_BYTES) {
+    throw new AppError(
+      "PAYLOAD_TOO_LARGE",
+      `The file exceeds the ${PDF_MAX_BYTES / (1024 * 1024)} MiB document limit.`,
+    );
+  }
+  // Extension is a hint only — checked when present, never trusted.
+  if (originalName) {
+    const dot = originalName.lastIndexOf(".");
+    if (dot > 0 && originalName.slice(dot + 1).toLowerCase() !== "pdf") {
+      throw invalid("Only PDF documents can be uploaded here.");
+    }
+  }
+  if (
+    buffer.length < PDF_HEADER.length ||
+    !buffer.subarray(0, PDF_HEADER.length).equals(PDF_HEADER)
+  ) {
+    throw invalid("The uploaded file is not a PDF document.");
+  }
+  const tail = buffer.subarray(Math.max(0, buffer.length - PDF_EOF_WINDOW));
+  if (!tail.includes(PDF_EOF_MARKER)) {
+    throw invalid("The uploaded PDF appears truncated or corrupt (missing end-of-file marker).");
+  }
+}
+
+/**
+ * Validate and store one PDF document. Returns the media_assets row plus
+ * the checksum of the original bytes. Throws BEFORE writing anything when
+ * validation fails, so a failed replacement upload leaves the previously
+ * stored document fully intact.
+ */
+export async function storeDocument(
+  db: Database,
+  config: AppConfig,
+  input: StoreDocumentInput,
+): Promise<StoredDocument> {
+  assertValidPdf(input.buffer, input.originalName);
+  const checksum = createHash("sha256").update(input.buffer).digest("hex");
+
+  let storageName = "";
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const candidate = `${randomBytes(16).toString("hex")}.pdf`;
+    const [existing] = await db
+      .select({ id: mediaAssets.id })
+      .from(mediaAssets)
+      .where(eq(mediaAssets.storageName, candidate))
+      .limit(1);
+    if (!existing) {
+      storageName = candidate;
+      break;
+    }
+  }
+  if (!storageName) throw AppError.internal();
+
+  const dir = storageDir(config, storageName);
+  await mkdir(dir, { recursive: true });
+  const filePath = path.join(dir, storageName);
+  try {
+    await writeFile(filePath, input.buffer, { flag: "wx" });
+  } catch (err) {
+    throw AppError.internal(err);
+  }
+
+  try {
+    const [inserted] = await db
+      .insert(mediaAssets)
+      .values({
+        folderId: null,
+        storageName,
+        originalName: input.originalName
+          ? input.originalName.slice(0, 255)
+          : null,
+        mimeType: "application/pdf",
+        fileSize: input.buffer.length,
+        width: null,
+        height: null,
+        altText: null,
+        caption: null,
+        uploadedBy: input.uploadedBy,
+      })
+      .$returningId();
+    const [asset] = await db
+      .select()
+      .from(mediaAssets)
+      .where(eq(mediaAssets.id, inserted.id))
+      .limit(1);
+    if (!asset) throw AppError.internal();
+    return { asset, checksum };
+  } catch (err) {
+    await unlink(filePath).catch(() => undefined);
+    throw AppError.internal(err);
+  }
+}
+
+/**
+ * Resolve a stored document to its on-disk file. The path is built ONLY
+ * from the DB-held storage name (which must match the server-generated
+ * PDF pattern); returns null when the asset is soft-deleted, the name is
+ * not one of ours, or the file is missing — callers surface that as 404.
+ */
+export async function readDocumentFile(
+  db: Database,
+  config: AppConfig,
+  assetId: number,
+): Promise<{ asset: MediaAssetRow; filePath: string; size: number } | null> {
+  const [asset] = await db
+    .select()
+    .from(mediaAssets)
+    .where(and(eq(mediaAssets.id, assetId), isNull(mediaAssets.deletedAt)))
+    .limit(1);
+  if (!asset) return null;
+  if (!PDF_STORAGE_NAME_PATTERN.test(asset.storageName)) return null;
+  const filePath = path.join(storageDir(config, asset.storageName), asset.storageName);
+  try {
+    const stats = await stat(filePath);
+    if (!stats.isFile()) return null;
+    return { asset, filePath, size: stats.size };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Hard-remove a stored document (media row + file). Used ONLY as orphan
+ * cleanup when the caller's follow-up transaction failed after
+ * `storeDocument` succeeded — at that point no attachment references
+ * the asset, so bypassing the reference-checked soft delete is safe.
+ * Best-effort by contract: callers wrap it so a cleanup failure never
+ * masks the original error; the Phase 8 media sweep remains the
+ * backstop for anything this misses.
+ */
+export async function purgeStoredDocument(
+  db: Database,
+  config: AppConfig,
+  assetId: number,
+): Promise<void> {
+  const [asset] = await db
+    .select()
+    .from(mediaAssets)
+    .where(eq(mediaAssets.id, assetId))
+    .limit(1);
+  if (!asset) return;
+  await db.delete(mediaAssets).where(eq(mediaAssets.id, assetId));
+  if (PDF_STORAGE_NAME_PATTERN.test(asset.storageName)) {
+    await unlink(
+      path.join(storageDir(config, asset.storageName), asset.storageName),
+    ).catch(() => undefined);
   }
 }
 
@@ -680,6 +873,13 @@ export async function deleteAsset(
         .select({ value: count() })
         .from(newsArticles)
         .where(eq(newsArticles.documentMediaId, assetId)),
+      // News Clippings attachments (migration 0011): every attachment row
+      // counts, including REPLACED/REMOVED history rows — their FKs are
+      // RESTRICT and the history must stay resolvable.
+      db
+        .select({ value: count() })
+        .from(newsAttachments)
+        .where(eq(newsAttachments.mediaId, assetId)),
       db
         .select({ value: count() })
         .from(foundationPrograms)

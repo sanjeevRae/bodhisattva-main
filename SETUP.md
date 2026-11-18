@@ -310,3 +310,36 @@ runs all five suites.
   secrets; never ship a `.env` inside the deployed app directory.
   Deployment itself is pending the owner's cPanel connection —
   DEPLOYMENT_GUIDE.md is the runbook; RELEASE_REPORT.md is the status.
+
+## News Clippings & Digital Press Archive (2026-11-18)
+
+- **Migration 0011** extends `news_articles` (body `content`,
+  `author`, `is_featured`, `view_count`, `pdf_download_count`, and a
+  `content_plain` plain-text projection of the body) and adds
+  `news_tags`, `news_article_tags`, `news_attachments` (PDF
+  lifecycle: ACTIVE/REPLACED/REMOVED with checksums and replacement
+  history) and `news_preview_tokens`. FULLTEXT `ft_news_search`
+  covers (title, summary, outlet, author, content_plain) — search
+  matches visible words, never HTML markup. Existing rows are
+  untouched; articles get `content_plain` on their next save.
+- **PDFs** are documents, not images: uploaded originals are stored
+  unmodified (25 MiB cap, `%PDF-`/`%%EOF` validation, SHA-256
+  recorded) via the media module's document path, and are served
+  ONLY through the gated news endpoints (published + ACTIVE +
+  PUBLIC; HTTP Range supported; `Content-Security-Policy:
+  default-src 'none'; sandbox` on PDF responses). The generic media
+  file route refuses PDF assets. One ACTIVE PDF per article;
+  replacement is serialized on the article row lock.
+- Public: `GET /api/news` (filters/publication/year/date range/
+  type/hasPdf/featured, sorts, pagination meta when `page` is
+  given), `GET /api/news/facets`, `GET /api/news/:slug`,
+  `/pdf/view`, `/pdf/download`, `GET /api/news/preview/:token`.
+  Admin (`news.manage`): enriched list, publish/unpublish/
+  duplicate/bulk, `POST /api/admin/news/:id/pdf` (+ DELETE, view,
+  download), `POST /:id/preview`. Frontend: the `/news` archive,
+  `/news/:slug` reader with the PDF.js viewer (`pdfjs-dist`), and
+  the admin "News Clippings" screen.
+- Tests: `server/tests/news-clippings.integration.test.ts` runs on
+  its own database `bodhisattva_test_news` (create + grant it like
+  the other suite databases). Reviews: NEWS_CLIPPINGS_REVIEW.md;
+  walkthrough: docs/news-clippings/walkthrough.md.

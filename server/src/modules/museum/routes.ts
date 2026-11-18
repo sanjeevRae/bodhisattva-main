@@ -23,9 +23,12 @@
 import {
   buildPaginationMeta,
   paginationQuerySchema,
+  parsePaginationParams,
 } from "@bodhisattva/shared/pagination";
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { Router } from "express";
+import { createReadStream } from "node:fs";
+import multer from "multer";
 import { z } from "zod";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
@@ -35,6 +38,8 @@ import {
   requirePermission,
 } from "../../middleware/authorization.js";
 import { asyncHandler } from "../../utils/async-handler.js";
+import { AppError } from "@bodhisattva/shared/errors";
+import { PDF_MAX_BYTES } from "../media/media.service.js";
 import {
   createCollectionSchema,
   createExhibitionSchema,
@@ -43,6 +48,7 @@ import {
   createNewsArticleSchema,
   createNewsCategorySchema,
   createTestimonialSchema,
+  newsBulkSchema,
   reorderSchema,
   updateCollectionSchema,
   updateExhibitionSchema,
@@ -67,7 +73,132 @@ const listQuerySchema = paginationQuerySchema.extend({
 const newsQuerySchema = z.object({
   search: z.string().trim().max(200).optional(),
   category: z.string().trim().max(120).optional(),
+  publication: z.string().trim().max(160).optional(),
+  year: z.coerce.number().int().min(1900).max(2200).optional(),
+  dateFrom: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  dateTo: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  type: z.string().trim().max(40).optional(),
+  hasPdf: z.enum(["true", "false"]).optional(),
+  featured: z.enum(["true", "false"]).optional(),
+  sort: z.enum(["newest", "oldest", "added", "alpha"]).optional(),
+  page: z.coerce.number().int().positive().optional(),
+  pageSize: z.coerce.number().int().positive().max(100).optional(),
 });
+
+const adminNewsListQuerySchema = listQuerySchema.extend({
+  categoryId: z.coerce.number().int().positive().optional(),
+  status: z.enum(["published", "draft", "all"]).optional(),
+  featured: z.enum(["true", "false"]).optional(),
+  hasPdf: z.enum(["true", "false"]).optional(),
+  sort: z.enum(["updated", "published", "title"]).optional(),
+});
+
+// ---------------------------------------------------------------------------
+// PDF streaming (public + admin): single-range support, no paths exposed.
+// ---------------------------------------------------------------------------
+
+function safeDownloadName(name: string | null): string {
+  const cleaned = (name ?? "")
+    .replace(/["\\\r\n]/g, "")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .trim();
+  return cleaned.length > 0 ? cleaned : "document.pdf";
+}
+
+interface PdfFileTarget {
+  filePath: string;
+  size: number;
+  originalName: string | null;
+}
+
+function sendPdfFile(
+  req: Request,
+  res: Response,
+  target: PdfFileTarget,
+  disposition: "inline" | "attachment",
+): void {
+  const { size } = target;
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader("Accept-Ranges", "bytes");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  // Uploaded documents render in a fully sandboxed, origin-less context:
+  // a PDF (or anything mislabelled as one) can never run script in the
+  // site's origin. Overrides helmet's global CSP for these responses.
+  res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  res.setHeader(
+    "Content-Disposition",
+    disposition === "attachment"
+      ? `attachment; filename="${safeDownloadName(target.originalName)}"`
+      : "inline",
+  );
+  const range = req.headers.range;
+  if (range) {
+    const match = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
+    let start = -1;
+    let end = -1;
+    if (match) {
+      const startRaw = match[1] ?? "";
+      const endRaw = match[2] ?? "";
+      if (startRaw === "" && endRaw !== "") {
+        const suffix = Number(endRaw);
+        if (suffix > 0) {
+          start = Math.max(0, size - suffix);
+          end = size - 1;
+        }
+      } else if (startRaw !== "") {
+        start = Number(startRaw);
+        end = endRaw === "" ? size - 1 : Math.min(Number(endRaw), size - 1);
+      }
+    }
+    if (start < 0 || end < start || start >= size) {
+      res.setHeader("Content-Range", `bytes */${size}`);
+      res.status(416).end();
+      return;
+    }
+    res.status(206);
+    res.setHeader("Content-Range", `bytes ${start}-${end}/${size}`);
+    res.setHeader("Content-Length", String(end - start + 1));
+    createReadStream(target.filePath, { start, end }).pipe(res);
+    return;
+  }
+  res.status(200);
+  res.setHeader("Content-Length", String(size));
+  createReadStream(target.filePath).pipe(res);
+}
+
+// Multipart parsing for PDF uploads (memory storage; the service
+// validates the bytes — multer only enforces the size ceiling).
+const pdfUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: PDF_MAX_BYTES, files: 1 },
+});
+
+function parsePdfUpload(req: Request, res: Response, next: NextFunction): void {
+  pdfUpload.single("file")(req, res, (err: unknown) => {
+    if (err) {
+      if (err instanceof multer.MulterError) {
+        if (err.code === "LIMIT_FILE_SIZE") {
+          next(
+            new AppError(
+              "PAYLOAD_TOO_LARGE",
+              `The file exceeds the ${PDF_MAX_BYTES / (1024 * 1024)} MiB PDF upload limit.`,
+            ),
+          );
+          return;
+        }
+        next(
+          AppError.validation([
+            { field: "file", issue: `Upload rejected (${err.code}).` },
+          ]),
+        );
+        return;
+      }
+      next(err);
+      return;
+    }
+    next();
+  });
+}
 
 function requestMeta(req: Request): RequestMeta {
   return { ipAddress: req.ip ?? null, userAgent: req.get("user-agent") ?? null };
@@ -136,12 +267,97 @@ export function createMuseumPublicRouter(deps: MuseumRouteDeps): Router {
     "/news",
     asyncHandler(async (req: Request, res: Response) => {
       const query = newsQuerySchema.parse(req.query);
-      const result = await service.getPublicNews(svc, query);
-      res.status(200).json({
-        success: true,
-        data: result,
-        requestId: res.locals.requestId,
+      const paginated = req.query.page !== undefined;
+      const paging = paginated
+        ? parsePaginationParams({ page: query.page, pageSize: query.pageSize })
+        : undefined;
+      const result = await service.getPublicNews(svc, {
+        search: query.search,
+        category: query.category,
+        publication: query.publication,
+        year: query.year,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+        type: query.type,
+        hasPdf: query.hasPdf === undefined ? undefined : query.hasPdf === "true",
+        featured: query.featured === undefined ? undefined : query.featured === "true",
+        sort: query.sort,
+        page: paging?.page,
+        pageSize: paging?.pageSize,
       });
+      if (result.meta) {
+        res.status(200).json({
+          success: true,
+          data: { categories: result.categories, items: result.items },
+          meta: result.meta,
+          requestId: res.locals.requestId,
+        });
+      } else {
+        res.status(200).json({
+          success: true,
+          data: result,
+          requestId: res.locals.requestId,
+        });
+      }
+    }),
+  );
+
+  router.get(
+    "/news/facets",
+    asyncHandler(async (_req: Request, res: Response) => {
+      const facets = await service.getPublicNewsFacets(svc);
+      res.status(200).json({ success: true, data: facets, requestId: res.locals.requestId });
+    }),
+  );
+
+  // Token preview (draft or published) — same no-leak hardening as the CMS
+  // preview route: no-store, no referrer, noindex, oracle-free 404s.
+  router.get(
+    "/news/preview/:token",
+    asyncHandler(async (req: Request, res: Response) => {
+      res.setHeader("Cache-Control", "no-store, private");
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      const token = typeof req.params.token === "string" ? req.params.token : "";
+      const detail = await service.getNewsPreviewArticle(svc, token);
+      res.status(200).json({ success: true, data: detail, requestId: res.locals.requestId });
+    }),
+  );
+
+  router.get(
+    "/news/:slug",
+    asyncHandler(async (req: Request, res: Response) => {
+      const slug = typeof req.params.slug === "string" ? req.params.slug : "";
+      const detail = await service.getPublicNewsArticle(svc, slug);
+      res.status(200).json({ success: true, data: detail, requestId: res.locals.requestId });
+    }),
+  );
+
+  router.get(
+    "/news/:slug/attachments",
+    asyncHandler(async (req: Request, res: Response) => {
+      const slug = typeof req.params.slug === "string" ? req.params.slug : "";
+      const items = await service.listPublicNewsAttachments(svc, slug);
+      res.status(200).json({ success: true, data: { items }, requestId: res.locals.requestId });
+    }),
+  );
+
+  router.get(
+    "/news/:slug/pdf/view",
+    asyncHandler(async (req: Request, res: Response) => {
+      const slug = typeof req.params.slug === "string" ? req.params.slug : "";
+      const resolved = await service.resolvePublicNewsPdf(svc, slug);
+      sendPdfFile(req, res, resolved, "inline");
+    }),
+  );
+
+  router.get(
+    "/news/:slug/pdf/download",
+    asyncHandler(async (req: Request, res: Response) => {
+      const slug = typeof req.params.slug === "string" ? req.params.slug : "";
+      const resolved = await service.resolvePublicNewsPdf(svc, slug);
+      await service.incrementNewsPdfDownloadCount(svc, resolved.article.id);
+      sendPdfFile(req, res, resolved, "attachment");
     }),
   );
 
@@ -392,9 +608,26 @@ export function createMuseumAdminRouter(deps: MuseumRouteDeps): Router {
     fullSession,
     newsPerm,
     asyncHandler(async (req: Request, res: Response) => {
-      const query = listQuerySchema.parse(req.query);
-      const result = await service.listAdminNewsArticles(svc, query, query.search);
+      const query = adminNewsListQuerySchema.parse(req.query);
+      const result = await service.listAdminNewsArticles(svc, query, {
+        search: query.search,
+        categoryId: query.categoryId,
+        status: query.status,
+        featured: query.featured === undefined ? undefined : query.featured === "true",
+        hasPdf: query.hasPdf === undefined ? undefined : query.hasPdf === "true",
+        sort: query.sort,
+      });
       sendList(res, query, result);
+    }),
+  );
+  router.post(
+    "/news/bulk",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const body = newsBulkSchema.parse(req.body);
+      const result = await service.bulkNewsArticles(svc, actorOf(req), body.ids, body.action, requestMeta(req));
+      res.status(200).json({ success: true, data: result, requestId: res.locals.requestId });
     }),
   );
   router.post(
@@ -433,6 +666,90 @@ export function createMuseumAdminRouter(deps: MuseumRouteDeps): Router {
     asyncHandler(async (req: Request, res: Response) => {
       await service.deleteNewsArticle(svc, actorOf(req), parseIdParam(req), requestMeta(req));
       res.status(200).json({ success: true, data: { deleted: true }, requestId: res.locals.requestId });
+    }),
+  );
+  router.post(
+    "/news/:id/publish",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const updated = await service.setNewsArticlePublished(svc, actorOf(req), parseIdParam(req), true, requestMeta(req));
+      res.status(200).json({ success: true, data: updated, requestId: res.locals.requestId });
+    }),
+  );
+  router.post(
+    "/news/:id/unpublish",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const updated = await service.setNewsArticlePublished(svc, actorOf(req), parseIdParam(req), false, requestMeta(req));
+      res.status(200).json({ success: true, data: updated, requestId: res.locals.requestId });
+    }),
+  );
+  router.post(
+    "/news/:id/duplicate",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const copy = await service.duplicateNewsArticle(svc, actorOf(req), parseIdParam(req), requestMeta(req));
+      res.status(201).json({ success: true, data: copy, requestId: res.locals.requestId });
+    }),
+  );
+  router.post(
+    "/news/:id/preview",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const preview = await service.createNewsPreview(svc, actorOf(req), parseIdParam(req), requestMeta(req));
+      res.status(201).json({ success: true, data: preview, requestId: res.locals.requestId });
+    }),
+  );
+  router.post(
+    "/news/:id/pdf",
+    fullSession,
+    newsPerm,
+    parsePdfUpload,
+    asyncHandler(async (req: Request, res: Response) => {
+      if (!req.file) {
+        throw AppError.validation([{ field: "file", issue: "A PDF file is required." }]);
+      }
+      const attachment = await service.uploadNewsPdf(
+        svc,
+        actorOf(req),
+        parseIdParam(req),
+        { buffer: req.file.buffer, originalName: req.file.originalname },
+        requestMeta(req),
+      );
+      res.status(201).json({ success: true, data: attachment, requestId: res.locals.requestId });
+    }),
+  );
+  router.delete(
+    "/news/:id/pdf",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      await service.removeNewsPdf(svc, actorOf(req), parseIdParam(req), requestMeta(req));
+      res.status(200).json({ success: true, data: { removed: true }, requestId: res.locals.requestId });
+    }),
+  );
+  router.get(
+    "/news/:id/pdf/view",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const resolved = await service.resolveAdminNewsPdf(svc, parseIdParam(req));
+      sendPdfFile(req, res, resolved, "inline");
+    }),
+  );
+  router.get(
+    "/news/:id/pdf/download",
+    fullSession,
+    newsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const id = parseIdParam(req);
+      const resolved = await service.resolveAdminNewsPdf(svc, id);
+      await service.recordNewsPdfDownloadAudit(svc, actorOf(req), id, resolved.attachment.id, requestMeta(req));
+      sendPdfFile(req, res, resolved, "attachment");
     }),
   );
 

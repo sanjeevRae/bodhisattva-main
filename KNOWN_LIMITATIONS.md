@@ -178,3 +178,28 @@ tested and verified **locally**; **nothing is deployed**.
 36. **Dev-environment quirks are not production behaviour.** The local
     SMTP sink, the sandbox proxy's `SMTP_HOST=127.0.0.1` workaround,
     and placeholder dev accounts exist only on the development VM.
+37. **No scheduled publishing for news articles.** Articles publish
+    and unpublish only by an explicit admin action; the platform
+    has no job scheduler (one could be driven by hosting cron at
+    deployment time, like the outbox drain).
+38. **No antivirus scanning of uploaded PDFs.** Shared hosting has
+    no scanner; compensating controls are upload restricted to
+    `news.manage` holders, PDF signature/structure validation,
+    SHA-256 checksums, and sandboxed serving (CSP
+    `default-src 'none'; sandbox` + `nosniff`).
+39. **Preview tokens authorize article text only.** A draft's PDF
+    is not reachable through the public preview page; staff
+    preview the PDF inside the admin editor, whose endpoints are
+    permission-gated and audited.
+40. **One active PDF per article.** Replacements keep a full
+    history (REPLACED rows with checksums), but an article cannot
+    carry several simultaneously-active documents.
+41. **Search uses MariaDB FULLTEXT defaults.** Tokens shorter
+    than the server's minimum length and configured stopwords do
+    not match; the scanned text inside PDF files is not indexed
+    (search covers the typed body, summary and metadata — there
+    is no OCR).
+42. **PDF originals are byte-preserved, never normalized.** A
+    malformed-but-plausible PDF that passes signature checks is
+    stored and served as uploaded; the viewer degrades to
+    open/download links if PDF.js cannot parse it.

@@ -147,7 +147,17 @@ publish; rich text is sanitized at save (formatting-only allowlist).
 
 Public (published + non-deleted only): `GET /collections`,
 `GET /exhibitions`, `GET /news` (`?search=` full-text with LIKE
-fallback, `?category=<slug>`), `GET /foundation`.
+fallback, `?category=<slug>`; News Clippings adds `publication`,
+`year`, `dateFrom`, `dateTo`, `type`, `hasPdf`, `featured`,
+`sort=newest|oldest|added|alpha`, and `page`/`pageSize` — the
+pagination `meta` is emitted only when `page` is supplied, the
+legacy `{categories, items}` shape otherwise), `GET /news/facets`,
+`GET /news/:slug` (detail + related; increments `view_count`),
+`GET /news/:slug/attachments`, `GET /news/:slug/pdf/view` and
+`/pdf/download` (published + ACTIVE PUBLIC attachment only, HTTP
+Range supported, download increments `pdf_download_count`),
+`GET /news/preview/:token` (hashed draft-preview token, 30 min),
+`GET /foundation`.
 
 Admin (one manage permission per resource; every write audited):
 
@@ -156,7 +166,7 @@ Admin (one manage permission per resource; every write audited):
 | Collections | `museum.collections.manage` | GET list · POST · GET/PATCH/DELETE `/:id` · POST `/collections/reorder` |
 | Exhibitions | `museum.exhibitions.manage` | GET list · POST · GET/PATCH/DELETE `/:id` · POST `/exhibitions/reorder` |
 | Gallery items | `museum.gallery.manage` | GET/POST `/exhibitions/:id/gallery-items` · PATCH/DELETE `/gallery-items/:id` · POST `/gallery-items/reorder` |
-| News categories + articles | `news.manage` | GET/POST `/news/categories` · PATCH/DELETE `/news/categories/:id` (DELETE is 409 while articles reference it) · GET list · POST `/news` · GET/PATCH/DELETE `/news/:id` |
+| News categories + articles | `news.manage` | GET/POST `/news/categories` · PATCH/DELETE `/news/categories/:id` (DELETE is 409 while articles reference it) · GET list (filters: search/category/status/featured/hasPdf) · POST `/news` · GET/PATCH/DELETE `/news/:id` · POST `/news/:id/publish` · `/unpublish` · `/duplicate` · POST `/news/bulk` (publish/unpublish/archive) · POST/DELETE `/news/:id/pdf` · GET `/news/:id/pdf/view` · `/pdf/download` (audited) · POST `/news/:id/preview` |
 | Foundation programs + testimonials | `foundation.manage` | GET list · POST · GET/PATCH/DELETE `/:id` · POST `/foundation-programs/reorder` · same shape under `/testimonials` |
 
 Duplicate slugs are 409; reorder validates every id (400) in one

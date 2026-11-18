@@ -78,6 +78,13 @@
       "when": 1794919735052,
       "tag": "0010_credit_notes_outbox_fencing",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1794990000000,
+      "tag": "0011_news_clippings",
+      "breakpoints": true
     }
   ]
 }

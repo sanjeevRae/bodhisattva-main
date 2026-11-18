@@ -2,12 +2,16 @@ import { sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
+  char,
   date,
   datetime,
   foreignKey,
   index,
   int,
+  longtext,
+  mediumtext,
   mysqlTable,
+  primaryKey,
   smallint,
   text,
   uniqueIndex,
@@ -272,6 +276,16 @@ export const newsArticles = mysqlTable(
     // design's labels, §8.4).
     articleType: varchar('article_type', { length: 40 }),
     summary: text('summary'),
+    // News Clippings module (migration 0011): the readable article body —
+    // sanitize-html output written by the admin editor, never raw input.
+    content: longtext('content'),
+    // Plain-text projection of `content` (tags stripped, entities
+    // decoded, whitespace collapsed), maintained by the museum service
+    // on every save. `ft_news_search` indexes THIS column so a search
+    // matches the words a reader sees — never HTML markup.
+    contentPlain: mediumtext('content_plain'),
+    // Journalist / author byline, when the clipping carries one.
+    author: varchar('author', { length: 160 }),
     publishedOn: date('published_on', { mode: 'string' }),
     externalUrl: varchar('external_url', { length: 500 }),
     // Uploaded clipping/document alternative to external_url.
@@ -281,6 +295,13 @@ export const newsArticles = mysqlTable(
     imageUrl: varchar('image_url', { length: 1000 }),
     imageAlt: varchar('image_alt', { length: 500 }),
     isPublished: boolean('is_published').notNull().default(false),
+    // News Clippings module (migration 0011): editorial featuring plus
+    // honest counters — incremented only by real public reads/downloads.
+    isFeatured: boolean('is_featured').notNull().default(false),
+    viewCount: int('view_count', { unsigned: true }).notNull().default(0),
+    pdfDownloadCount: int('pdf_download_count', { unsigned: true })
+      .notNull()
+      .default(0),
     createdBy: bigint('created_by', { mode: 'number', unsigned: true }),
     updatedBy: bigint('updated_by', { mode: 'number', unsigned: true }),
     createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
@@ -295,11 +316,17 @@ export const newsArticles = mysqlTable(
   (table) => [
     uniqueIndex('uq_news_slug').on(table.slug),
     index('idx_news_pub').on(table.isPublished, table.publishedOn),
+    index('idx_news_featured').on(
+      table.isFeatured,
+      table.isPublished,
+      table.publishedOn,
+    ),
     index('idx_news_category').on(table.categoryId),
-    // FULLTEXT KEY ft_news_search (title, summary, outlet) from §8.4 is
-    // intentionally absent here — drizzle's MySQL schema API cannot
-    // express FULLTEXT indexes. Migration 0005 creates it by hand and
-    // records it in the snapshot; see the module header.
+    // FULLTEXT KEY ft_news_search (title, summary, outlet — §8.4;
+    // extended by migration 0011 to author + content_plain) is intentionally
+    // absent here — drizzle's MySQL schema API cannot express FULLTEXT
+    // indexes. Migrations 0005/0011 maintain it by hand and record it in
+    // their snapshots; see the module header.
     foreignKey({
       columns: [table.categoryId],
       foreignColumns: [newsCategories.id],
@@ -332,6 +359,149 @@ export const newsArticles = mysqlTable(
       columns: [table.updatedBy],
       foreignColumns: [users.id],
       name: 'fk_news_ub',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// News Clippings module (migration 0011): tags, PDF attachments with a
+// replacement history, and per-article preview tokens.
+// ---------------------------------------------------------------------------
+
+export const newsTags = mysqlTable(
+  'news_tags',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    name: varchar('name', { length: 80 }).notNull(),
+    slug: varchar('slug', { length: 80 }).notNull(),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [uniqueIndex('uq_news_tags_slug').on(table.slug)],
+);
+
+export const newsArticleTags = mysqlTable(
+  'news_article_tags',
+  {
+    articleId: bigint('article_id', { mode: 'number', unsigned: true }).notNull(),
+    tagId: bigint('tag_id', { mode: 'number', unsigned: true }).notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.articleId, table.tagId] }),
+    index('idx_news_article_tags_tag').on(table.tagId),
+    foreignKey({
+      columns: [table.articleId],
+      foreignColumns: [newsArticles.id],
+      name: 'fk_nat_article',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.tagId],
+      foreignColumns: [newsTags.id],
+      name: 'fk_nat_tag',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+  ],
+);
+
+/**
+ * One row per PDF ever attached to an article. The ACTIVE row is the live
+ * document (and the one `news_articles.document_media_id` mirrors);
+ * replacing a PDF flips the old row to REPLACED with `replaced_by_id`
+ * pointing at its successor, so the document history is never lost. The
+ * file bytes live in the media library (`media_id` → `media_assets`); the
+ * checksum of the ORIGINAL uploaded bytes is recorded here at upload.
+ */
+export const newsAttachments = mysqlTable(
+  'news_attachments',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    articleId: bigint('article_id', { mode: 'number', unsigned: true }).notNull(),
+    mediaId: bigint('media_id', { mode: 'number', unsigned: true }).notNull(),
+    kind: varchar('kind', { length: 20 }).notNull().default('PDF'),
+    originalName: varchar('original_name', { length: 255 }),
+    // SHA-256 hex of the original uploaded bytes.
+    checksum: char('checksum', { length: 64 }).notNull(),
+    // PUBLIC = servable to visitors while the article is published.
+    visibility: varchar('visibility', { length: 20 }).notNull().default('PUBLIC'),
+    // ACTIVE | REPLACED | REMOVED
+    status: varchar('status', { length: 20 }).notNull().default('ACTIVE'),
+    replacedById: bigint('replaced_by_id', { mode: 'number', unsigned: true }),
+    uploadedBy: bigint('uploaded_by', { mode: 'number', unsigned: true }),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [
+    index('idx_news_attachments_article').on(table.articleId, table.status),
+    index('idx_news_attachments_media').on(table.mediaId),
+    foreignKey({
+      columns: [table.articleId],
+      foreignColumns: [newsArticles.id],
+      name: 'fk_natt_article',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.mediaId],
+      foreignColumns: [mediaAssets.id],
+      name: 'fk_natt_media',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.replacedById],
+      foreignColumns: [table.id],
+      name: 'fk_natt_replaced_by',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.uploadedBy],
+      foreignColumns: [users.id],
+      name: 'fk_natt_uploaded_by',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+  ],
+);
+
+/**
+ * Per-article preview tokens — the CMS `preview_tokens` shape (migration
+ * 0004) bound to a news article instead of a page revision: only the
+ * SHA-256 digest is stored, the raw token is shown once, expiry 30 min.
+ */
+export const newsPreviewTokens = mysqlTable(
+  'news_preview_tokens',
+  {
+    id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+    articleId: bigint('article_id', { mode: 'number', unsigned: true }).notNull(),
+    tokenHash: char('token_hash', { length: 64 }).notNull(),
+    expiresAt: datetime('expires_at', { fsp: 3, mode: 'date' }).notNull(),
+    createdBy: bigint('created_by', { mode: 'number', unsigned: true }),
+    createdAt: datetime('created_at', { fsp: 3, mode: 'date' })
+      .notNull()
+      .default(sql`CURRENT_TIMESTAMP(3)`),
+  },
+  (table) => [
+    index('idx_news_preview_tokens_hash').on(table.tokenHash),
+    index('idx_news_preview_tokens_article').on(table.articleId),
+    foreignKey({
+      columns: [table.articleId],
+      foreignColumns: [newsArticles.id],
+      name: 'fk_npt_article',
+    })
+      .onDelete('restrict')
+      .onUpdate('restrict'),
+    foreignKey({
+      columns: [table.createdBy],
+      foreignColumns: [users.id],
+      name: 'fk_npt_created_by',
     })
       .onDelete('restrict')
       .onUpdate('restrict'),

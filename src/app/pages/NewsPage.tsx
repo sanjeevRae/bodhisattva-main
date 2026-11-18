@@ -1,20 +1,26 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router";
 import { Search } from "lucide-react";
-import { useNews, usePage } from "../lib/api";
-import PageRenderer, { NewsRows, PageStatus } from "../components/PageRenderer";
+import { usePage } from "../lib/api";
+import PageRenderer, { PageStatus } from "../components/PageRenderer";
+import NewsArchive from "../components/NewsArchive";
 
 /**
- * News Clippings — content from the CMS (GET /api/pages/news) via
- * PageRenderer. The search box is the listing section's configuration
- * (enableSearch) rendered inside the hero band, as on the current site;
- * the query is page state shared between the band and the rows. The
- * query drives the module API (GET /api/news?search=, debounced in
- * useNews) — rows render the API's results, not a client-side filter.
+ * News Clippings — the hero band comes from the CMS (GET /api/pages/news)
+ * via PageRenderer, exactly as before: title/eyebrow from the section
+ * config, the search input inside the band. Below it, the news_listing
+ * section now renders the digital press archive (NewsArchive): the
+ * hero's query becomes the archive's server-side search, and the
+ * archive adds facets-driven filters, a featured story and Load More
+ * pagination over GET /api/news. The initial query is read from the
+ * `search` URL param so shared archive links land pre-searched.
  */
 export default function NewsPage() {
   const { data: page, error } = usePage("news");
-  const [query, setQuery] = useState("");
-  const news = useNews(query);
+  const [searchParams] = useSearchParams();
+  const [query, setQuery] = useState(
+    () => searchParams.get("search") ?? "",
+  );
   if (error) return <PageStatus error />;
   if (!page) return <PageStatus />;
   return (
@@ -43,7 +49,12 @@ export default function NewsPage() {
             );
           }
           if (section.type === "news_listing") {
-            return <NewsRows articles={news.data?.items ?? []} query={query} />;
+            return (
+              <NewsArchive
+                query={query}
+                onClearQuery={() => setQuery("")}
+              />
+            );
           }
           return undefined;
         }}

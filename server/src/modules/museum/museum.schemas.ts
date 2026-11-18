@@ -174,6 +174,10 @@ const newsArticleFields = {
   outlet: nullableText(160),
   articleType: nullableText(40),
   summary: nullableLongText,
+  // The readable article body (migration 0011): rich text, sanitised at
+  // save in the service. Generous cap — LONGTEXT storage.
+  content: z.string().max(500_000).nullable().optional(),
+  author: nullableText(160),
   publishedOn: dateString.nullable().optional(),
   externalUrl: nullableText(500),
   documentMediaId: mediaRef,
@@ -181,6 +185,13 @@ const newsArticleFields = {
   imageUrl: nullableText(1000),
   imageAlt: nullableText(500),
   isPublished: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  // Tag names; the service get-or-creates tags by slug. Sending the array
+  // replaces the article's tag set; omitting it leaves tags untouched.
+  tags: z
+    .array(z.string().trim().min(1).max(80))
+    .max(20)
+    .optional(),
 };
 
 export const createNewsArticleSchema = z.object({ ...newsArticleFields });
@@ -193,6 +204,8 @@ export const updateNewsArticleSchema = z
     outlet: newsArticleFields.outlet,
     articleType: newsArticleFields.articleType,
     summary: newsArticleFields.summary,
+    content: newsArticleFields.content,
+    author: newsArticleFields.author,
     publishedOn: newsArticleFields.publishedOn,
     externalUrl: newsArticleFields.externalUrl,
     documentMediaId: newsArticleFields.documentMediaId,
@@ -200,8 +213,17 @@ export const updateNewsArticleSchema = z
     imageUrl: newsArticleFields.imageUrl,
     imageAlt: newsArticleFields.imageAlt,
     isPublished: newsArticleFields.isPublished,
+    isFeatured: newsArticleFields.isFeatured,
+    tags: newsArticleFields.tags,
   })
   .refine(nonEmptyPatch, { message: "At least one field must be provided." });
+
+/** Bulk lifecycle action over a set of article ids (News Clippings). */
+export const newsBulkSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(100),
+  action: z.enum(["publish", "unpublish", "archive"]),
+});
+export type NewsBulkInput = z.infer<typeof newsBulkSchema>;
 
 // ---------------------------------------------------------------------------
 // Foundation programs
