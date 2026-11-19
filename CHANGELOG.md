@@ -8,6 +8,12 @@ everything below is implemented, tested and verified **locally**;
 
 ## Unreleased — 2026-11-18
 
+- **Site favicon added** (owner-supplied Bodhisattva seal logo,
+  2026-11-19): `public/favicon.ico` (16/32/48), `favicon-16.png`,
+  `favicon-32.png`, `icon-192.png`, `icon-512.png` and
+  `apple-touch-icon.png` (white-backed for iOS), linked from
+  `index.html`. The small sizes use a contrast-firmed rendering of
+  the seal so the linework stays legible at tab size.
 - **About-page contact form now delivers email** (owner task
   2026-11-18). The form previously submitted nowhere; it now posts
   to the new `POST /api/contact`, which stores each message
