@@ -139,10 +139,11 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
     const collections = await request(app).get("/api/collections");
     expect(collections.status).toBe(200);
     const items = collections.body.data.items as CollectionItem[];
-    expect(items).toHaveLength(6);
-    expect(items[0].slug).toBe("gandharan-sculpture");
-    expect(items[0].worksCountLabel).toBe("487 works");
-    expect(items[0].image?.url).toContain("images.unsplash.com");
+    expect(items).toHaveLength(4);
+    expect(items[0].slug).toBe("paubha-paintings");
+    // Real collections publish no artwork count (migration 0013).
+    expect(items[0].worksCountLabel).toBeNull();
+    expect(items[0].image?.url).toBe("/images/collections/paubha-paintings.jpg");
     expect(items[0].image?.alt).toBeTruthy();
 
     const exhibitions = await request(app).get("/api/exhibitions");
@@ -153,11 +154,11 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
       dateLabel: string | null;
       locationLabel: string | null;
     }[];
-    expect(shows).toHaveLength(9);
-    expect(shows[0].slug).toBe("echoes-of-enlightenment");
+    expect(shows).toHaveLength(21);
+    expect(shows[0].slug).toBe("ten-years-of-celebrating-embodied-enlightenment");
     expect(shows[0].status).toBe("current");
-    expect(shows[0].dateLabel).toBe("Mar – Nov 2026");
-    expect(shows[0].locationLabel).toBe("Main Hall");
+    expect(shows[0].dateLabel).toBe("Nov – Dec 2026");
+    expect(shows[0].locationLabel).toBe("Purna Museum of Newa Art & Bodhisattva Gallery, Kupondole");
 
     const news = await request(app).get("/api/news");
     expect(news.status).toBe(200);
@@ -169,16 +170,16 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
       sourceName: string | null;
       publishedDate: string | null;
     }[];
-    expect(articles).toHaveLength(8);
-    expect(articles[0].slug).toContain("mathura-sculpture");
-    expect(articles[0].categorySlug).toBe("news");
+    expect(articles).toHaveLength(20);
+    expect(articles[0].slug).toBe("into-the-exquisite-world-of-religious-art");
+    expect(articles[0].categorySlug).toBe("feature");
     expect(articles[0].colorToken).toBeTruthy();
-    expect(articles[0].sourceName).toBe("The Hindu");
-    expect(articles[0].publishedDate).toBe("2026-08-12");
+    expect(articles[0].sourceName).toBe("The Kathmandu Post");
+    expect(articles[0].publishedDate).toBe("2022-03-10");
 
     const foundation = await request(app).get("/api/foundation");
     expect(foundation.status).toBe(200);
-    expect(foundation.body.data.programs).toHaveLength(4);
+    expect(foundation.body.data.programs).toHaveLength(3);
     expect(foundation.body.data.testimonials).toHaveLength(4);
     const contexts = (
       foundation.body.data.testimonials as { context: string }[]
@@ -194,11 +195,11 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
     expect(catItems.length).toBeGreaterThan(0);
     expect(catItems.every((a) => a.categorySlug === "interview")).toBe(true);
 
-    const search = await request(app).get("/api/news?search=Mathura");
+    const search = await request(app).get("/api/news?search=Karunamaya");
     expect(search.status).toBe(200);
     const hits = search.body.data.items as { slug: string }[];
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].slug).toContain("mathura");
+    expect(hits.map((h) => h.slug)).toContain("into-the-exquisite-world-of-religious-art");
 
     const unknown = await request(app).get("/api/news?category=no-such-slug");
     expect(unknown.status).toBe(200);

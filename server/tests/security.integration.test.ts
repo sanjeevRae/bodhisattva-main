@@ -473,8 +473,9 @@ describe.skipIf(!RUN)("Phase 8 security probes (integration)", () => {
     expect(category.body.meta.total).toBe(0);
 
     // News search exercises the FULLTEXT path and its LIKE fallback.
+    // (Control term updated for the real seed content, migration 0013.)
     const control = await request(app).get(
-      `/api/news?search=${encodeURIComponent("Mathura")}`,
+      `/api/news?search=${encodeURIComponent("Karunamaya")}`,
     );
     expect(control.status).toBe(200);
     expect(control.body.data.items.length).toBeGreaterThan(0);

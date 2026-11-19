@@ -290,19 +290,19 @@ export const CMS_SETTINGS: readonly CmsSettingSeed[] = [
     isPublic: true,
   },
   // Footer brand block + About A5 rows (identical in both places).
-  { key: "contact_address", value: "Kupondole, Lalitpur, Nepal", isPublic: true },
+  { key: "contact_address", value: "House No. 91, Diamond Marg, Kupondole, Lalitpur, Nepal", isPublic: true },
   { key: "contact_phone", value: "+977-9818882876", isPublic: true },
   // About A5 only (the footer shows no email).
   { key: "contact_email", value: "info@bodhisattvainternational.com", isPublic: true },
   { key: "website", value: "www.bodhisattvainternational.com", isPublic: true },
-  // Opening hours — the two current sources CONTRADICT each other (Audit
-  // D20): the footer line implies closed on Saturday only, while the About
-  // page says closed on Monday. Both are preserved verbatim in their own
-  // keys until the client confirms the real schedule (mapping §2.2, §A5).
-  { key: "opening_hours_summary", value: "Sun-Fri 10:00am to 5:00pm", isPublic: true },
+  // Opening hours — real schedule (2026-11-19, migration 0013): the
+  // institution's own exhibition posters state gallery/museum hours
+  // 12–6, closed Mondays. This replaces the design-stage values, whose
+  // two sources contradicted each other (Audit D20).
+  { key: "opening_hours_summary", value: "Tue–Sun 12:00pm to 6:00pm", isPublic: true },
   {
     key: "opening_hours",
-    value: ["Sun – Fri: 10:00 AM – 5:00 PM", "Monday: Closed"],
+    value: ["Tue – Sun: 12:00 PM – 6:00 PM", "Monday: Closed"],
     isPublic: true,
   },
   // Footer copyright line, verbatim.
@@ -392,14 +392,14 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         isVisible: true,
         config: {
           variant: "fullscreen",
-          eyebrow: "Est. 2000 · Lalitpur, Nepal · 12,400+ Artifacts",
+          eyebrow: "Est. 1980s · Kupondole, Lalitpur · Newa Art",
           headingLine1: "Where Heritage",
           headingAccent: "Meets Eternity",
           subtext:
-            "Dedicated to preserving and presenting the finest expressions of South Asian art, Buddhist heritage, and contemporary cultural dialogue.",
+            "Preserving, elevating and reimagining the sacred artistic traditions of the Kathmandu Valley — paubha, sculpture and repoussé by the masters of Newa art.",
           backgroundImage: {
-            url: "https://images.unsplash.com/photo-1779949437853-d8b00aee936c?w=1920&h=1080&fit=crop&auto=format&q=80",
-            alt: "Ancient Buddhist statue in museum gallery",
+            url: "/images/pages/home-hero.jpg",
+            alt: "A visitor meditating before a monumental deity painting at Purna Museum of Newa Art",
           },
           primaryCta: { kind: "page", pageSlug: "museum", label: "Explore Museum", style: "solid" },
           secondaryCta: { kind: "page", pageSlug: "gallery", label: "View Gallery", style: "outline" },
@@ -417,16 +417,16 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           headingLine1: "A Living Archive of",
           headingAccent: "Sacred Civilization",
           paragraphs: [
-            "Bodhisattva Museum & Art Gallery stands as Nepal's premier institution dedicated to Buddhist art and South Asian cultural heritage. Founded in 2000, we house over 12,000 artifacts spanning three millennia of artistic expression.",
-            "We believe that art is not merely an object to be observed, but a living conversation between civilizations — a bridge between the ancient and the contemporary.",
+            "Bodhisattva International is a cultural institution in Kupondole, Lalitpur, dedicated to preserving, elevating, and reimagining the sacred artistic traditions of Nepal. Founded in the 1980s by Anjana Shakya and the late Purna Man Shakya, it unites the Purna Museum of Newa Art, Bodhisattva Gallery, the Bodhisattva Foundation, and the Bodhisattva Gift Shop.",
+            "We believe that art is not only to be preserved, but lived; not only to be admired, but experienced; and not only to represent culture, but to sustain it.",
           ],
           cta: { kind: "page", pageSlug: "about", label: "Our Story" },
           image: {
-            url: "https://images.unsplash.com/photo-1772617616268-a2f27d194fce?w=800&h=1000&fit=crop&auto=format&q=80",
-            alt: "Sculptures in museum gallery with paintings",
+            url: "/images/pages/home-intro.jpg",
+            alt: "Paubha painting of a goddess by Udaya Charan Shrestha",
           },
           imageAspect: "4:5",
-          calloutBadge: { value: "12,400+", label: "Artifacts Preserved" },
+          calloutBadge: { value: "24+", label: "Major Exhibitions" },
         },
         design: { background: "default", spacing: "large", container: "wide" },
       },
@@ -470,21 +470,20 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         sortOrder: 4,
         isVisible: true,
         config: {
-          sectionLabel: "Curator's Note",
+          sectionLabel: "The Valley of Kathmandu",
           displayMode: "single-featured",
           testimonial: {
             quote:
-              "Every sculpture here is a question the ancient world poses to our present — and an invitation to answer.",
-            authorName: "Siddhartha Man Shakya",
-            authorRole: "Chief Curator",
+              "No other people on earth has produced such intricate beauty in as small a space as the Valley of Kathmandu.",
+            authorName: "Ted Riccardi",
+            authorRole: "The Oriental Casebook of Sherlock Holmes (2003)",
           },
         },
         design: { background: "dark", spacing: "standard", container: "narrow" },
       },
       // H6 — Foundation preview: Image and text, collage + embedded stats.
-      // The three stats below duplicate F2's statistics (mapping §H6/§F2:
-      // single-source them as records at seed time — note the label drift,
-      // "Artist Grants" here vs "Artist Grants Disbursed" on Foundation).
+      // The three stats below are a subset of F2's statistics (mapping
+      // §H6/§F2), carrying the real Memorial Art Award figures.
       {
         type: "image_text",
         sortOrder: 5,
@@ -494,22 +493,22 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           headingLine1: "Art as an Act",
           headingAccent: "of Responsibility",
           paragraph:
-            "The Bodhisattva Foundation runs 14 active programs across Nepal, nurturing young artists, preserving endangered crafts, and bringing museum access to underserved communities.",
+            "The Bodhisattva Foundation extends the founders' legacy into society — humanitarian work, education, and the nurturing of emerging artists, crowned by the Purna Man Shakya Memorial Art Award.",
           images: [
             {
-              url: "https://images.unsplash.com/photo-1708795921259-263a5e973acb?w=500&h=500&fit=crop&auto=format&q=80",
-              alt: "Child painting on canvas",
+              url: "/images/pages/home-foundation-1.jpg",
+              alt: "Purna Man Shakya Memorial Art Award poster",
             },
             {
-              url: "https://images.unsplash.com/photo-1756694915450-50c9796fb96d?w=500&h=500&fit=crop&auto=format&q=80",
-              alt: "Children painting together outdoors",
+              url: "/images/pages/home-foundation-2.jpg",
+              alt: "Purna Man Shakya Memorial Art Award poster with the founder's portrait",
             },
           ],
           imageMode: "collage2",
           stats: [
-            { value: "14", label: "Active Programs" },
-            { value: "1,000+", label: "Students Reached" },
-            { value: "Rs.10L", label: "Artist Grants" },
+            { value: "3", label: "Award Editions" },
+            { value: "Rs.50,000", label: "First Prize" },
+            { value: "2023", label: "Award First Presented" },
           ],
           cta: { kind: "page", pageSlug: "foundation", label: "Learn More" },
         },
@@ -562,8 +561,8 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           eyebrow: "The Collection",
           heading: "The Museum",
           backgroundImage: {
-            url: "https://images.unsplash.com/photo-1765470129726-3689336ff549?w=1920&h=900&fit=crop&auto=format&q=80",
-            alt: "Interior of a grand museum hall",
+            url: "/images/pages/museum-hero.jpg",
+            alt: "A visitor studying a paubha painting with a magnifying lens at Purna Museum of Newa Art",
           },
         },
         design: { container: "wide" },
@@ -575,19 +574,19 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         isVisible: true,
         config: {
           sectionLabel: "Overview",
-          headingLine1: "Three Floors. Three Millennia.",
-          headingAccent: "One Continuous Story.",
+          headingLine1: "A Living Archive",
+          headingAccent: "of Devotion.",
           paragraphs: [
-            "Spread across 28,000 sq. ft. in the heart of Lalitpur, Bodhisattva Museum houses the subcontinent's most comprehensive permanent collection of Buddhist art. Our galleries trace iconographic development from the pre-Asokan period through the Pala, Gupta, and Vijayanagara empires to the contemporary moment.",
-            "The museum is organized around a principle of living dialogue: ancient works are displayed in conversation with contemporary artistic responses, encouraging visitors to see tradition not as a fixed archive but as a generative force.",
+            "Opened in 2023 with the inaugural exhibition A Collector's Collection, the Purna Museum of Newa Art is a landmark institution and the world's largest private collection dedicated to contemporary traditional Newa art. It was officially inaugurated by Minister of Education, Science and Technology Ashok Rai, UNESCO Representative to Nepal Michael Croft, and Co-Founder of Bodhisattva International Anjana Shakya.",
+            "The museum houses the permanent collection of Anjana Shakya and the late Purna Man Shakya, fulfilling his vision of a space where people could experience the finest Newa art in Nepal, without having to travel abroad to see their own heritage. Its collection spans paubha, lost-wax bronze sculpture, repoussé, and miniature art on precious and semi-precious stones.",
           ],
           facts: [
-            { label: "Established", value: "2000" },
-            { label: "Total Area", value: "28,000 sq.ft." },
-            { label: "Artifacts", value: "12,400+" },
-            { label: "Annual Visitors", value: "2.1 Million" },
-            { label: "Active Galleries", value: "18 Rooms" },
-            { label: "Languages", value: "8 Supported" },
+            { label: "Established", value: "2023" },
+            { label: "Collection", value: "Anjana & Purna Man Shakya" },
+            { label: "Art Forms", value: "Paubha · Bronze · Repoussé · Miniature" },
+            { label: "Location", value: "Kupondole, Lalitpur" },
+            { label: "Opening Hours", value: "12 PM – 6 PM" },
+            { label: "Closed", value: "Mondays" },
           ],
         },
         design: { background: "default", spacing: "standard", container: "wide" },
@@ -601,11 +600,11 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           sectionLabel: "History",
           heading: "A History of Collecting",
           items: [
-            { yearLabel: "2000", text: "Founded by Siddhartha Man Shakya with 200 core artifacts in a converted Civil Lines haveli." },
-            { yearLabel: "2003", text: "East Wing expansion; landmark Gandharan sculpture collection acquired." },
-            { yearLabel: "2009", text: "International partnerships with the British Museum and Freer Gallery established." },
-            { yearLabel: "2015", text: "Digital archive and virtual tour platform launched; 5,000 works digitized." },
-            { yearLabel: "2022", text: "Contemporary Dialogues wing inaugurated. Foundation reaches 5,000 students." },
+            { yearLabel: "1980s", text: "Anjana and Purna Man Shakya begin commissioning and collecting masterworks of Newa art — the beginnings of Bodhisattva." },
+            { yearLabel: "2011", text: "Jewels of Newar Art at Siddhartha Art Gallery presents the collection to wide acclaim; the Jewels of Newar Art book is launched." },
+            { yearLabel: "2019", text: "Bodhisattva Gallery opens its permanent home in Pulchowk, Lalitpur; works from the collection travel to Nepal Art Now at the Weltmuseum Wien." },
+            { yearLabel: "2023", text: "Purna Museum of Newa Art opens with A Collector's Collection; the Bodhisattva Foundation establishes the Purna Man Shakya Memorial Art Award." },
+            { yearLabel: "2026", text: "10 Years of Celebrating Embodied Enlightenment revisits Samundra Man Singh Shrestha's landmark 2016 retrospective." },
           ],
         },
         design: { background: "secondary", spacing: "standard", container: "wide" },
@@ -626,11 +625,13 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         },
         design: { background: "default", spacing: "standard", container: "wide" },
       },
-      // M5 — Floor directory: Directory type (mapping §11.2).
+      // M5 — Floor directory: Directory type (mapping §11.2). The room
+      // names are design-stage inventions; seeded HIDDEN (2026-11-19,
+      // migration 0013) until the owner supplies the real floor layout.
       {
         type: "directory",
         sortOrder: 4,
-        isVisible: true,
+        isVisible: false,
         config: {
           sectionLabel: "Navigation",
           heading: "Interactive Floor Map",
@@ -778,26 +779,24 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           eyebrow: "Social Responsibility",
           heading: "The Foundation",
           backgroundImage: {
-            url: "https://images.unsplash.com/photo-1756694915450-50c9796fb96d?w=1920&h=900&fit=crop&auto=format&q=80",
-            alt: "Children painting together in community art program",
+            url: "/images/pages/foundation-hero.jpg",
+            alt: "Purna Man Shakya Memorial Art Award poster with a portrait of the founder",
           },
         },
         design: { container: "wide" },
       },
-      // F2 — Impact statistics band: the canonical four statistics, shared
-      // with H6's three-item subset (mapping §F2 — single-source at seed).
-      // Verbatim note: the component renders the third value as "RS.10L"
-      // (uppercase) here, against "Rs.10L" on Home.
+      // F2 — Impact statistics band: real Memorial Art Award figures
+      // (2026-11-19, migration 0013); H6 carries a three-item subset.
       {
         type: "statistics",
         sortOrder: 1,
         isVisible: true,
         config: {
           items: [
-            { value: "14", label: "Active Programs" },
-            { value: "1,000+", label: "Students Reached" },
-            { value: "RS.10L", label: "Artist Grants Disbursed" },
-            { value: "38", label: "Partner Organizations" },
+            { value: "3", label: "Award Editions Held" },
+            { value: "Rs.50,000", label: "First Prize in Each Category" },
+            { value: "2", label: "Award Categories — Paubha & Sculpture" },
+            { value: "2023", label: "Memorial Award First Presented" },
           ],
         },
         design: { background: "secondary", spacing: "compact", container: "wide" },
@@ -812,12 +811,12 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           headingLine1: "Art as an Act",
           headingAccent: "of Responsibility",
           paragraphs: [
-            "The Bodhisattva Foundation was established in 2012 as the museum's social responsibility arm. We believe that cultural institutions carry an obligation not only to preserve the past, but to actively shape a more equitable cultural future.",
-            "Our work spans four interconnected domains: education, artist support, community access, and cultural preservation — each reflecting the Bodhisattva ideal of compassionate action in the world.",
+            "Beyond the realm of art, the Bodhisattva Foundation extends the founders' legacy into society. It is dedicated to humanitarian work, education, and the nurturing of emerging artists. Its most significant initiative is the Purna Man Shakya Memorial Art Award, which honours the founders' philosophy of artistic excellence for both senior and emerging artists.",
+            "Beyond his role as a cultural visionary, the late Purna Man Shakya was deeply committed to humanitarian values — supporting children's education, funding medical treatment for those in need, and offering protection and support to individuals during Nepal's periods of political conflict. Today those values live on through the Foundation.",
           ],
           image: {
-            url: "https://images.unsplash.com/photo-1708795921259-263a5e973acb?w=800&h=600&fit=crop&auto=format&q=80",
-            alt: "Child painting in art education program",
+            url: "/images/pages/foundation-mission.jpg",
+            alt: "Third Purna Man Shakya Memorial Art Award 2025 poster",
           },
           imageAspect: "4:3",
         },
@@ -860,14 +859,14 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         config: {
           heading: "Partner Organizations",
           items: [
-            { name: "British Museum" },
-            { name: "Freer Gallery — Smithsonian" },
-            { name: "Nalanda University" },
-            { name: "IGNCA" },
+            { name: "Weltmuseum Wien" },
             { name: "UNESCO Nepal" },
-            { name: "Nepal Foundation for the Arts" },
-            { name: "Aga Khan Trust for Culture" },
-            { name: "Tata Trusts" },
+            { name: "Siddhartha Art Gallery" },
+            { name: "Hyatt Regency Kathmandu" },
+            { name: "Nepal Art Council" },
+            { name: "Embassy of Nepal in China" },
+            { name: "Silk Road Cities Alliance" },
+            { name: "Lan Gallery, Beijing" },
           ],
         },
         design: { background: "secondary", spacing: "compact", container: "wide" },
@@ -904,18 +903,18 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           headingLine1: "Founded in Conviction.",
           headingAccent: "Grown in Purpose.",
           paragraphs: [
-            "Bodhisattva Museum & Art Gallery was founded in 2000 by Siddhartha Man Shakya, a collector, scholar, and educator who believed Nepal's Buddhist artistic heritage was being underserved by existing cultural institutions. What began with 200 carefully selected objects in a converted haveli in Civil Lines, Lalitpur, has grown into one of Asia's foremost institutions of its kind.",
-            "Over nearly three decades, the museum has built deep partnerships with institutions across South and Southeast Asia, Japan, the UK, and the United States — establishing scholarly exchange programs, jointly curated exhibitions, and shared digitization initiatives that have set new standards for the field.",
-            "In 2012, the Bodhisattva Foundation was established as the museum's social responsibility arm, extending its mandate from collecting to community-building.",
+            "Bodhisattva International was founded in the 1980s by Anjana Shakya and her late husband Purna Man Shakya, guided by a philosophy they called 'The Art of Living'. What began as a commitment to commissioning and collecting the finest Newa art grew into a family mission: to build a renaissance of contemporary traditional Newa art, made to museum quality rather than for mass production.",
+            "Through Bodhisattva Gallery, the family has presented more than 24 major exhibitions in Nepal and abroad — from Jewels of Newar Art in Kathmandu to Nepal Art Now at the Weltmuseum Wien — and contributed works to international museum collections. In 2023 the Purna Museum of Newa Art opened in Kupondole, Lalitpur, housing the couple's permanent collection: the world's largest private collection dedicated to contemporary traditional Newa art.",
+            "Today Bodhisattva International unites four arms — the Purna Museum of Newa Art, Bodhisattva Gallery, the Bodhisattva Foundation, and the Bodhisattva Gift Shop — preserving sacred knowledge, nurturing artists, and building bridges across generations and geographies.",
           ],
           image: {
-            url: "https://images.unsplash.com/photo-1765470129726-3689336ff549?w=800&h=450&fit=crop&auto=format&q=80",
-            alt: "Grand museum interior",
+            url: "/images/pages/about-history.jpg",
+            alt: "Painted Lakhey mask from the Nepal Art Now exhibition at Weltmuseum Wien",
           },
           imageAspect: "16:9",
           quote: {
-            text: "The Bodhisattva is the figure who postpones their own liberation to remain in the world, to serve. Our museum aspires to that same ethic.",
-            attribution: "Siddhartha Man Shakya · Co-Founder",
+            text: "Art is not only to be preserved, but lived; not only to be admired, but experienced; and not only to represent culture, but to sustain it.",
+            attribution: "Bodhisattva International",
           },
         },
         design: { background: "default", spacing: "standard", container: "wide" },
@@ -930,25 +929,21 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           columns: [
             {
               label: "Our Vision",
-              body: "A world where art from every civilization is preserved, understood, and felt as a living inheritance by all people.",
+              body: "A living civilization, not a static heritage — Newa art that remains active, relevant and deeply rooted in its spiritual origins while engaging with contemporary global culture.",
               emphasis: "display",
             },
             {
               label: "Our Mission",
-              body: "To collect, preserve, and interpret the artistic heritage of South Asian Buddhist and cultural traditions; to present that heritage through world-class exhibitions and scholarship; and to make art accessible to all communities through education, outreach, and open digital access.",
+              body: "To preserve, elevate and reimagine the sacred artistic traditions of the Kathmandu Valley — sustaining art, supporting artists, educating communities, and sharing Nepal's spiritual visual heritage on a global stage.",
               emphasis: "body",
             },
           ],
         },
         design: { background: "secondary", spacing: "compact", container: "wide" },
       },
-      // A4 — Team. DATA WARNING (Audit D3, mapping §A4): the component's
-      // eight entries are placeholders — seven are the same name with
-      // different roles — and the mapping directs that they NOT be migrated
-      // as-is. Only the one plausible entry (the Co-Founder) is seeded,
-      // verbatim; the client must supply the real team before this section
-      // is finalised. The seven omitted entries are listed in the Phase 3
-      // migration report.
+      // A4 — Team. Real team (2026-11-19, migration 0013): the founders
+      // and their sons, from the owner's booklet and documents. (The
+      // design-stage component carried placeholder entries — Audit D3.)
       {
         type: "team_members",
         sortOrder: 3,
@@ -957,7 +952,10 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           sectionLabel: "Leadership",
           heading: "The Team",
           members: [
-            { name: "Siddhartha Man Shakya Sharma", role: "Co-Founder", department: "Leadership" },
+            { name: "Anjana Shakya", role: "Co-Founder", department: "Leadership" },
+            { name: "Purna Man Shakya (1962–2020)", role: "Co-Founder", department: "Leadership" },
+            { name: "Prajwol Man Shakya", role: "Director", department: "Leadership" },
+            { name: "Siddhartha Man Shakya", role: "Curator & Exhibition Designer", department: "Leadership" },
           ],
         },
         design: { background: "default", spacing: "standard", container: "wide" },

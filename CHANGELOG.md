@@ -8,6 +8,19 @@ everything below is implemented, tested and verified **locally**;
 
 ## Unreleased — 2026-11-18
 
+- **Real content replaces the placeholder seed** (owner data
+  2026-11-19): migration `0013_real_content` swaps the invented
+  build-time content for the institution's real data — 21 exhibitions
+  (2011–2026), 4 collections, 3 foundation programs, 20 press clippings
+  from the owner's archive, real Home/Museum/Foundation/About copy,
+  the House No. 91, Diamond Marg address, Tue–Sun 12–6 opening hours.
+  49 images from the owner's booklet and clipping scans are committed
+  under `public/images/`. The seed-data carries the same content for
+  fresh installs. Deletes are by fictional slug only; admin-created
+  records, users, orders and the Gift Shop are untouched. Two
+  integration suites that asserted the old placeholder seed were
+  updated to the real content. Full mapping and every judgement call:
+  `docs/REAL_CONTENT_MAPPING.md`.
 - **Site favicon added** (owner-supplied Bodhisattva seal logo,
   2026-11-19): `public/favicon.ico` (16/32/48), `favicon-16.png`,
   `favicon-32.png`, `icon-192.png`, `icon-512.png` and
