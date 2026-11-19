@@ -274,9 +274,9 @@ export interface CmsSettingSeed {
 
 // ---------------------------------------------------------------------------
 // Site settings — from the site chrome (Nav, Footer) and the A5 contact rows
-// (mapping §2, §10 step 1). Only values actually present in the current site:
-// there are NO social links anywhere in the current site, so no social_*
-// settings are seeded.
+// (mapping §2, §10 step 1). Only values actually present in the current site.
+// (The original design carried no social links; the institution's Instagram
+// and Facebook profiles were added as settings in migration 0015.)
 // ---------------------------------------------------------------------------
 
 export const CMS_SETTINGS: readonly CmsSettingSeed[] = [
@@ -294,6 +294,12 @@ export const CMS_SETTINGS: readonly CmsSettingSeed[] = [
   { key: "contact_phone", value: "+977-9818882876", isPublic: true },
   // About A5 only (the footer shows no email).
   { key: "contact_email", value: "info@bodhisattvainternational.com", isPublic: true },
+  // Social profiles (added 2026-11-19, migration 0015): the institution's
+  // own channels, linked discreetly from the footer. social_youtube is
+  // intentionally unset until the official channel URL is confirmed —
+  // the footer renders only the profiles that are set.
+  { key: "social_instagram", value: "https://www.instagram.com/bodhisattvagallery/", isPublic: true },
+  { key: "social_facebook", value: "https://www.facebook.com/BodhisattvaGallery/", isPublic: true },
   { key: "website", value: "www.bodhisattvainternational.com", isPublic: true },
   // Opening hours — real schedule (2026-11-19, migration 0013): the
   // institution's own exhibition posters state gallery/museum hours
@@ -600,7 +606,7 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           sectionLabel: "History",
           heading: "A History of Collecting",
           items: [
-            { yearLabel: "1980s", text: "Anjana and Purna Man Shakya begin commissioning and collecting masterworks of Newa art — the beginnings of Bodhisattva." },
+            { yearLabel: "1986", text: "Purna Man Shakya begins collecting Newa art — the beginnings of Bodhisattva." },
             { yearLabel: "2011", text: "Jewels of Newar Art at Siddhartha Art Gallery presents the collection to wide acclaim; the Jewels of Newar Art book is launched." },
             { yearLabel: "2019", text: "Bodhisattva Gallery opens its permanent home in Pulchowk, Lalitpur; works from the collection travel to Nepal Art Now at the Weltmuseum Wien." },
             { yearLabel: "2023", text: "Purna Museum of Newa Art opens with A Collector's Collection; the Bodhisattva Foundation establishes the Purna Man Shakya Memorial Art Award." },
@@ -813,6 +819,7 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           paragraphs: [
             "Beyond the realm of art, the Bodhisattva Foundation extends the founders' legacy into society. It is dedicated to humanitarian work, education, and the nurturing of emerging artists. Its most significant initiative is the Purna Man Shakya Memorial Art Award, which honours the founders' philosophy of artistic excellence for both senior and emerging artists.",
             "Beyond his role as a cultural visionary, the late Purna Man Shakya was deeply committed to humanitarian values — supporting children's education, funding medical treatment for those in need, and offering protection and support to individuals during Nepal's periods of political conflict. Today those values live on through the Foundation.",
+            "In July 2026, marking the sixth anniversary of Purna Man Shakya's passing, the Bodhisattva family donated NPR 400,005 towards the restoration of Hiranya Varna Mahavihar — the Golden Temple — in Patan.",
           ],
           image: {
             url: "/images/pages/foundation-mission.jpg",
@@ -903,9 +910,10 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           headingLine1: "Founded in Conviction.",
           headingAccent: "Grown in Purpose.",
           paragraphs: [
-            "Bodhisattva International was founded in the 1980s by Anjana Shakya and her late husband Purna Man Shakya, guided by a philosophy they called 'The Art of Living'. What began as a commitment to commissioning and collecting the finest Newa art grew into a family mission: to build a renaissance of contemporary traditional Newa art, made to museum quality rather than for mass production.",
+            "Bodhisattva International was founded in the 1980s by Anjana Shakya and her late husband Purna Man Shakya, guided by a philosophy they called 'The Art of Living'. What began as a commitment to commissioning and collecting the finest Newa art grew into a family mission: to build a renaissance of contemporary traditional Newa art, made to museum quality rather than for mass production. Purna Man Shakya's collecting had begun in 1986, after he saw treasured Newa works quietly leaving the country.",
             "Through Bodhisattva Gallery, the family has presented more than 24 major exhibitions in Nepal and abroad — from Jewels of Newar Art in Kathmandu to Nepal Art Now at the Weltmuseum Wien — and contributed works to international museum collections. In 2023 the Purna Museum of Newa Art opened in Kupondole, Lalitpur, housing the couple's permanent collection: the world's largest private collection dedicated to contemporary traditional Newa art.",
             "Today Bodhisattva International unites four arms — the Purna Museum of Newa Art, Bodhisattva Gallery, the Bodhisattva Foundation, and the Bodhisattva Gift Shop — preserving sacred knowledge, nurturing artists, and building bridges across generations and geographies.",
+            "In December 2025, Director Prajwol Man Shakya was featured in WOW Magazine's 'Collectors with Vision', recognising the family's place among Nepal's new generation of collectors.",
           ],
           image: {
             url: "/images/pages/about-history.jpg",

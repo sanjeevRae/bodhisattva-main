@@ -59,6 +59,7 @@ export default function Footer() {
   const [hoursSummary, setHoursSummary] = useState("Sun-Fri 10:00am to 5:00pm");
   const [phone, setPhone] = useState("+977-9818882876");
   const [copyright, setCopyright] = useState("© 2026 Bodhisattva Museum & Art Gallery. All rights reserved.");
+  const [socials, setSocials] = useState<{ label: string; url: string }[]>([]);
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +79,15 @@ export default function Footer() {
         setHoursSummary(settingString(settings, "opening_hours_summary", "Sun-Fri 10:00am to 5:00pm"));
         setPhone(settingString(settings, "contact_phone", "+977-9818882876"));
         setCopyright(settingString(settings, "copyright_text", "© 2026 Bodhisattva Museum & Art Gallery. All rights reserved."));
+        // Social profiles are CMS settings (social_instagram / …); only
+        // profiles that are actually set are rendered.
+        setSocials(
+          [
+            { label: "Instagram", url: settingString(settings, "social_instagram", "") },
+            { label: "Facebook", url: settingString(settings, "social_facebook", "") },
+            { label: "YouTube", url: settingString(settings, "social_youtube", "") },
+          ].filter((s) => s.url.trim().length > 0),
+        );
       })
       .catch(() => { /* keep the initial values */ });
     return () => {
@@ -95,6 +105,13 @@ export default function Footer() {
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{address}</p><br />
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{hoursSummary}</p>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{phone}</p>
+            {socials.length > 0 && (
+              <div className="flex gap-4 mt-5">
+                {socials.map((s) => (
+                  <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" aria-label={`Bodhisattva on ${s.label}`} className="font-mono text-[0.52em] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors">{s.label}</a>
+                ))}
+              </div>
+            )}
           </div>
           {columns.map((col) => (
             <div key={col.title}>

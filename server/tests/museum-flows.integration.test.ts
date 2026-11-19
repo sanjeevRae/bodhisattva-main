@@ -170,12 +170,23 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
       sourceName: string | null;
       publishedDate: string | null;
     }[];
-    expect(articles).toHaveLength(20);
-    expect(articles[0].slug).toBe("into-the-exquisite-world-of-religious-art");
-    expect(articles[0].categorySlug).toBe("feature");
+    expect(articles).toHaveLength(23);
+    // Default ordering is newest first: the November 2026 inauguration
+    // coverage (migration 0015) leads, ahead of the 2011–2022 archive.
+    expect(articles[0].slug).toBe("art-exhibition-opens-at-bodhisattva");
+    expect(articles[0].categorySlug).toBe("news");
     expect(articles[0].colorToken).toBeTruthy();
-    expect(articles[0].sourceName).toBe("The Kathmandu Post");
-    expect(articles[0].publishedDate).toBe("2022-03-10");
+    expect(articles[0].sourceName).toBe("The Rising Nepal");
+    expect(articles[0].publishedDate).toBe("2026-11-17");
+    expect([articles[1].slug, articles[2].slug].sort()).toEqual([
+      "himani-inaugurates-art-exhibition-kathmandu",
+      "himani-shah-inaugurates-embodied-enlightenment",
+    ]);
+    const flagship = articles.find(
+      (a) => a.slug === "into-the-exquisite-world-of-religious-art",
+    );
+    expect(flagship?.sourceName).toBe("The Kathmandu Post");
+    expect(flagship?.publishedDate).toBe("2022-03-10");
 
     const foundation = await request(app).get("/api/foundation");
     expect(foundation.status).toBe(200);
