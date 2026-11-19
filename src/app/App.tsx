@@ -1,6 +1,6 @@
 import { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
-import { motion } from "motion/react";
+import { motion, MotionConfig } from "motion/react";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
@@ -93,6 +93,7 @@ const AdminApp = lazy(() => import("../admin/AdminApp"));
 
 export default function App() {
   return (
+    <MotionConfig reducedMotion="user">
     <BrowserRouter>
       <ScrollToTop />
       <Routes>
@@ -113,5 +114,6 @@ export default function App() {
         <Route path="*" element={<Shell />} />
       </Routes>
     </BrowserRouter>
+    </MotionConfig>
   );
 }

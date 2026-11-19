@@ -197,6 +197,9 @@ export interface NewsPdfView {
   viewUrl: string;
   downloadUrl: string;
   originalName: string | null;
+  /** Standardized public filename (bodhisattva-<slug>.pdf) — what the
+   * visitor's copy is actually called, independent of the upload's name. */
+  downloadName: string;
   fileSize: number;
 }
 
@@ -926,6 +929,7 @@ async function buildNewsDetail(
           viewUrl: `/api/news/${row.slug}/pdf/view`,
           downloadUrl: `/api/news/${row.slug}/pdf/download`,
           originalName: pdfInfo.attachment.originalName ?? pdfInfo.assetOriginalName,
+          downloadName: `bodhisattva-${row.slug}.pdf`,
           fileSize: pdfInfo.fileSize,
         }
       : null,
@@ -1039,6 +1043,7 @@ export interface ResolvedNewsPdf {
   filePath: string;
   size: number;
   originalName: string | null;
+  downloadName: string;
 }
 
 async function resolvePdfForArticle(
@@ -1057,6 +1062,7 @@ async function resolvePdfForArticle(
     filePath: file.filePath,
     size: file.size,
     originalName: info.attachment.originalName ?? info.assetOriginalName,
+    downloadName: `bodhisattva-${article.slug}.pdf`,
   };
 }
 

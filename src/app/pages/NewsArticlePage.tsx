@@ -218,8 +218,10 @@ export default function NewsArticlePage({
           </div>
         </header>
 
-        {/* Featured image */}
-        {article.image && (
+        {/* Featured image — for scan-only clippings the scan IS the
+            content, so it leads. When a full transcription exists, the
+            readable text leads and the scan follows it (below). */}
+        {article.image && !hasContent && (
           <figure className="mx-auto mt-10 max-w-5xl">
             <img
               src={article.image.url}
@@ -244,7 +246,7 @@ export default function NewsArticlePage({
               <Download size={12} /> Download PDF
             </a>
             <span className="font-mono text-[0.52rem] tracking-[0.14em] uppercase text-muted-foreground">
-              {article.pdf.originalName}
+              {article.pdf.downloadName}
               {article.pdf.fileSize > 0 &&
                 ` · ${formatFileSize(article.pdf.fileSize)}`}
             </span>
@@ -253,15 +255,41 @@ export default function NewsArticlePage({
 
         {/* Body */}
         {hasContent && (
-          <div
-            className="article-body mx-auto mt-12 max-w-[68ch]"
-            dangerouslySetInnerHTML={{ __html: article.content as string }}
-          />
+          <>
+            <div className="mx-auto mt-12 max-w-[68ch]">
+              <SectionLabel>Editorial transcription</SectionLabel>
+              <p className="font-sans text-xs font-light leading-relaxed text-muted-foreground">
+                Transcribed from the original newspaper page, reproduced
+                below; subheadings added for readability.
+              </p>
+            </div>
+            <div
+              className="article-body mx-auto mt-8 max-w-[68ch]"
+              dangerouslySetInnerHTML={{ __html: article.content as string }}
+            />
+          </>
         )}
         {!hasContent && !article.pdf && (
           <p className="mx-auto mt-12 max-w-[68ch] text-center font-sans text-sm font-light leading-relaxed text-muted-foreground">
             The full text of this clipping is not available online yet.
           </p>
+        )}
+
+        {/* The original scan, after the transcription it was read from */}
+        {article.image && hasContent && (
+          <figure className="mx-auto mt-16 max-w-5xl border-t border-border pt-12">
+            <SectionLabel>The printed page</SectionLabel>
+            <img
+              src={article.image.url}
+              alt={article.image.alt}
+              className="mt-6 w-full border border-border bg-secondary"
+            />
+            {article.image.alt && (
+              <figcaption className="mt-2.5 text-center font-sans text-xs font-light text-muted-foreground">
+                {article.image.alt}
+              </figcaption>
+            )}
+          </figure>
         )}
 
         {/* Original PDF */}
@@ -277,7 +305,7 @@ export default function NewsArticlePage({
                 The original newspaper document
               </h2>
               <span className="font-mono text-[0.52rem] tracking-[0.14em] uppercase text-muted-foreground">
-                {article.pdf.originalName}
+                {article.pdf.downloadName}
                 {article.pdf.fileSize > 0 &&
                   ` · ${formatFileSize(article.pdf.fileSize)}`}
               </span>
@@ -300,7 +328,7 @@ export default function NewsArticlePage({
               <PdfViewer
                 url={article.pdf.viewUrl}
                 downloadUrl={article.pdf.downloadUrl}
-                title={article.pdf.originalName}
+                title={article.pdf.downloadName}
               />
             </Suspense>
           </section>

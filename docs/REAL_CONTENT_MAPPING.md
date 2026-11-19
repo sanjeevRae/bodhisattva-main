@@ -129,3 +129,64 @@ institution's own images committed under `public/images/`.
   output. Visual pass over Home, Museum, Gallery, News, Foundation and
   About against the migrated database: real content renders throughout
   (posters, filters, stats, team, history).
+
+## Editorial polish round (migration 0014, 2026-11-19)
+
+Owner feedback after 0013: pages felt empty, the one full-text news
+article rendered as a single unstructured block, and PDF downloads
+carried the uploader's raw file name. Changes:
+
+- **Kathmandu Post feature** (`into-the-exquisite-world-of-religious-art`):
+  the stored raw PDF extraction (newspaper columns interleaved) was
+  replaced by a verified reconstruction — columns read in order from the
+  original page PDF and checked against the printed scan; wording exactly
+  as printed (including the paper's own typo in the closing info line).
+  Stored as editorial HTML: 20 paragraphs, four editorial subheadings,
+  the paper's own pull quote as a blockquote, the exhibition title bolded
+  at first mention. `content_plain` holds the clean plain text. The
+  article page labels the block "Editorial transcription" and notes the
+  subheadings were added. The article is now also flagged `is_featured`
+  (it is the archive's only full transcription) so the News page's
+  featured block renders with its real scan.
+- **ECS Nepal summary:** an internal editorial note ("(Date from the
+  handwritten note on the scan.)") removed from the public summary; the
+  date itself stays in `published_on`.
+- **Gorkhapatra summary:** "ran until Baisakh 3" gained its Gregorian
+  equivalent "(16 April 2022)".
+- **PDF download filenames:** the public download and inline-view
+  responses now carry `Content-Disposition` filenames derived from the
+  article — `bodhisattva-<slug>.pdf` — on both dispositions; the public
+  article payload exposes `downloadName` and the page displays it. The
+  uploaded file's original name remains stored for admin provenance.
+  Bytes served are unchanged (verified identical). The owner's report
+  of one PDF opening "whole black" could not be reproduced with any
+  available file; diagnosis needs that specific file from the owner.
+- **Presentation (frontend):** article body gained a lead paragraph with
+  drop cap and a display pull-quote style; on articles with a
+  transcription the readable text now leads and the original scan
+  follows it under "The printed page" (scan-only clippings still lead
+  with the scan); scroll reveals softened site-wide and honour
+  `prefers-reduced-motion`; Home hero reframed on the projected artwork
+  with a stronger scrim and a gradient-backed transparent nav; page
+  banners gained the same contrast treatment; a single current
+  exhibition now renders as a full editorial panel instead of beside an
+  empty rail, its description split into two paragraphs (0014 also
+  splits the stored description; wording unchanged); Home Latest News
+  cards carry scan thumbnails; the Foundation split uses tall award
+  posters; news rows tightened with 3-line summary clamps and
+  top-anchored scan thumbnails.
+- Seed parity: `museum-content.ts` carries the same content/summaries/
+  featured flag; `NewsArticleSeed` gained `contentPlain` + `isFeatured`,
+  wired in `seed.ts`. Migration round-trip (down restores the exact
+  pre-0014 bytes) and the fresh-database path were both exercised.
+  Server typecheck clean; unit 121/121; integration 112/112.
+- Review-driven polish (same round, after external scoring): muted
+  text darkened globally (#6B6254 → #5C5344) for small-text contrast;
+  hero image given a slight midtone lift; News search widened with a
+  clearer focus ring; transparent-nav gradient and hero/banner eyebrow
+  contrast strengthened; drop-cap spacing loosened; the Foundation
+  award posters staggered. External review: round 1 scored 5.2
+  (Gemini) / 7.2 (ChatGPT) — note both scored a stale Museum
+  screenshot; the hero was already the text-free crop from 0013.
+  Round 2: 7.8 (Gemini) / 8.8 (ChatGPT). Round 3 (Gemini): 8.5.
+  Final-round scores recorded in the delivery report to the owner.

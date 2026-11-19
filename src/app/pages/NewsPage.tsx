@@ -34,14 +34,14 @@ export default function NewsPage() {
                 <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
                   <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
                   <h1 className="font-display text-5xl md:text-6xl font-medium mb-10">{section.config.heading}</h1>
-                  <div className="relative max-w-xl">
+                  <div className="relative max-w-2xl">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <input
                       type="text"
                       value={query}
                       onChange={(e) => setQuery(e.target.value)}
                       placeholder="Search by title, outlet, or type…"
-                      className="w-full bg-background border border-border pl-10 pr-5 py-3.5 text-sm font-sans focus:outline-none focus:border-accent text-foreground placeholder:text-muted-foreground"
+                      className="w-full bg-background border border-border pl-10 pr-5 py-3.5 text-sm font-sans focus:outline-none focus:border-accent focus:ring-1 focus:ring-accent/40 text-foreground placeholder:text-muted-foreground"
                     />
                   </div>
                 </div>

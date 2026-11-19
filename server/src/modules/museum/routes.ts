@@ -109,6 +109,9 @@ interface PdfFileTarget {
   filePath: string;
   size: number;
   originalName: string | null;
+  /** Standardized public filename (bodhisattva-<slug>.pdf), derived from
+   * trusted article metadata — never from the uploader's file name. */
+  downloadName: string;
 }
 
 function sendPdfFile(
@@ -125,11 +128,11 @@ function sendPdfFile(
   // a PDF (or anything mislabelled as one) can never run script in the
   // site's origin. Overrides helmet's global CSP for these responses.
   res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+  // Both dispositions carry the standardized name: a browser saving from
+  // the inline viewer gets the same clean filename as a direct download.
   res.setHeader(
     "Content-Disposition",
-    disposition === "attachment"
-      ? `attachment; filename="${safeDownloadName(target.originalName)}"`
-      : "inline",
+    `${disposition}; filename="${safeDownloadName(target.downloadName)}"`,
   );
   const range = req.headers.range;
   if (range) {

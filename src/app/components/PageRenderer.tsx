@@ -155,14 +155,15 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
               src={config.backgroundImage.url}
               alt={config.backgroundImage.alt}
               onLoad={() => setLoaded(true)}
-              className={`w-full h-full object-cover transition-opacity duration-1000 ${loaded ? "opacity-60" : "opacity-0"}`}
+              className={`w-full h-full object-cover object-[center_22%] transition-opacity duration-700 brightness-[1.07] ${loaded ? "opacity-70" : "opacity-0"}`}
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/80 via-[#0F0D0A]/20 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/85 via-[#0F0D0A]/35 to-[#0F0D0A]/10" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0F0D0A]/45 via-transparent to-transparent" />
         </div>
         <div className="relative z-10 max-w-screen-xl mx-auto px-6 lg:px-10 pb-20 w-full">
-          <motion.div initial={{ opacity: 0, y: 48 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}>
-            <p className="font-mono text-[0.56rem] tracking-[0.32em] uppercase text-white/38 mb-5">{config.eyebrow}</p>
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
+            <p className="font-mono text-[0.56rem] tracking-[0.32em] uppercase text-white/65 mb-5 [text-shadow:0_1px_8px_rgba(0,0,0,0.65)]">{config.eyebrow}</p>
             <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-medium text-white leading-[0.92] mb-7 max-w-4xl">
               {config.headingLine1}<br /><em className="font-sans italic font-light text-amber-200/90">{config.headingAccent}</em>
             </h1>
@@ -197,10 +198,10 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
         {config.backgroundImage && (
           <img src={config.backgroundImage.url} alt={config.backgroundImage.alt} className="absolute inset-0 w-full h-full object-cover" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/75 via-[#0F0D0A]/20 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/85 via-[#0F0D0A]/30 to-transparent" />
         <div className="relative z-10 max-w-screen-xl mx-auto px-6 lg:px-10 pb-16 w-full">
-          <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-white/38 mb-3">{config.eyebrow}</p>
-          <h1 className="font-display text-5xl md:text-6xl font-medium text-white">{config.heading}</h1>
+          <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-white mb-3 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">{config.eyebrow}</p>
+          <h1 className="font-display text-5xl md:text-6xl font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.45)]">{config.heading}</h1>
         </div>
       </section>
     );
@@ -242,8 +243,8 @@ function ImageTextSection({ section }: { section: CmsSection }) {
                 initial={{ opacity: 0, y: 16 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
-                transition={{ duration: 0.7, delay: i * 0.12 }}
-                className={`aspect-square overflow-hidden bg-muted ${i === 1 ? "mt-10" : ""}`}
+                transition={{ duration: 0.5, delay: i * 0.1 }}
+                className={`aspect-[3/4] overflow-hidden bg-muted ${i === 1 ? "mt-10" : ""}`}
               >
                 <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
               </motion.div>
@@ -313,7 +314,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
     return (
       <section className="py-28 max-w-screen-xl mx-auto px-6 lg:px-10">
         <div className="grid lg:grid-cols-2 gap-20 items-center">
-          <motion.div initial={{ opacity: 0, x: -32 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}>
+          <motion.div initial={{ opacity: 0, x: -16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}>
             <SectionLabel>{config.sectionLabel}</SectionLabel>
             <h2 className="font-display text-4xl md:text-5xl font-medium leading-[1.08] mb-8">
               {config.headingLine1}<br /><em className="font-sans italic font-light text-accent">{config.headingAccent}</em>
@@ -327,7 +328,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
               </CmsLink>
             )}
           </motion.div>
-          <motion.div initial={{ opacity: 0, x: 32 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1], delay: 0.1 }} className="relative">
+          <motion.div initial={{ opacity: 0, x: 16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.08 }} className="relative">
             {config.image && (
               <div className={`${ASPECT_CLASS[config.imageAspect as string] ?? "aspect-[4/5]"} overflow-hidden bg-muted`}>
                 <img src={config.image.url} alt={config.image.alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
@@ -841,14 +842,36 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
     <section className="py-28 max-w-screen-xl mx-auto px-6 lg:px-10">
       <SectionLabel>{config.sectionLabel}</SectionLabel>
       <div className="grid lg:grid-cols-5 border border-border">
-        <div className="lg:col-span-3 relative aspect-[16/10] overflow-hidden bg-muted">
-          {featured.image && <img src={featured.image.url} alt={featured.image.alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />}
+        <div className={`lg:col-span-3 relative overflow-hidden bg-muted ${list.length === 0 ? "min-h-[320px] lg:min-h-full" : "aspect-[16/10]"}`}>
+          {featured.image && <img src={featured.image.url} alt={featured.image.alt} className={`w-full object-cover hover:scale-105 transition-transform duration-700 ${list.length === 0 ? "absolute inset-0 h-full" : "h-full"}`} />}
           <div className="absolute inset-0 bg-gradient-to-t from-[#1C1A16]/70 via-transparent to-transparent" />
-          <div className="absolute bottom-8 left-8 right-8">
-            <span className="font-mono text-[0.52rem] tracking-widest uppercase text-white/48 block mb-2">{exhibitionLocLine(featured)}</span>
-            <h3 className="font-display text-2xl md:text-3xl text-white font-medium">{featured.title}</h3>
-          </div>
+          {list.length > 0 && (
+            <div className="absolute bottom-8 left-8 right-8">
+              <span className="font-mono text-[0.52rem] tracking-widest uppercase text-white/48 block mb-2">{exhibitionLocLine(featured)}</span>
+              <h3 className="font-display text-2xl md:text-3xl text-white font-medium">{featured.title}</h3>
+            </div>
+          )}
         </div>
+        {list.length === 0 ? (
+          // A single current exhibition gets a full editorial panel —
+          // image and text as one composition, never an empty side rail.
+          <div className="lg:col-span-2 flex flex-col justify-center p-8 lg:p-10 border-t lg:border-t-0 lg:border-l border-border">
+            <span className="font-mono text-[0.52rem] tracking-widest uppercase text-accent block mb-3">{exhibitionLocLine(featured)}</span>
+            <h3 className="font-display text-2xl md:text-3xl font-medium leading-snug mb-3">{featured.title}</h3>
+            {featured.dateLabel && (
+              <span className="font-mono text-[0.55rem] tracking-wider uppercase text-muted-foreground block mb-5">{featured.dateLabel}</span>
+            )}
+            {featured.description &&
+              featured.description.split(/\n\n+/).map((para, i, arr) => (
+                <p key={i} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < arr.length - 1 ? "mb-4" : "mb-8"}`}>{para}</p>
+              ))}
+            {config.viewAllLink && (
+              <CmsLink link={config.viewAllLink} className="inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 self-start hover:text-accent hover:border-accent transition-colors">
+                {config.viewAllLink.label} <ArrowRight size={12} />
+              </CmsLink>
+            )}
+          </div>
+        ) : (
         <div className="lg:col-span-2 flex flex-col divide-y divide-border border-l border-border">
           {list.map((ex) => (
             <div key={ex.id} className="p-7 group cursor-pointer hover:bg-secondary/60 transition-colors" onClick={() => goToPage(config.viewAllLink?.pageId)}>
@@ -865,6 +888,7 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
             )}
           </div>
         </div>
+        )}
       </div>
     </section>
   );
@@ -949,6 +973,11 @@ function NewsListingSection({ section, moduleData }: { section: CmsSection; modu
         <div className="grid md:grid-cols-3 gap-0 border-t border-border">
           {items.map((item, i) => (
             <article key={item.id} onClick={() => goToPage(config.viewAllLink?.pageId)} className={`pt-8 pb-8 pr-8 group cursor-pointer ${i > 0 ? "pl-8 border-l border-border" : ""}`}>
+              {item.image && (
+                <div className="aspect-[16/10] overflow-hidden border border-border bg-muted mb-5">
+                  <img src={item.image.url} alt={item.image.alt} loading="lazy" className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-700" />
+                </div>
+              )}
               <div className="flex items-center justify-between mb-3">
                 <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{item.categoryName}</span>
                 <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{formatNewsDate(item.publishedDate)}</span>

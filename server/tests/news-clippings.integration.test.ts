@@ -677,9 +677,10 @@ describe.skipIf(!RUN)("News clippings archive (integration)", () => {
     expect(await auditCount("news.pdf.upload")).toBeGreaterThanOrEqual(1);
 
     const detail = await request(app).get("/api/news/fx-alpha");
-    const pdf = (detail.body.data as { pdf: { originalName: string; fileSize: number; viewUrl: string; downloadUrl: string } | null }).pdf;
+    const pdf = (detail.body.data as { pdf: { originalName: string; downloadName: string; fileSize: number; viewUrl: string; downloadUrl: string } | null }).pdf;
     expect(pdf).not.toBeNull();
     expect(pdf!.originalName).toBe("alpha-clipping.pdf");
+    expect(pdf!.downloadName).toBe("bodhisattva-fx-alpha.pdf");
     expect(pdf!.fileSize).toBe(pdfV1.length);
     expect(pdf!.viewUrl).toBe("/api/news/fx-alpha/pdf/view");
     expect(pdf!.downloadUrl).toBe("/api/news/fx-alpha/pdf/download");
@@ -697,6 +698,8 @@ describe.skipIf(!RUN)("News clippings archive (integration)", () => {
   it("public PDF view serves bytes with range support; download counts", async () => {
     const view = await getBinary(null, app, "/api/news/fx-alpha/pdf/view");
     expect(view.status).toBe(200);
+    expect(view.headers["content-disposition"]).toContain("inline");
+    expect(view.headers["content-disposition"]).toContain('filename="bodhisattva-fx-alpha.pdf"');
     expect(view.headers["content-type"]).toContain("application/pdf");
     expect(view.headers["accept-ranges"]).toBe("bytes");
     expect(view.headers["x-content-type-options"]).toBe("nosniff");
@@ -719,7 +722,7 @@ describe.skipIf(!RUN)("News clippings archive (integration)", () => {
     const download = await getBinary(null, app, "/api/news/fx-alpha/pdf/download");
     expect(download.status).toBe(200);
     expect(download.headers["content-disposition"]).toContain("attachment");
-    expect(download.headers["content-disposition"]).toContain('filename="alpha-clipping.pdf"');
+    expect(download.headers["content-disposition"]).toContain('filename="bodhisattva-fx-alpha.pdf"');
     expect((download.body as Buffer).equals(pdfV1)).toBe(true);
     expect(await counterOf(fx.alpha!, "pdf_download_count")).toBe(before + 1);
   });

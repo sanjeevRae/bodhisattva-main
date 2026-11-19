@@ -462,6 +462,8 @@ export interface NewsPdfRef {
   viewUrl: string;
   downloadUrl: string;
   originalName: string;
+  /** Standardized filename the visitor's downloaded copy will carry. */
+  downloadName: string;
   fileSize: number;
 }
 

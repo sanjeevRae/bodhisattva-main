@@ -88,7 +88,7 @@ export default function Nav({ dark, onToggleDark }: {
   const hero = current === "home" && !scrolled && !open;
 
   return (
-    <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${hero ? "bg-transparent" : "bg-background/95 backdrop-blur-md border-b border-border"}`}>
+    <header className={`fixed top-0 inset-x-0 z-50 transition-all duration-500 ${hero ? "bg-gradient-to-b from-[#0F0D0A]/70 via-[#0F0D0A]/40 to-transparent" : "bg-background/95 backdrop-blur-md border-b border-border"}`}>
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between gap-8">
 
         <button onClick={() => go("home")} className="shrink-0 focus:outline-none">

@@ -13,7 +13,7 @@
   --secondary: #EAE2D0;
   --secondary-foreground: #1C1A16;
   --muted: #DDD5C3;
-  --muted-foreground: #6B6254;
+  --muted-foreground: #5C5344;
   --accent: #9A6F2A;
   --accent-foreground: #F7F3EC;
   --destructive: #c0392b;
@@ -261,6 +261,22 @@
   margin: 0 0 1.4em;
 }
 
+/* Lead paragraph: slightly larger, with a restrained display drop cap —
+   the classic newspaper opening for the archive's long-form features. */
+.article-body > p:first-of-type {
+  font-size: 1.14rem;
+  line-height: 1.75;
+}
+
+.article-body > p:first-of-type::first-letter {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-medium);
+  font-size: 3.3em;
+  line-height: 0.82;
+  float: left;
+  padding: 0.08em 0.2em 0 0;
+}
+
 .article-body h2,
 .article-body h3,
 .article-body h4 {
@@ -301,8 +317,14 @@
   border-left: 2px solid var(--accent);
   margin: 1.8em 0;
   padding: 0.2em 0 0.2em 1.2em;
-  font-size: 1.15rem;
-  line-height: 1.6;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+
+.article-body blockquote p {
+  margin: 0;
 }
 
 .article-body ul,

@@ -66,7 +66,7 @@ export function NewsListRow({
   lead?: boolean;
 }) {
   return (
-    <article className="group grid gap-6 py-10 md:grid-cols-12">
+    <article className="group grid gap-6 py-8 md:grid-cols-12">
       <Link
         to={`/news/${article.slug}`}
         className={`block ${lead ? "md:col-span-5" : "md:col-span-4 lg:col-span-3"}`}
@@ -78,7 +78,7 @@ export function NewsListRow({
               src={article.image.url}
               alt={article.image.alt}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+              className="h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
             />
           ) : (
             <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-secondary px-4 text-center">
@@ -123,7 +123,7 @@ export function NewsListRow({
           </h3>
         </Link>
         {article.summary && (
-          <p className="mt-3 max-w-3xl font-sans text-sm font-light leading-relaxed text-muted-foreground">
+          <p className="mt-3 max-w-3xl font-sans text-sm font-light leading-relaxed text-muted-foreground line-clamp-3">
             {article.summary}
           </p>
         )}
@@ -444,7 +444,7 @@ export default function NewsArchive({
                 <img
                   src={featured.image.url}
                   alt={featured.image.alt}
-                  className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-700 group-hover:scale-105"
                 />
               ) : (
                 <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-secondary px-6 text-center">
