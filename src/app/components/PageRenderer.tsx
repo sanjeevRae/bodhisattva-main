@@ -338,7 +338,6 @@ function ImageTextSection({ section }: { section: CmsSection }) {
               <div className="font-display text-4xl font-medium">{config.calloutBadge.value}</div>
               <div className="font-mono text-[0.5rem] tracking-[0.2em] uppercase opacity-80 mt-1">{config.calloutBadge.label}</div>
             </div>
-            <div className="absolute -top-5 -right-5 w-20 h-20 border border-accent/30" />
           </motion.div>
         </div>
       </section>

@@ -169,6 +169,19 @@
     z-index: 9999;
     pointer-events: none;
     background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .privacy-screen span {
+    font-family: var(--font-mono, monospace);
+    font-size: 0.6rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(240, 235, 224, 0.55);
+    text-align: center;
+    padding: 0 1.5rem;
   }
 
   @media print {

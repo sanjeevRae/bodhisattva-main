@@ -51,6 +51,18 @@ const envSchema = z
         value === undefined ? undefined : value === "true",
       ),
 
+    // SPA serving (social share previews): when true, this server also
+    // serves the built frontend (dist/) and injects per-page Open Graph
+    // tags into the HTML — the only way WhatsApp/Facebook crawlers (no
+    // JavaScript) see an article's own image. Off by default so the
+    // API-only deployment shape is unchanged.
+    SERVE_SPA: z
+      .enum(["true", "false"])
+      .optional()
+      .transform((value) => value === "true"),
+    /** Override for the frontend build directory (default: <repo>/dist). */
+    SPA_DIST_DIR: z.string().min(1).optional(),
+
     // Database: DATABASE_URL (option A) or the discrete DB_* set (option B).
     DATABASE_URL: z.string().min(1).optional(),
     DB_HOST: z.string().default("localhost"),
@@ -189,6 +201,10 @@ export interface AppConfig {
   logLevel: "fatal" | "error" | "warn" | "info" | "debug" | "trace" | "silent";
   /** Whether Swagger UI (/api/docs) and the raw spec (/api/docs.json) are served. */
   apiDocsEnabled: boolean;
+  /** Whether this server also serves the built frontend with OG injection. */
+  serveSpa: boolean;
+  /** Frontend build directory override (default: <repo>/dist). */
+  spaDistDir?: string;
   /** Full connection URL when DATABASE_URL is used (option A). */
   databaseUrl?: string;
   db: {
@@ -266,6 +282,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     corsOrigins,
     logLevel: env.LOG_LEVEL,
     apiDocsEnabled: env.API_DOCS_ENABLED ?? env.NODE_ENV !== "production",
+    serveSpa: env.SERVE_SPA,
+    spaDistDir: env.SPA_DIST_DIR,
     databaseUrl: env.DATABASE_URL,
     db: {
       host: env.DB_HOST,

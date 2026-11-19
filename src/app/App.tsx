@@ -5,6 +5,7 @@ import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import { CustomerProvider } from "./lib/customer";
+import { routeMeta, setPageMeta } from "./lib/meta";
 import { useWebsiteProtection } from "./components/shared";
 import HomePage from "./pages/HomePage";
 import MuseumPage from "./pages/MuseumPage";
@@ -27,6 +28,20 @@ function ScrollToTop() {
   const { pathname } = useLocation();
   useEffect(() => {
     window.scrollTo({ top: 0 });
+  }, [pathname]);
+  return null;
+}
+
+/**
+ * Applies the route's document metadata on every navigation, so tab
+ * titles and share tags always describe the page being viewed (the
+ * article page refines its own entry once the record has loaded).
+ */
+function RouteMeta() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    const meta = routeMeta(pathname);
+    setPageMeta({ ...meta, path: pathname });
   }, [pathname]);
   return null;
 }
@@ -79,7 +94,11 @@ function Shell() {
           <Footer />
         </div>
         <CartDrawer />
-        {contentObscured && <div className="privacy-screen" aria-hidden="true" />}
+        {contentObscured && (
+          <div className="privacy-screen" aria-hidden="true">
+            <span>Content protected — click anywhere to resume viewing</span>
+          </div>
+        )}
       </div>
     </CustomerProvider>
   );
@@ -96,6 +115,7 @@ export default function App() {
     <MotionConfig reducedMotion="user">
     <BrowserRouter>
       <ScrollToTop />
+      <RouteMeta />
       <Routes>
         <Route
           path="/admin/*"

@@ -21,6 +21,7 @@ import { csrfProtection } from "./middleware/csrf.js";
 import { createOriginCheck } from "./middleware/origin.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
 import { createLogger, httpLogger } from "./middleware/logger.js";
+import { mountSpa } from "./spa.js";
 import { requestIdMiddleware } from "./middleware/request-id.js";
 import { createAuthRouter } from "./modules/auth/routes.js";
 import { createContactRouter } from "./modules/contact/routes.js";
@@ -70,6 +71,12 @@ export interface AppDeps {
   logger?: Logger;
   /** Injectable mailer for tests; defaults to the SMTP mailer. */
   mailer?: Mailer;
+  /**
+   * SPA serving (share-preview metadata injection): when present, the
+   * built frontend is served with per-page Open Graph tags. Driven by
+   * the SERVE_SPA env flag in production; absent everywhere else.
+   */
+  spa?: { distDir?: string };
 }
 
 export function createApp(deps: AppDeps): Express {
@@ -141,6 +148,15 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api", createOrdersCustomerRouter({ db, config }));
     app.use("/api/admin", createOrdersAdminRouter({ db, config }));
     app.use("/api/admin", createAuditRouter({ db, config }));
+  }
+
+  if (deps.spa) {
+    mountSpa(app, {
+      config,
+      db: deps.database?.db,
+      distDir: deps.spa.distDir,
+      logger,
+    });
   }
 
   app.use(notFoundHandler);

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Static baseline: the main public routes. When the site is served
+     through the API server with SERVE_SPA=true, a dynamic sitemap
+     (these routes + every published news article) replaces this file. -->
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://bodhisattvainternational.com/</loc></url>
+  <url><loc>https://bodhisattvainternational.com/museum</loc></url>
+  <url><loc>https://bodhisattvainternational.com/gallery</loc></url>
+  <url><loc>https://bodhisattvainternational.com/shop</loc></url>
+  <url><loc>https://bodhisattvainternational.com/news</loc></url>
+  <url><loc>https://bodhisattvainternational.com/foundation</loc></url>
+  <url><loc>https://bodhisattvainternational.com/about</loc></url>
+</urlset>

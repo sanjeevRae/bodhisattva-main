@@ -40,7 +40,14 @@ function main(): void {
     );
   }
   const database = createDatabase(config);
-  const app = createApp({ config, database, logger });
+  const app = createApp({
+    config,
+    database,
+    logger,
+    // SERVE_SPA: also serve the built frontend with per-page share
+    // metadata injected (see src/spa.ts). Off unless explicitly set.
+    spa: config.serveSpa ? { distDir: config.spaDistDir } : undefined,
+  });
 
   const server = app.listen(config.port, () => {
     logger.info(

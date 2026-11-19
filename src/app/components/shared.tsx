@@ -53,18 +53,36 @@ export function useWebsiteProtection() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const key = event.key.toLowerCase();
       const blockedCombo =
-        (event.ctrlKey && event.shiftKey && ["i", "j", "c"].includes(key)) ||
+        (event.ctrlKey && event.shiftKey && ["i", "j", "c", "k"].includes(key)) ||
         (event.metaKey && event.altKey && ["i", "j", "c"].includes(key)) ||
         ((event.ctrlKey || event.metaKey) && key === "u") ||
+        ((event.ctrlKey || event.metaKey) && key === "s") ||
         (event.metaKey && event.shiftKey && key === "s");
 
-      if (event.key === "F12" || blockedCombo) {
+      // Shortcuts are never hijacked while the visitor is typing in a
+      // form field (F12 excepted — it has no text-input meaning).
+      if (event.key === "F12" || (blockedCombo && !isEditableTarget(event.target))) {
         event.preventDefault();
         event.stopPropagation();
         setContentObscured(true);
         window.setTimeout(() => setContentObscured(false), 1400);
       }
+
+      if (event.key === "PrintScreen") {
+        setContentObscured(true);
+        window.setTimeout(() => setContentObscured(false), 1400);
+      }
     };
+
+    // Right-click stays available inside form fields (paste, spellcheck,
+    // password managers); it is blocked everywhere else.
+    const handleContextMenu = (event: MouseEvent) => {
+      if (!isEditableTarget(event.target)) prevent(event);
+    };
+
+    // Click-to-resume: a click anywhere clears a stuck obscured state,
+    // so a blur without a matching focus can never trap the visitor.
+    const handlePointerDown = () => setContentObscured(false);
 
     const handleCopyCut = (event: ClipboardEvent) => {
       if (!isEditableTarget(event.target)) prevent(event);
@@ -83,24 +101,26 @@ export function useWebsiteProtection() {
       }
     };
 
-    document.addEventListener("contextmenu", prevent);
+    document.addEventListener("contextmenu", handleContextMenu);
     document.addEventListener("dragstart", prevent);
     document.addEventListener("keydown", handleKeyDown, true);
     document.addEventListener("keyup", handlePrintScreen, true);
     document.addEventListener("copy", handleCopyCut);
     document.addEventListener("cut", handleCopyCut);
     document.addEventListener("visibilitychange", handleVisibility);
+    document.addEventListener("pointerdown", handlePointerDown);
     window.addEventListener("blur", handleBlur);
     window.addEventListener("focus", handleFocus);
 
     return () => {
-      document.removeEventListener("contextmenu", prevent);
+      document.removeEventListener("contextmenu", handleContextMenu);
       document.removeEventListener("dragstart", prevent);
       document.removeEventListener("keydown", handleKeyDown, true);
       document.removeEventListener("keyup", handlePrintScreen, true);
       document.removeEventListener("copy", handleCopyCut);
       document.removeEventListener("cut", handleCopyCut);
       document.removeEventListener("visibilitychange", handleVisibility);
+      document.removeEventListener("pointerdown", handlePointerDown);
       window.removeEventListener("blur", handleBlur);
       window.removeEventListener("focus", handleFocus);
     };

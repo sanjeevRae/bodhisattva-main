@@ -10,7 +10,6 @@ import {
   ExternalLink,
   Eye,
   Link2,
-  Printer,
 } from "lucide-react";
 import {
   ApiError,
@@ -19,6 +18,7 @@ import {
   type NewsArticleDetail,
 } from "../lib/api";
 import { NewsListRow, formatNewsDate } from "../components/NewsArchive";
+import { setPageMeta } from "../lib/meta";
 import { PageStatus } from "../components/PageRenderer";
 import { SectionLabel } from "../components/shared";
 
@@ -64,6 +64,9 @@ export default function NewsArticlePage({
   const token = preview ? params.token : undefined;
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [copied, setCopied] = useState(false);
+  const [scanState, setScanState] = useState<"idle" | "busy" | "error">(
+    "idle",
+  );
 
   useEffect(() => {
     let alive = true;
@@ -72,7 +75,21 @@ export default function NewsArticlePage({
       ? getNewsPreview(token ?? "")
       : getNewsArticle(slug ?? "");
     load.then(
-      (article) => alive && setState({ status: "ok", article }),
+      (article) => {
+        if (!alive) return;
+        setState({ status: "ok", article });
+        // Share previews + tab title describe THIS clipping once its
+        // record has loaded (never before — no stale previous article).
+        if (!preview) {
+          setPageMeta({
+            title: `${article.title} — Bodhisattva International`,
+            description: article.summary ?? undefined,
+            image: article.image?.url,
+            path: `/news/${article.slug}`,
+            type: "article",
+          });
+        }
+      },
       (err: unknown) => {
         if (!alive) return;
         setState({
@@ -126,6 +143,47 @@ export default function NewsArticlePage({
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard unavailable (permissions/insecure context) — no-op.
+    }
+  };
+
+  /**
+   * Download the clipping's own scan image — the asset, never a print
+   * of the web page. The URL comes only from the loaded article record
+   * and must resolve to this origin (no arbitrary-URL fetching); the
+   * saved extension follows the real bytes, and the filename is the
+   * standardized bodhisattva-<slug>.<ext>. On any failure the scan
+   * opens in a new tab instead of leaving a dead button.
+   */
+  const downloadScan = async (imageUrl: string, articleSlug: string) => {
+    if (scanState === "busy") return;
+    setScanState("busy");
+    try {
+      const url = new URL(imageUrl, window.location.origin);
+      if (url.origin !== window.location.origin) {
+        throw new Error("Scan is hosted off-origin");
+      }
+      const response = await fetch(url.href);
+      if (!response.ok) throw new Error("Scan fetch failed");
+      const blob = await response.blob();
+      const extension =
+        blob.type === "image/png"
+          ? "png"
+          : blob.type === "image/webp"
+            ? "webp"
+            : "jpg";
+      const safeSlug = articleSlug.replace(/[^a-z0-9-]/gi, "") || "clipping";
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = `bodhisattva-${safeSlug}.${extension}`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 500);
+      setScanState("idle");
+    } catch {
+      setScanState("error");
+      window.open(imageUrl, "_blank", "noopener");
     }
   };
 
@@ -365,13 +423,23 @@ export default function NewsArticlePage({
                 {copied ? <Check size={11} /> : <Link2 size={11} />}
                 {copied ? "Link copied" : "Copy link"}
               </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent"
-              >
-                <Printer size={11} /> Print
-              </button>
+              {article.image && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    void downloadScan(article.image!.url, article.slug)
+                  }
+                  disabled={scanState === "busy"}
+                  className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                >
+                  <Download size={11} />
+                  {scanState === "busy"
+                    ? "Saving…"
+                    : scanState === "error"
+                      ? "Scan — retry"
+                      : "Scan"}
+                </button>
+              )}
               {article.pdf && (
                 <a
                   href={article.pdf.downloadUrl}
