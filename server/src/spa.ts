@@ -75,7 +75,7 @@ export const ROUTE_META: Record<
     title: `Purna Museum of Newa Art — ${SITE_NAME}`,
     description:
       "Inside the Purna Museum of Newa Art in Kupondole: three floors of paubha painting, sculpture and repoussé from the Shakya family collection, opened in 2023.",
-    image: "/images/pages/museum-hero.jpg",
+    image: "/images/pages/museum-banner.jpg",
   },
   "/gallery": {
     title: `Bodhisattva Gallery — ${SITE_NAME}`,
@@ -96,7 +96,7 @@ export const ROUTE_META: Record<
     title: `Bodhisattva Foundation — ${SITE_NAME}`,
     description:
       "The Bodhisattva Foundation sustains Newa artistic traditions — including the Purna Man Singh Memorial Award for young artists.",
-    image: "/images/pages/foundation-hero.jpg",
+    image: "/images/pages/foundation-banner.jpg",
   },
   "/about": {
     title: `About Us — ${SITE_NAME}`,

@@ -113,6 +113,13 @@
       "when": 1795004400000,
       "tag": "0015_social_press_enrichment",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1795008000000,
+      "tag": "0016_banner_images",
+      "breakpoints": true
     }
   ]
 }

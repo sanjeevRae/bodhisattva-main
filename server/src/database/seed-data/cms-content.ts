@@ -567,8 +567,8 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           eyebrow: "The Collection",
           heading: "The Museum",
           backgroundImage: {
-            url: "/images/pages/museum-hero.jpg",
-            alt: "A visitor studying a paubha painting with a magnifying lens at Purna Museum of Newa Art",
+            url: "/images/pages/museum-banner.jpg",
+            alt: "An illuminated paubha deity glowing in the dark shrine room of Purna Museum of Newa Art",
           },
         },
         design: { container: "wide" },
@@ -785,8 +785,8 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
           eyebrow: "Social Responsibility",
           heading: "The Foundation",
           backgroundImage: {
-            url: "/images/pages/foundation-hero.jpg",
-            alt: "Purna Man Shakya Memorial Art Award poster with a portrait of the founder",
+            url: "/images/pages/foundation-banner.jpg",
+            alt: "Portrait of Purna Man Shakya, founder of Bodhisattva Gallery, against a dark gold ground",
           },
         },
         design: { container: "wide" },
