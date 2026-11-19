@@ -209,8 +209,14 @@ placement on ANY re-pick, including re-selecting the same image.
 
 Pre-existing issues observed during testing (NOT introduced here,
 verified by re-running on the pristine tree / with pre-existing UI):
-- `super-admin-cap.integration.test.ts` case (d) fails
-  (VALIDATION_FAILED vs CONFLICT) on the unmodified tree as well.
+- `super-admin-cap.integration.test.ts` case (d) failed
+  (VALIDATION_FAILED vs CONFLICT) on the unmodified tree as well —
+  FIXED after this round (test-only fix, no service change): the
+  mailbox in /tmp/mailbox persists across runs, so the helper picked
+  the oldest mailed token for cap-invite-d@example.com, whose
+  invitation row had been wiped by beforeAll. The test now snapshots
+  the mailbox before creating the invitation and only accepts a mail
+  that arrives after; the suite passes 4/4 on consecutive runs.
 - In the PageEditor, canvas hero text can paint over shared-Modal
   dialogs (the same happens with the pre-existing Media Library modal):
   a stacking quirk of the editor canvas; hit-testing is unaffected

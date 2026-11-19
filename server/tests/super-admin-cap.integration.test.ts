@@ -83,11 +83,20 @@ function decodeQuotedPrintable(raw: string): string {
     );
 }
 
-function mailboxTexts(): string[] {
+function mailboxFiles(): string[] {
   try {
     return readdirSync(MAILBOX)
       .filter((f) => f.endsWith(".eml"))
-      .sort()
+      .sort();
+  } catch {
+    return [];
+  }
+}
+
+function mailboxTexts(exclude?: Set<string>): string[] {
+  try {
+    return mailboxFiles()
+      .filter((f) => !exclude?.has(f))
       .map((f) =>
         decodeQuotedPrintable(readFileSync(path.join(MAILBOX, f), "utf8")),
       );
@@ -98,20 +107,25 @@ function mailboxTexts(): string[] {
 
 async function waitForMail(
   predicate: (text: string) => boolean,
+  exclude?: Set<string>,
   timeoutMs = 20000,
 ): Promise<string> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const hit = mailboxTexts().find(predicate);
+    const hit = mailboxTexts(exclude).find(predicate);
     if (hit) return hit;
     await new Promise((r) => setTimeout(r, 250));
   }
   throw new Error("timed out waiting for expected mail in /tmp/mailbox");
 }
 
-async function invitationTokenFor(email: string): Promise<string> {
+async function invitationTokenFor(
+  email: string,
+  exclude?: Set<string>,
+): Promise<string> {
   const mail = await waitForMail(
     (text) => text.includes(email) && text.includes("accept-invitation?token="),
+    exclude,
   );
   const match = mail.match(/accept-invitation\?token=([A-Za-z0-9_-]+)/);
   if (!match) throw new Error(`no invitation token found in mail for ${email}`);
@@ -407,6 +421,14 @@ describe.skipIf(!RUN)("Super Admin cap (integration)", () => {
     expect(await countActiveSuperAdmins(db)).toBe(2);
     expect(await countPendingSuperAdminInvitations(db)).toBe(0);
 
+    // The mailbox persists across runs, so mails for this fixed address
+    // from earlier runs are still there — their tokens belong to
+    // invitation rows wiped by beforeAll. Snapshot the mailbox first and
+    // only accept a mail that arrives after this invitation is created,
+    // otherwise the stale token looks up nothing and the test fails with
+    // VALIDATION_FAILED instead of the expected CONFLICT.
+    const mailboxBefore = new Set(mailboxFiles());
+
     const created = await createInvitation(
       invitationsDeps,
       rootActor(),
@@ -414,7 +436,7 @@ describe.skipIf(!RUN)("Super Admin cap (integration)", () => {
       {},
     );
     expect(created.status).toBe("PENDING");
-    const token = await invitationTokenFor(INVITE_D);
+    const token = await invitationTokenFor(INVITE_D, mailboxBefore);
 
     // The slot fills by direct promotion before D accepts.
     await assignRole(rolesDeps, rootActor(), user(EMAIL_E).id, "SUPER_ADMIN", {});
