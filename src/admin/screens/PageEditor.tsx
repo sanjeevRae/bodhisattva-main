@@ -723,7 +723,7 @@ export default function PageEditor() {
                   key={field.path}
                   spec={field}
                   root={selected.config}
-                  ctx={{ pages: allPages }}
+                  ctx={{ pages: allPages, sectionType: selected.type, sectionConfig: selected.config }}
                   onChange={(nextConfig) => updateSection(selected.uid, { config: nextConfig })}
                 />
               ))}

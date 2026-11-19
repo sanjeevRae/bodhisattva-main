@@ -8,11 +8,12 @@ import {
 } from "lucide-react";
 import {
   useFeaturedProducts, usePagePathMap, useSiteSettings, settingString,
-  type CmsLinkRef, type CmsPage, type CmsSection,
+  type CmsImageRef, type CmsLinkRef, type CmsPage, type CmsSection,
   type ExhibitionRecord, type ModuleData, type NewsArticleRecord,
 } from "../lib/api";
 import { formatRs, shopRequest, ShopApiError, getShopCsrfToken, setShopCsrfToken } from "../lib/shop";
 import { SectionLabel } from "./shared";
+import { PlacedImage } from "../lib/PlacedImage";
 import { TurnstileWidget, TURNSTILE_SITE_KEY } from "./Turnstile";
 
 /**
@@ -151,9 +152,10 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
       <section className="relative h-screen min-h-[640px] flex flex-col justify-end overflow-hidden">
         <div className="absolute inset-0 bg-[#1C1A16]">
           {config.backgroundImage && (
-            <img
+            <PlacedImage
               src={config.backgroundImage.url}
               alt={config.backgroundImage.alt}
+              placement={config.backgroundImage.placement}
               onLoad={() => setLoaded(true)}
               className={`w-full h-full object-cover object-[center_22%] transition-opacity duration-700 brightness-[1.07] ${loaded ? "opacity-70" : "opacity-0"}`}
             />
@@ -196,7 +198,7 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
     return (
       <section className={`relative ${bannerClass} flex items-end overflow-hidden mt-16`}>
         {config.backgroundImage && (
-          <img src={config.backgroundImage.url} alt={config.backgroundImage.alt} className="absolute inset-0 w-full h-full object-cover" />
+          <PlacedImage src={config.backgroundImage.url} alt={config.backgroundImage.alt} placement={config.backgroundImage.placement} className="absolute inset-0 w-full h-full object-cover" />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/85 via-[#0F0D0A]/30 to-transparent" />
         <div className="relative z-10 max-w-screen-xl mx-auto px-6 lg:px-10 pb-16 w-full">
@@ -232,7 +234,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
   const config = section.config;
 
   if (config.imageMode === "collage2") {
-    const images: { url: string; alt: string }[] = config.images ?? [];
+    const images: CmsImageRef[] = config.images ?? [];
     return (
       <section className="py-28 max-w-screen-xl mx-auto px-6 lg:px-10">
         <div className="grid lg:grid-cols-2 gap-20 items-center">
@@ -246,7 +248,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
                 transition={{ duration: 0.5, delay: i * 0.1 }}
                 className={`aspect-[3/4] overflow-hidden bg-muted ${i === 1 ? "mt-10" : ""}`}
               >
-                <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+                <PlacedImage src={image.url} alt={image.alt} placement={image.placement} className="w-full h-full object-cover" />
               </motion.div>
             ))}
           </div>
@@ -296,7 +298,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
           <div className="space-y-5">
             {config.image && (
               <div className="aspect-video overflow-hidden bg-muted">
-                <img src={config.image.url} alt={config.image.alt} className="w-full h-full object-cover" />
+                <PlacedImage src={config.image.url} alt={config.image.alt} placement={config.image.placement} className="w-full h-full object-cover" />
               </div>
             )}
             <div className="bg-foreground text-primary-foreground p-8">
@@ -331,7 +333,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
           <motion.div initial={{ opacity: 0, x: 16 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1], delay: 0.08 }} className="relative">
             {config.image && (
               <div className={`${ASPECT_CLASS[config.imageAspect as string] ?? "aspect-[4/5]"} overflow-hidden bg-muted`}>
-                <img src={config.image.url} alt={config.image.alt} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
+                <PlacedImage src={config.image.url} alt={config.image.alt} placement={config.image.placement} className="w-full h-full object-cover hover:scale-105 transition-transform duration-700" />
               </div>
             )}
             <div className="absolute -bottom-6 -left-6 bg-accent text-accent-foreground px-8 py-6">
@@ -360,7 +362,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
         </div>
         {config.image && (
           <div className={`${ASPECT_CLASS[config.imageAspect as string] ?? "aspect-[4/3]"} overflow-hidden bg-muted`}>
-            <img src={config.image.url} alt={config.image.alt} className="w-full h-full object-cover" />
+            <PlacedImage src={config.image.url} alt={config.image.alt} placement={config.image.placement} className="w-full h-full object-cover" />
           </div>
         )}
       </div>
@@ -631,7 +633,7 @@ function PartnerListSection({ section }: { section: CmsSection }) {
 
 function TeamMembersSection({ section }: { section: CmsSection }) {
   const config = section.config;
-  const members: { name: string; role: string; department: string; photo?: { url: string; alt: string } }[] = config.members ?? [];
+  const members: { name: string; role: string; department: string; photo?: CmsImageRef }[] = config.members ?? [];
   return (
     <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
       <SectionLabel>{config.sectionLabel}</SectionLabel>
@@ -641,7 +643,7 @@ function TeamMembersSection({ section }: { section: CmsSection }) {
           <motion.div key={`${member.name}-${member.role}`} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }}>
             <div className="aspect-square bg-secondary border border-border mb-4 relative overflow-hidden">
               {member.photo ? (
-                <img src={member.photo.url} alt={member.photo.alt} className="absolute inset-0 w-full h-full object-cover" />
+                <PlacedImage src={member.photo.url} alt={member.photo.alt} placement={member.photo.placement} className="absolute inset-0 w-full h-full object-cover" />
               ) : (
                 <div className="absolute inset-0 flex items-end p-5">
                   <span className="font-display text-5xl font-medium text-muted/60 leading-none">
@@ -1432,7 +1434,7 @@ const GALLERY_COLUMN_CLASS: Record<number, string> = {
 
 function ImageGallerySection({ section }: { section: CmsSection }) {
   const config = section.config;
-  const images: { url: string; alt: string }[] = config.images ?? [];
+  const images: CmsImageRef[] = config.images ?? [];
   const columns = typeof config.columns === "number" ? config.columns : 3;
   return (
     <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
@@ -1443,7 +1445,7 @@ function ImageGallerySection({ section }: { section: CmsSection }) {
       <div className={`grid gap-6 ${GALLERY_COLUMN_CLASS[columns] ?? GALLERY_COLUMN_CLASS[3]}`}>
         {images.map((image) => (
           <div key={image.url} className="overflow-hidden bg-muted">
-            <img src={image.url} alt={image.alt} className="w-full h-full object-cover" />
+            <PlacedImage src={image.url} alt={image.alt} placement={image.placement} className="w-full h-full object-cover" />
           </div>
         ))}
       </div>

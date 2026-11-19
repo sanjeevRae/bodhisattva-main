@@ -277,6 +277,202 @@ describe.skipIf(!RUN)("Phase 3 CMS flows (integration)", () => {
     expect(heroHeading(pubRestored.body.sections)).toBe(originalHeading);
   }, 120000);
 
+  it("persists image placement through draft → publish, per usage", async () => {
+    const admin = state.admin!;
+    const csrf = state.csrf!;
+    const pageId = state.museumId!;
+    const placement = {
+      fit: "cover",
+      desktop: { x: 65, y: 40, zoom: 1.15 },
+      mobile: { x: 70, y: 35, zoom: 1.3 },
+    };
+
+    const draft = await admin
+      .get(`/api/admin/pages/${pageId}/draft`)
+      .set("X-CSRF-Token", csrf);
+    expect(draft.status).toBe(200);
+    const sections = (draft.body.sections as DraftSection[]).map((s) => {
+      if (s.type !== "hero") return s;
+      const bg = s.config.backgroundImage as Record<string, unknown>;
+      expect(bg?.url).toBeTruthy();
+      return {
+        ...s,
+        config: { ...s.config, backgroundImage: { ...bg, placement } },
+      };
+    });
+    const save = await admin
+      .put(`/api/admin/pages/${pageId}/draft`)
+      .set("X-CSRF-Token", csrf)
+      .send({
+        expectedVersion: draft.body.version,
+        revisionId: draft.body.revisionId,
+        sections,
+      });
+    expect(save.status).toBe(200);
+
+    // Draft read-back carries the placement verbatim.
+    const reread = await admin
+      .get(`/api/admin/pages/${pageId}/draft`)
+      .set("X-CSRF-Token", csrf);
+    const draftHero = (reread.body.sections as DraftSection[]).find(
+      (s) => s.type === "hero",
+    );
+    expect(
+      (draftHero?.config.backgroundImage as any)?.placement,
+    ).toEqual(placement);
+
+    // Public still serves the un-placed image until publish.
+    const pubBefore = await request(app).get("/api/pages/museum");
+    const pubHeroBefore = (pubBefore.body.sections as DraftSection[]).find(
+      (s) => s.type === "hero",
+    );
+    expect(
+      (pubHeroBefore?.config.backgroundImage as any)?.placement,
+    ).toBeUndefined();
+
+    const publish = await admin
+      .post(`/api/admin/pages/${pageId}/publish`)
+      .set("X-CSRF-Token", csrf)
+      .send({});
+    expect(publish.status).toBe(200);
+    const pubAfter = await request(app).get("/api/pages/museum");
+    const pubHero = (pubAfter.body.sections as DraftSection[]).find(
+      (s) => s.type === "hero",
+    );
+    expect((pubHero?.config.backgroundImage as any)?.placement).toEqual(
+      placement,
+    );
+
+    // Per-usage isolation: the SAME image URL placed in another page's
+    // section keeps its own placement — the museum hero's is untouched.
+    const heroUrl = (pubHero?.config.backgroundImage as any)?.url as string;
+    const pages = await admin.get("/api/admin/pages").set("X-CSRF-Token", csrf);
+    const foundation = (pages.body.items ?? pages.body).find(
+      (p: any) => p.slug === "foundation",
+    );
+    expect(foundation).toBeTruthy();
+    const secondPlacement = {
+      fit: "contain",
+      desktop: { x: 20, y: 80, zoom: 0.8 },
+    };
+    const fDraft = await admin
+      .get(`/api/admin/pages/${foundation.id}/draft`)
+      .set("X-CSRF-Token", csrf);
+    let secondSeen = false;
+    const fSections = (fDraft.body.sections as DraftSection[]).map((s) => {
+      const img = s.config.image as Record<string, unknown> | undefined;
+      if (secondSeen || !img || typeof img.url !== "string") return s;
+      secondSeen = true;
+      return {
+        ...s,
+        config: {
+          ...s.config,
+          image: { ...img, url: heroUrl, placement: secondPlacement },
+        },
+      };
+    });
+    expect(secondSeen).toBe(true);
+    const fSave = await admin
+      .put(`/api/admin/pages/${foundation.id}/draft`)
+      .set("X-CSRF-Token", csrf)
+      .send({
+        expectedVersion: fDraft.body.version,
+        revisionId: fDraft.body.revisionId,
+        sections: fSections,
+      });
+    expect(fSave.status).toBe(200);
+    const fPublish = await admin
+      .post(`/api/admin/pages/${foundation.id}/publish`)
+      .set("X-CSRF-Token", csrf)
+      .send({});
+    expect(fPublish.status).toBe(200);
+    const pubFoundation = await request(app).get("/api/pages/foundation");
+    const pubSecond = (pubFoundation.body.sections as DraftSection[]).find(
+      (s) => (s.config.image as any)?.placement,
+    );
+    expect((pubSecond?.config.image as any)?.url).toBe(heroUrl);
+    expect((pubSecond?.config.image as any)?.placement).toEqual(secondPlacement);
+    // …and the museum hero still carries placement A on the same URL.
+    const pubMuseumAgain = await request(app).get("/api/pages/museum");
+    const pubHeroAgain = (pubMuseumAgain.body.sections as DraftSection[]).find(
+      (s) => s.type === "hero",
+    );
+    expect((pubHeroAgain?.config.backgroundImage as any)?.placement).toEqual(
+      placement,
+    );
+    // Restore the foundation page to its seeded original.
+    const fRevisions = await admin
+      .get(`/api/admin/pages/${foundation.id}/revisions`)
+      .set("X-CSRF-Token", csrf);
+    const fRevList = (fRevisions.body.items ?? fRevisions.body) as {
+      id: number;
+      revisionNo?: number;
+    }[];
+    const fOriginal = fRevList.reduce((a, b) =>
+      (a.revisionNo ?? a.id) <= (b.revisionNo ?? b.id) ? a : b,
+    );
+    const fRollback = await admin
+      .post(`/api/admin/pages/${foundation.id}/rollback/${fOriginal.id}`)
+      .set("X-CSRF-Token", csrf)
+      .send({});
+    expect(fRollback.status).toBe(200);
+
+    // An invalid placement is refused at draft save time.
+    const badDraft = await admin
+      .get(`/api/admin/pages/${pageId}/draft`)
+      .set("X-CSRF-Token", csrf);
+    const badSections = (badDraft.body.sections as DraftSection[]).map(
+      (s) => {
+        if (s.type !== "hero") return s;
+        const bg = s.config.backgroundImage as Record<string, unknown>;
+        return {
+          ...s,
+          config: {
+            ...s.config,
+            backgroundImage: {
+              ...bg,
+              placement: { desktop: { x: 140, y: 40, zoom: 1 } },
+            },
+          },
+        };
+      },
+    );
+    const badSave = await admin
+      .put(`/api/admin/pages/${pageId}/draft`)
+      .set("X-CSRF-Token", csrf)
+      .send({
+        expectedVersion: badDraft.body.version,
+        revisionId: badDraft.body.revisionId,
+        sections: badSections,
+      });
+    expect(badSave.status).toBe(400);
+
+    // Restore: roll back to the earliest revision (the seeded original),
+    // as the draft/publish test above does.
+    const revisions = await admin
+      .get(`/api/admin/pages/${pageId}/revisions`)
+      .set("X-CSRF-Token", csrf);
+    const revList = (revisions.body.items ?? revisions.body) as {
+      id: number;
+      revisionNo?: number;
+    }[];
+    const original = revList.reduce((a, b) =>
+      (a.revisionNo ?? a.id) <= (b.revisionNo ?? b.id) ? a : b,
+    );
+    const rollback = await admin
+      .post(`/api/admin/pages/${pageId}/rollback/${original.id}`)
+      .set("X-CSRF-Token", csrf)
+      .send({});
+    expect(rollback.status).toBe(200);
+    const pubRestored = await request(app).get("/api/pages/museum");
+    const restoredHero = (pubRestored.body.sections as DraftSection[]).find(
+      (s) => s.type === "hero",
+    );
+    expect(
+      (restoredHero?.config.backgroundImage as any)?.placement,
+    ).toBeUndefined();
+  }, 120000);
+
   it("refuses to publish a draft containing an invalid section", async () => {
     const admin = state.admin!;
     const csrf = state.csrf!;

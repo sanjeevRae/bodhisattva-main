@@ -56,6 +56,14 @@ export interface CmsCtaLink extends CmsLink {
 export interface CmsImage {
   url: string;
   alt: string;
+  /** Per-usage placement (docs/IMAGE_PLACEMENT_EDITOR.md) — mirrors the
+   * registry placementSchema; validated again at save time. */
+  placement?: {
+    fit?: "cover" | "contain";
+    desktop: { x: number; y: number; zoom: number };
+    tablet?: { x: number; y: number; zoom: number };
+    mobile?: { x: number; y: number; zoom: number };
+  };
 }
 
 /** The mapping §1.2 design vocabulary. */

@@ -258,6 +258,35 @@
   }
 }
 
+/* Placed images (docs/IMAGE_PLACEMENT_EDITOR.md): focal point + zoom
+   per device, set as CSS variables by PlacedImage. Deliberately
+   UNLAYERED so these rules win over Tailwind's object-position
+   utilities (e.g. the fullscreen hero's object-[center_22%]) whenever
+   an editor-set placement exists. Breakpoints match the app's lg/md
+   steps; var() fallback chains implement the inheritance
+   mobile -> tablet -> desktop. */
+.placed-img {
+  object-position: var(--ipx, 50%) var(--ipy, 50%);
+  transform-origin: var(--ipx, 50%) var(--ipy, 50%);
+  transform: scale(var(--ipz, 1));
+}
+
+@media (max-width: 1023px) {
+  .placed-img {
+    object-position: var(--itx, var(--ipx, 50%)) var(--ity, var(--ipy, 50%));
+    transform-origin: var(--itx, var(--ipx, 50%)) var(--ity, var(--ipy, 50%));
+    transform: scale(var(--itz, var(--ipz, 1)));
+  }
+}
+
+@media (max-width: 767px) {
+  .placed-img {
+    object-position: var(--imx, var(--itx, var(--ipx, 50%))) var(--imy, var(--ity, var(--ipy, 50%)));
+    transform-origin: var(--imx, var(--itx, var(--ipx, 50%))) var(--imy, var(--ity, var(--ipy, 50%)));
+    transform: scale(var(--imz, var(--itz, var(--ipz, 1))));
+  }
+}
+
 /**
  * Article body — the News Clippings reader column (NewsArticlePage).
  * The article markup arrives as stored, server-sanitized HTML, so the

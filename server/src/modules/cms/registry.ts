@@ -44,9 +44,28 @@ const ctaLinkSchema = linkSchema.extend({
   style: z.enum(["solid", "outline"]),
 });
 
+/** Image placement (docs/IMAGE_PLACEMENT_EDITOR.md): per-usage focal
+ * point + zoom + fit, stored inside the section config next to url/alt.
+ * x/y are percentages 0–100; zoom 0.5–3 (the editor enforces ≥1 for
+ * cover; the renderer clamps). Device entries inherit mobile → tablet →
+ * desktop at render time, so only desktop is required. */
+const devicePlacementSchema = z.object({
+  x: z.number().min(0).max(100),
+  y: z.number().min(0).max(100),
+  zoom: z.number().min(0.5).max(3),
+});
+
+const placementSchema = z.object({
+  fit: z.enum(["cover", "contain"]).optional(),
+  desktop: devicePlacementSchema,
+  tablet: devicePlacementSchema.optional(),
+  mobile: devicePlacementSchema.optional(),
+});
+
 const imageSchema = z.object({
   url: z.string().min(1).max(2000),
   alt: z.string().max(500),
+  placement: placementSchema.optional(),
 });
 
 const labelValueSchema = z.object({

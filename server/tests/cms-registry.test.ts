@@ -125,6 +125,86 @@ describe("cms section registry", () => {
     expect(result.config.caption).toBe("The main hall, north wing.");
   });
 
+  it("accepts and retains image placement (positioning editor)", () => {
+    const placement = {
+      fit: "cover" as const,
+      desktop: { x: 65, y: 40, zoom: 1.15 },
+      mobile: { x: 70, y: 35, zoom: 1.3 },
+    };
+    const result = validateSection("hero", {
+      variant: "page-banner",
+      eyebrow: "The Museum",
+      backgroundImage: {
+        url: "https://example.com/shrine.jpg",
+        alt: "Illuminated shrine",
+        placement,
+      },
+    });
+    const image = (result.config as any).backgroundImage;
+    // The parsed config is what gets persisted — placement must survive
+    // validation verbatim (zod strips unknown keys by default).
+    expect(image.placement).toEqual(placement);
+  });
+
+  it("retains placement on gallery list images", () => {
+    const result = validateSection("image_gallery", {
+      images: [
+        {
+          url: "https://example.com/a.jpg",
+          alt: "A",
+          placement: { desktop: { x: 20, y: 80, zoom: 2 } },
+        },
+        { url: "https://example.com/b.jpg", alt: "B" },
+      ],
+    });
+    const images = (result.config as any).images;
+    expect(images[0].placement).toEqual({ desktop: { x: 20, y: 80, zoom: 2 } });
+    expect(images[1].placement).toBeUndefined();
+  });
+
+  it("retains placement on image_text list images and team photos", () => {
+    const placement = { desktop: { x: 30, y: 60, zoom: 1.5 } };
+    const collage = validateSection("image_text", {
+      sectionLabel: "Visit",
+      headingLine1: "Inside",
+      headingAccent: "the museum",
+      images: [
+        { url: "https://example.com/c1.jpg", alt: "C1", placement },
+        { url: "https://example.com/c2.jpg", alt: "C2" },
+      ],
+    });
+    const images = (collage.config as any).images;
+    expect(images[0].placement).toEqual(placement);
+    expect(images[1].placement).toBeUndefined();
+
+    const team = validateSection("team_members", {
+      sectionLabel: "People",
+      heading: "The team",
+      members: [
+        {
+          name: "Anjana Shakya",
+          role: "Director",
+          department: "Gallery",
+          photo: { url: "https://example.com/p.jpg", alt: "Portrait", placement },
+        },
+      ],
+    });
+    expect((team.config as any).members[0].photo.placement).toEqual(placement);
+  });
+
+  it("rejects out-of-range placement values", () => {
+    const bad = (placement: unknown) => () =>
+      validateSection("image", {
+        image: { url: "https://example.com/x.jpg", alt: "X", placement },
+      });
+    expect(bad({ desktop: { x: 101, y: 50, zoom: 1 } })).toThrowError(AppError);
+    expect(bad({ desktop: { x: 50, y: -1, zoom: 1 } })).toThrowError(AppError);
+    expect(bad({ desktop: { x: 50, y: 50, zoom: 3.5 } })).toThrowError(AppError);
+    expect(bad({ desktop: { x: 50, y: 50, zoom: 0.2 } })).toThrowError(AppError);
+    expect(bad({ fit: "fill", desktop: { x: 50, y: 50, zoom: 1 } })).toThrowError(AppError);
+    expect(bad({ tablet: { x: 50, y: 50, zoom: 1 } })).toThrowError(AppError);
+  });
+
   it("rejects an image section without an image", () => {
     expect(() =>
       validateSection("image", { caption: "No image here." }),

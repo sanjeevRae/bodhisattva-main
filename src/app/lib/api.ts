@@ -16,6 +16,8 @@ import { getShopProducts, type ShopProduct } from "./shop";
 export interface CmsImageRef {
   url: string;
   alt: string;
+  /** Per-usage placement (docs/IMAGE_PLACEMENT_EDITOR.md). */
+  placement?: import("./image-placement").ImagePlacement;
 }
 
 export interface CmsLinkRef {

@@ -5,7 +5,10 @@
  * and report changes.
  */
 import { Component, Suspense, lazy, useState, type ReactNode } from "react";
-import { ArrowDown, ArrowUp, ImagePlus, Plus, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Crop, ImagePlus, Plus, Trash2 } from "lucide-react";
+import ImagePlacementEditor from "./ImagePlacementEditor";
+import { frameForImageField, type FrameSpec } from "./image-frames";
+import { isDefaultPlacement, type ImagePlacement } from "../app/lib/image-placement";
 import type { FieldSpec } from "./field-specs";
 import type { MediaAsset, PageAdmin } from "./types";
 import MediaPicker from "./MediaPicker";
@@ -60,6 +63,10 @@ export function moveIndex(list: any[], index: number, delta: number): any[] {
 
 export interface FieldContext {
   pages: PageAdmin[];
+  /** Section context for the image placement editor (PageEditor only):
+   * the destination frame is resolved from the section type + config. */
+  sectionType?: string;
+  sectionConfig?: Record<string, any>;
 }
 
 // ---------------------------------------------------------------------------
@@ -231,7 +238,14 @@ export function FieldRenderer({ spec, root, onChange, ctx }: FieldProps) {
       );
 
     case "image":
-      return <ImageEditor label={spec.label} value={value} onChange={set} />;
+      return (
+        <ImageEditor
+          label={spec.label}
+          value={value}
+          onChange={set}
+          frame={frameForImageField(ctx.sectionType, spec.path, ctx.sectionConfig)}
+        />
+      );
 
     case "object":
       return (
@@ -329,6 +343,7 @@ export function FieldRenderer({ spec, root, onChange, ctx }: FieldProps) {
               <ImageEditor
                 label={`Image ${index + 1}`}
                 value={item}
+                frame={frameForImageField(ctx.sectionType, spec.path, ctx.sectionConfig)}
                 onChange={(next) => {
                   const copy = [...list];
                   copy[index] = next ?? { url: "", alt: "" };
@@ -648,12 +663,17 @@ export function ImageEditor({
   label,
   value,
   onChange,
+  frame,
 }: {
   label: string;
   value: any;
   onChange: (next: { url: string; alt: string } | undefined) => void;
+  /** Destination frame for the placement editor; null where placement
+   * does not apply (natural-ratio or unrendered images). */
+  frame?: FrameSpec | null;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [placementOpen, setPlacementOpen] = useState(false);
   const image = value && typeof value === "object" ? value : null;
 
   if (!image) {
@@ -667,8 +687,18 @@ export function ImageEditor({
   }
 
   const pick = (asset: MediaAsset) => {
+    // A different image starts unpositioned — the old placement was
+    // composed for the previous picture.
     onChange({ url: asset.urls.master, alt: asset.altText ?? image.alt ?? "" });
     setPickerOpen(false);
+  };
+
+  const savePlacement = (placement: ImagePlacement | undefined) => {
+    const next: Record<string, any> = { ...image };
+    if (placement) next.placement = placement;
+    else delete next.placement;
+    onChange(next as { url: string; alt: string });
+    setPlacementOpen(false);
   };
 
   return (
@@ -696,16 +726,35 @@ export function ImageEditor({
             aria-label={`${label} alt text`}
           />
         </Field>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Btn size="sm" onClick={() => setPickerOpen(true)}>
             <ImagePlus size={14} /> Choose from media library
           </Btn>
+          {image.url && frame && (
+            <Btn size="sm" onClick={() => setPlacementOpen(true)}>
+              <Crop size={14} /> Edit position
+            </Btn>
+          )}
           <Btn size="sm" variant="ghost" onClick={() => onChange(undefined)}>
             <Trash2 size={14} /> Remove
           </Btn>
         </div>
+        {image.placement && !isDefaultPlacement(image.placement) && (
+          <p className="text-xs text-muted-foreground">
+            Custom position set for this section — the original image is unchanged.
+          </p>
+        )}
       </div>
       <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={pick} />
+      {frame && (
+        <ImagePlacementEditor
+          open={placementOpen}
+          image={image}
+          frame={frame}
+          onClose={() => setPlacementOpen(false)}
+          onSave={savePlacement}
+        />
+      )}
     </fieldset>
   );
 }
