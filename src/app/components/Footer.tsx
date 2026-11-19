@@ -101,7 +101,7 @@ export default function Footer() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-16">
           <div className="col-span-2 md:col-span-1">
             <div className="font-display text-base font-semibold tracking-[0.1em] uppercase mb-0.5">{siteName}</div>
-            <div className="font-mono text-[0.46rem] tracking-[0.28em] uppercase text-accent mb-5">{siteTagline}</div>
+            <div className="font-mono text-[0.54rem] tracking-[0.28em] uppercase text-accent mb-5">{siteTagline}</div>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{address}</p><br />
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{hoursSummary}</p>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{phone}</p>
@@ -125,10 +125,10 @@ export default function Footer() {
           ))}
         </div>
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <span className="font-mono text-[0.46rem] tracking-widest uppercase text-muted-foreground">{copyright}</span>
+          <span className="font-mono text-[0.54rem] tracking-widest uppercase text-muted-foreground">{copyright}</span>
           <div className="flex gap-6">
             {["Privacy Policy", "Terms of Use", "Accessibility"].map((item) => (
-              <span key={item} className="font-mono text-[0.46rem] tracking-wider text-muted-foreground cursor-pointer hover:text-accent transition-colors">{item}</span>
+              <span key={item} className="font-mono text-[0.54rem] tracking-wider text-muted-foreground cursor-pointer hover:text-accent transition-colors">{item}</span>
             ))}
           </div>
         </div>

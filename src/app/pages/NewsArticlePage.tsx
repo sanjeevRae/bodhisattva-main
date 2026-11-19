@@ -50,9 +50,9 @@ function formatFileSize(bytes: number): string {
 }
 
 const solidButtonCls =
-  "inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent";
+  "inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent";
 const outlineButtonCls =
-  "inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent";
+  "inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent";
 
 export default function NewsArticlePage({
   preview = false,
@@ -111,7 +111,7 @@ export default function NewsArticlePage({
     return (
       <div className="pt-16">
         <div className="mx-auto max-w-screen-xl px-6 py-24 text-center lg:px-10">
-          <p className="mb-4 font-mono text-[0.6rem] tracking-[0.22em] uppercase text-accent">
+          <p className="mb-4 font-mono text-[0.68rem] tracking-[0.22em] uppercase text-accent">
             News Clippings
           </p>
           <h1 className="mb-4 font-display text-4xl font-medium">
@@ -194,7 +194,7 @@ export default function NewsArticlePage({
         <div className="flex flex-wrap items-center justify-between gap-4 py-8">
           <nav
             aria-label="Breadcrumb"
-            className="flex min-w-0 items-center gap-1.5 font-mono text-[0.55rem] tracking-[0.16em] uppercase text-muted-foreground"
+            className="flex min-w-0 items-center gap-1.5 font-mono text-[0.63rem] tracking-[0.16em] uppercase text-muted-foreground"
           >
             <Link to="/" className="transition-colors hover:text-accent">
               Home
@@ -210,7 +210,7 @@ export default function NewsArticlePage({
           </nav>
           <Link
             to="/news"
-            className="inline-flex items-center gap-2 font-mono text-[0.55rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:text-accent"
+            className="inline-flex items-center gap-2 font-mono text-[0.63rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:text-accent"
           >
             <ArrowLeft size={11} /> Back to News Clippings
           </Link>
@@ -219,7 +219,7 @@ export default function NewsArticlePage({
         {article.preview && (
           <div
             role="status"
-            className="mb-8 border border-accent bg-accent/10 px-5 py-3.5 text-center font-mono text-[0.58rem] tracking-[0.2em] uppercase text-accent"
+            className="mb-8 border border-accent bg-accent/10 px-5 py-3.5 text-center font-mono text-[0.66rem] tracking-[0.2em] uppercase text-accent"
           >
             Preview — this article has not been published yet
           </div>
@@ -230,13 +230,13 @@ export default function NewsArticlePage({
           <div className="mb-5 flex flex-wrap items-center gap-2.5">
             {article.categoryName && (
               <span
-                className={`font-mono text-[0.58rem] tracking-[0.2em] uppercase ${article.colorToken ?? "text-accent"}`}
+                className={`font-mono text-[0.66rem] tracking-[0.2em] uppercase ${article.colorToken ?? "text-accent"}`}
               >
                 {article.categoryName}
               </span>
             )}
             {article.type && (
-              <span className="border border-border px-2.5 py-1 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground">
+              <span className="border border-border px-2.5 py-1 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted-foreground">
                 {article.type}
               </span>
             )}
@@ -249,7 +249,7 @@ export default function NewsArticlePage({
               {article.summary}
             </p>
           )}
-          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border py-4 font-mono text-[0.55rem] tracking-[0.16em] uppercase text-muted-foreground">
+          <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 border-y border-border py-4 font-mono text-[0.63rem] tracking-[0.16em] uppercase text-muted-foreground">
             {article.sourceName && (
               <span className="font-sans text-xs font-medium normal-case tracking-normal text-foreground">
                 {article.sourceName}
@@ -298,7 +298,7 @@ export default function NewsArticlePage({
             <a href={article.pdf.downloadUrl} download className={outlineButtonCls}>
               <Download size={12} /> Download PDF
             </a>
-            <span className="font-mono text-[0.52rem] tracking-[0.14em] uppercase text-muted-foreground">
+            <span className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-muted-foreground">
               {article.pdf.downloadName}
               {article.pdf.fileSize > 0 &&
                 ` · ${formatFileSize(article.pdf.fileSize)}`}
@@ -357,7 +357,7 @@ export default function NewsArticlePage({
               <h2 className="font-display text-3xl font-medium">
                 The original newspaper document
               </h2>
-              <span className="font-mono text-[0.52rem] tracking-[0.14em] uppercase text-muted-foreground">
+              <span className="font-mono text-[0.6rem] tracking-[0.14em] uppercase text-muted-foreground">
                 {article.pdf.downloadName}
                 {article.pdf.fileSize > 0 &&
                   ` · ${formatFileSize(article.pdf.fileSize)}`}
@@ -372,7 +372,7 @@ export default function NewsArticlePage({
             <Suspense
               fallback={
                 <div className="flex h-[60vh] items-center justify-center border border-border bg-secondary/40">
-                  <p className="animate-pulse font-mono text-[0.6rem] tracking-[0.22em] uppercase text-muted-foreground">
+                  <p className="animate-pulse font-mono text-[0.68rem] tracking-[0.22em] uppercase text-muted-foreground">
                     Loading viewer…
                   </p>
                 </div>
@@ -391,7 +391,7 @@ export default function NewsArticlePage({
         <footer className="mx-auto mt-16 max-w-4xl border-t border-border pt-8">
           <div className="flex flex-wrap items-start justify-between gap-6">
             <div className="font-sans text-sm font-light leading-relaxed text-muted-foreground">
-              <p className="mb-1 font-mono text-[0.52rem] tracking-[0.2em] uppercase text-muted-foreground">
+              <p className="mb-1 font-mono text-[0.6rem] tracking-[0.2em] uppercase text-muted-foreground">
                 Source
               </p>
               <p>
@@ -408,7 +408,7 @@ export default function NewsArticlePage({
                   href={article.externalUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-2 inline-flex items-center gap-1.5 font-mono text-[0.55rem] tracking-[0.16em] uppercase text-accent transition-opacity hover:opacity-75"
+                  className="mt-2 inline-flex items-center gap-1.5 font-mono text-[0.63rem] tracking-[0.16em] uppercase text-accent transition-opacity hover:opacity-75"
                 >
                   View at source <ExternalLink size={11} />
                 </a>
@@ -418,7 +418,7 @@ export default function NewsArticlePage({
               <button
                 type="button"
                 onClick={copyLink}
-                className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+                className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent"
               >
                 {copied ? <Check size={11} /> : <Link2 size={11} />}
                 {copied ? "Link copied" : "Copy link"}
@@ -430,7 +430,7 @@ export default function NewsArticlePage({
                     void downloadScan(article.image!.url, article.slug)
                   }
                   disabled={scanState === "busy"}
-                  className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
+                  className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent disabled:opacity-60"
                 >
                   <Download size={11} />
                   {scanState === "busy"
@@ -444,7 +444,7 @@ export default function NewsArticlePage({
                 <a
                   href={article.pdf.downloadUrl}
                   download
-                  className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+                  className="inline-flex items-center gap-2 border border-border px-4 py-2.5 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:border-accent hover:text-accent"
                 >
                   <Download size={11} /> PDF
                 </a>

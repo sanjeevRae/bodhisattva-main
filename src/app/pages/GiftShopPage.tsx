@@ -152,7 +152,7 @@ export default function GiftShopPage() {
           return (
             <div className="bg-secondary border-b border-border py-20">
               <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
-                <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
+                <p className="font-mono text-[0.6rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
                 <div className="flex items-end justify-between">
                   <h1 className="font-display text-5xl md:text-6xl font-medium">{section.config.heading}</h1>
                   <div className="flex items-center gap-2 ml-4">
@@ -170,7 +170,7 @@ export default function GiftShopPage() {
         <div className="max-w-screen-xl mx-auto px-6 lg:px-10 flex items-center justify-between gap-4">
           <div className="flex gap-0 overflow-x-auto">
             {tabs.map((t) => (
-              <button key={t.key} onClick={() => setTab(t.key)} className={`font-mono text-[0.52rem] tracking-widest uppercase px-6 py-4 whitespace-nowrap border-b-2 transition-colors ${tab === t.key ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+              <button key={t.key} onClick={() => setTab(t.key)} className={`font-mono text-[0.6rem] tracking-widest uppercase px-6 py-4 whitespace-nowrap border-b-2 transition-colors ${tab === t.key ? "border-accent text-accent" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                 {t.label}
               </button>
             ))}
@@ -183,14 +183,14 @@ export default function GiftShopPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="SEARCH"
                 aria-label="Search products"
-                className="w-28 bg-transparent font-mono text-[0.55rem] tracking-widest uppercase placeholder:text-muted-foreground focus:outline-none"
+                className="w-28 bg-transparent font-mono text-[0.63rem] tracking-widest uppercase placeholder:text-muted-foreground focus:outline-none"
               />
             </label>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortKey)}
               aria-label="Sort products"
-              className="bg-transparent border border-border px-2.5 py-1.5 font-mono text-[0.55rem] tracking-widest uppercase text-muted-foreground focus:outline-none focus:border-accent cursor-pointer"
+              className="bg-transparent border border-border px-2.5 py-1.5 font-mono text-[0.63rem] tracking-widest uppercase text-muted-foreground focus:outline-none focus:border-accent cursor-pointer"
             >
               {SORT_OPTIONS.map((o) => (
                 <option key={o.key} value={o.key}>{o.label}</option>
@@ -206,14 +206,14 @@ export default function GiftShopPage() {
               onChange={(e) => setSearch(e.target.value)}
               placeholder="SEARCH"
               aria-label="Search products"
-              className="flex-1 bg-transparent font-mono text-[0.55rem] tracking-widest uppercase placeholder:text-muted-foreground focus:outline-none"
+              className="flex-1 bg-transparent font-mono text-[0.63rem] tracking-widest uppercase placeholder:text-muted-foreground focus:outline-none"
             />
           </label>
           <select
             value={sort}
             onChange={(e) => setSort(e.target.value as SortKey)}
             aria-label="Sort products"
-            className="bg-transparent border border-border px-2.5 py-2 font-mono text-[0.55rem] tracking-widest uppercase text-muted-foreground focus:outline-none focus:border-accent cursor-pointer"
+            className="bg-transparent border border-border px-2.5 py-2 font-mono text-[0.63rem] tracking-widest uppercase text-muted-foreground focus:outline-none focus:border-accent cursor-pointer"
           >
             {SORT_OPTIONS.map((o) => (
               <option key={o.key} value={o.key}>{o.label}</option>
@@ -243,7 +243,7 @@ export default function GiftShopPage() {
                     )}
                     <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/8 transition-colors" />
                     {!product.inStock && (
-                      <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.5rem] tracking-[0.18em] uppercase text-foreground">
+                      <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.58rem] tracking-[0.18em] uppercase text-foreground">
                         Out of Stock
                       </span>
                     )}
@@ -259,14 +259,14 @@ export default function GiftShopPage() {
                       <button
                         onClick={() => void handleAdd(product)}
                         disabled={!product.inStock || addingId === product.id}
-                        className={`w-full py-3 text-[0.56rem] tracking-[0.2em] uppercase font-sans transition-colors disabled:cursor-not-allowed ${inCart ? "bg-foreground text-primary-foreground" : "bg-accent text-accent-foreground disabled:bg-muted disabled:text-muted-foreground"}`}
+                        className={`w-full py-3 text-[0.64rem] tracking-[0.2em] uppercase font-sans transition-colors disabled:cursor-not-allowed ${inCart ? "bg-foreground text-primary-foreground" : "bg-accent text-accent-foreground disabled:bg-muted disabled:text-muted-foreground"}`}
                       >
                         {!product.inStock ? "Out of Stock" : inCart ? "In Cart ✓ — View" : addingId === product.id ? "Adding…" : "Add to Cart"}
                       </button>
                     </div>
                   </div>
                   <h3 className="font-display text-sm font-medium leading-snug mb-1">{product.name}</h3>
-                  <p className="font-mono text-[0.5rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
+                  <p className="font-mono text-[0.58rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
                   <span className="font-display text-base font-medium text-accent">{formatRs(product.effectivePricePaisa)}</span>
                   {product.salePricePaisa != null && (
                     <span className="ml-2 font-display text-sm text-muted-foreground line-through">{formatRs(product.pricePaisa)}</span>
@@ -280,7 +280,7 @@ export default function GiftShopPage() {
           <div className="mt-14 text-center">
             <button
               onClick={loadMore}
-              className="border border-border px-8 py-3.5 font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
+              className="border border-border px-8 py-3.5 font-mono text-[0.66rem] tracking-[0.2em] uppercase text-muted-foreground hover:border-foreground hover:text-foreground transition-colors"
             >
               Load More ({products.length} of {total})
             </button>
@@ -373,25 +373,25 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
             {failed ? (
               <p className="font-sans text-sm text-muted-foreground">This piece could not be loaded.</p>
             ) : !detail ? (
-              <p className="font-mono text-[0.55rem] tracking-widest uppercase text-muted-foreground">Loading…</p>
+              <p className="font-mono text-[0.63rem] tracking-widest uppercase text-muted-foreground">Loading…</p>
             ) : (
               <>
-                <p className="font-mono text-[0.5rem] tracking-widest uppercase text-accent mb-2">{detail.categoryName ?? detail.categorySlug ?? ""}</p>
+                <p className="font-mono text-[0.58rem] tracking-widest uppercase text-accent mb-2">{detail.categoryName ?? detail.categorySlug ?? ""}</p>
                 <h3 className="font-display text-xl font-medium mb-2">{detail.name}</h3>
-                <p className="font-mono text-[0.52rem] tracking-wider text-muted-foreground mb-4">{detail.detail}</p>
+                <p className="font-mono text-[0.6rem] tracking-wider text-muted-foreground mb-4">{detail.detail}</p>
                 {detail.description && (
                   <p className="font-sans text-sm font-light leading-relaxed text-muted-foreground mb-6">{detail.description}</p>
                 )}
                 {detail.variants.length > 0 && (
                   <div className="mb-6">
-                    <p className="font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground mb-2">Edition</p>
+                    <p className="font-mono text-[0.58rem] tracking-widest uppercase text-muted-foreground mb-2">Edition</p>
                     <div className="flex flex-wrap gap-2">
                       {detail.variants.map((v) => (
                         <button
                           key={v.id}
                           onClick={() => setVariantId(v.id)}
                           disabled={!v.inStock}
-                          className={`border px-3 py-2 font-mono text-[0.55rem] tracking-wider uppercase transition-colors disabled:opacity-40 ${v.id === variantId ? "border-accent text-accent" : "border-border text-muted-foreground hover:text-foreground"}`}
+                          className={`border px-3 py-2 font-mono text-[0.63rem] tracking-wider uppercase transition-colors disabled:opacity-40 ${v.id === variantId ? "border-accent text-accent" : "border-border text-muted-foreground hover:text-foreground"}`}
                         >
                           {v.name}
                         </button>
@@ -403,7 +403,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
                 {detail.salePricePaisa != null && !variant && (
                   <span className="ml-3 font-display text-lg text-muted-foreground line-through">{formatRs(detail.pricePaisa)}</span>
                 )}
-                <p className="mt-3 font-mono text-[0.52rem] tracking-wider uppercase text-muted-foreground">
+                <p className="mt-3 font-mono text-[0.6rem] tracking-wider uppercase text-muted-foreground">
                   {!inStock ? "Out of stock" : available <= 5 ? `Only ${available} available` : "In stock"}
                   {inCartQty > 0 && status === "full" ? ` · ${inCartQty} in your cart` : ""}
                 </p>
@@ -425,7 +425,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
                 {inCartQty > 0 && status === "full" && (
                   <button
                     onClick={() => { onClose(); setCartOpen(true); }}
-                    className="font-mono text-[0.55rem] tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
+                    className="font-mono text-[0.63rem] tracking-widest uppercase text-muted-foreground hover:text-foreground transition-colors"
                   >
                     View Cart
                   </button>
@@ -434,7 +434,7 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
               <button
                 onClick={() => void handleAdd()}
                 disabled={!inStock || adding}
-                className="w-full bg-accent text-accent-foreground py-3.5 text-[0.58rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
+                className="w-full bg-accent text-accent-foreground py-3.5 text-[0.66rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed"
               >
                 {!inStock ? "Out of Stock" : adding ? "Adding…" : status === "full" ? "Add to Cart" : "Sign In to Add"}
               </button>

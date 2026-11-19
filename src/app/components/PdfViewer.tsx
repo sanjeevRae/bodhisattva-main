@@ -43,7 +43,7 @@ type FitMode = "width" | "page" | null;
 const toolbarButtonCls =
   "inline-flex items-center justify-center gap-1.5 px-2 py-2 text-muted-foreground hover:text-accent transition-colors disabled:opacity-35 disabled:hover:text-muted-foreground";
 const toolbarLabelCls =
-  "font-mono text-[0.52rem] tracking-[0.18em] uppercase px-2 py-2 transition-colors disabled:opacity-35";
+  "font-mono text-[0.6rem] tracking-[0.18em] uppercase px-2 py-2 transition-colors disabled:opacity-35";
 
 export default function PdfViewer({ url, downloadUrl, title, onClose }: PdfViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -208,7 +208,7 @@ export default function PdfViewer({ url, downloadUrl, title, onClose }: PdfViewe
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="px-1 font-mono text-[0.55rem] tracking-[0.14em] uppercase text-muted-foreground whitespace-nowrap">
+          <span className="px-1 font-mono text-[0.63rem] tracking-[0.14em] uppercase text-muted-foreground whitespace-nowrap">
             Page {numPages > 0 ? pageNum : "–"} of {numPages > 0 ? numPages : "–"}
           </span>
           <button
@@ -234,7 +234,7 @@ export default function PdfViewer({ url, downloadUrl, title, onClose }: PdfViewe
           >
             <ZoomOut size={15} />
           </button>
-          <span className="w-11 text-center font-mono text-[0.55rem] tracking-wider text-muted-foreground">
+          <span className="w-11 text-center font-mono text-[0.63rem] tracking-wider text-muted-foreground">
             {Math.round(displayScale * 100)}%
           </span>
           <button
@@ -305,7 +305,7 @@ export default function PdfViewer({ url, downloadUrl, title, onClose }: PdfViewe
       <div ref={scrollRef} className="flex-1 overflow-auto overscroll-contain">
         {status === "loading" && (
           <div className="flex h-full items-center justify-center px-6 py-16">
-            <p className="animate-pulse font-mono text-[0.6rem] tracking-[0.22em] uppercase text-muted-foreground">
+            <p className="animate-pulse font-mono text-[0.68rem] tracking-[0.22em] uppercase text-muted-foreground">
               Loading document…
             </p>
           </div>
@@ -327,14 +327,14 @@ export default function PdfViewer({ url, downloadUrl, title, onClose }: PdfViewe
                   href={url}
                   target="_blank"
                   rel="noreferrer"
-                  className="inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent"
+                  className="inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent"
                 >
                   Open the original PDF
                 </a>
                 <a
                   href={downloadUrl ?? url}
                   download
-                  className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
+                  className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
                 >
                   <Download size={12} /> Download
                 </a>

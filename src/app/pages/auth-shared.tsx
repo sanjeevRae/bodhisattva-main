@@ -12,10 +12,10 @@ export const authInputCls =
   "w-full bg-background border border-border px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent placeholder:text-muted-foreground transition-colors";
 
 export const authLabelCls =
-  "block font-mono text-[0.55rem] tracking-[0.2em] uppercase text-muted-foreground mb-2";
+  "block font-mono text-[0.63rem] tracking-[0.2em] uppercase text-muted-foreground mb-2";
 
 export const authButtonCls =
-  "w-full bg-accent text-accent-foreground py-3.5 text-[0.62rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed";
+  "w-full bg-accent text-accent-foreground py-3.5 text-[0.7rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed";
 
 export function AuthShell({
   eyebrow,
@@ -31,7 +31,7 @@ export function AuthShell({
   return (
     <div className="pt-16">
       <div className="mx-auto max-w-md px-6 py-20">
-        <p className="mb-3 text-center font-mono text-[0.55rem] uppercase tracking-[0.28em] text-muted-foreground">
+        <p className="mb-3 text-center font-mono text-[0.63rem] uppercase tracking-[0.28em] text-muted-foreground">
           {eyebrow}
         </p>
         <h1 className="mb-4 text-center font-display text-4xl font-medium">{heading}</h1>

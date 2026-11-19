@@ -31,7 +31,7 @@ export default function AccountLayout({
   }
 
   const tabCls = ({ isActive }: { isActive: boolean }) =>
-    `font-mono text-[0.55rem] tracking-[0.2em] uppercase px-5 py-3.5 border-b-2 transition-colors ${
+    `font-mono text-[0.63rem] tracking-[0.2em] uppercase px-5 py-3.5 border-b-2 transition-colors ${
       isActive
         ? "border-accent text-accent"
         : "border-transparent text-muted-foreground hover:text-foreground"
@@ -41,7 +41,7 @@ export default function AccountLayout({
     <div className="pt-16">
       <div className="border-b border-border bg-secondary">
         <div className="mx-auto max-w-screen-xl px-6 py-14 lg:px-10">
-          <p className="mb-3 font-mono text-[0.52rem] uppercase tracking-[0.28em] text-muted-foreground">
+          <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-muted-foreground">
             My Account
           </p>
           <h1 className="font-display text-4xl font-medium md:text-5xl">{title}</h1>
@@ -65,7 +65,7 @@ export default function AccountLayout({
             onClick={() => {
               void logout().then(() => navigate("/"));
             }}
-            className="font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+            className="font-mono text-[0.63rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
           >
             Sign Out
           </button>
@@ -75,7 +75,7 @@ export default function AccountLayout({
       <div className="mx-auto max-w-screen-xl px-6 pb-16 lg:px-10">
         <Link
           to="/shop"
-          className="font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-accent"
+          className="font-mono text-[0.63rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-accent"
         >
           ← Continue to the Gift Shop
         </Link>

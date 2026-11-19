@@ -123,7 +123,7 @@ export function PageStatus({ error = false }: { error?: boolean }) {
   return (
     <div className="pt-16">
       <div className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10 text-center">
-        <p className="font-mono text-[0.6rem] tracking-[0.22em] uppercase text-muted-foreground">
+        <p className="font-mono text-[0.68rem] tracking-[0.22em] uppercase text-muted-foreground">
           {error ? "Content unavailable — please try again later." : "Loading…"}
         </p>
       </div>
@@ -163,19 +163,19 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
         </div>
         <div className="relative z-10 max-w-screen-xl mx-auto px-6 lg:px-10 pb-20 w-full">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}>
-            <p className="font-mono text-[0.56rem] tracking-[0.32em] uppercase text-white/65 mb-5 [text-shadow:0_1px_8px_rgba(0,0,0,0.65)]">{config.eyebrow}</p>
+            <p className="font-mono text-[0.64rem] tracking-[0.32em] uppercase text-white/65 mb-5 [text-shadow:0_1px_8px_rgba(0,0,0,0.65)]">{config.eyebrow}</p>
             <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-medium text-white leading-[0.92] mb-7 max-w-4xl">
               {config.headingLine1}<br /><em className="font-sans italic font-light text-amber-200/90">{config.headingAccent}</em>
             </h1>
             <p className="font-sans text-base text-white/75 max-w-md leading-relaxed mb-10 font-light">{config.subtext}</p>
             <div className="flex flex-wrap gap-4">
               {config.primaryCta && (
-                <CmsLink link={config.primaryCta} className="inline-flex items-center gap-2 bg-amber-800/85 hover:bg-amber-800 text-amber-50 px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans transition-colors">
+                <CmsLink link={config.primaryCta} className="inline-flex items-center gap-2 bg-amber-800/85 hover:bg-amber-800 text-amber-50 px-7 py-3.5 text-[0.7rem] tracking-[0.18em] uppercase font-sans transition-colors">
                   {config.primaryCta.label} <ArrowRight size={13} />
                 </CmsLink>
               )}
               {config.secondaryCta && (
-                <CmsLink link={config.secondaryCta} className="inline-flex items-center gap-2 border border-white/28 text-white/75 px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans hover:border-white hover:text-white transition-all">
+                <CmsLink link={config.secondaryCta} className="inline-flex items-center gap-2 border border-white/28 text-white/75 px-7 py-3.5 text-[0.7rem] tracking-[0.18em] uppercase font-sans hover:border-white hover:text-white transition-all">
                   {config.secondaryCta.label}
                 </CmsLink>
               )}
@@ -185,7 +185,7 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
         {config.scrollHint && (
           <div className="absolute bottom-8 right-8 z-10 flex flex-col items-center gap-3">
             <div className="w-px h-14 bg-gradient-to-b from-transparent to-white/18" />
-            <span className="font-mono text-[0.46rem] tracking-[0.22em] uppercase text-white/28 [writing-mode:vertical-rl]">{config.scrollHint}</span>
+            <span className="font-mono text-[0.54rem] tracking-[0.22em] uppercase text-white/28 [writing-mode:vertical-rl]">{config.scrollHint}</span>
           </div>
         )}
       </section>
@@ -200,7 +200,7 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0F0D0A]/85 via-[#0F0D0A]/30 to-transparent" />
         <div className="relative z-10 max-w-screen-xl mx-auto px-6 lg:px-10 pb-16 w-full">
-          <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-white mb-3 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">{config.eyebrow}</p>
+          <p className="font-mono text-[0.6rem] tracking-[0.28em] uppercase text-white mb-3 [text-shadow:0_1px_8px_rgba(0,0,0,0.7)]">{config.eyebrow}</p>
           <h1 className="font-display text-5xl md:text-6xl font-medium text-white [text-shadow:0_1px_14px_rgba(0,0,0,0.45)]">{config.heading}</h1>
         </div>
       </section>
@@ -215,7 +215,7 @@ export function TitleBand({ eyebrow, heading }: { eyebrow?: string; heading?: st
   return (
     <div className="bg-secondary py-20 border-b border-border">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
-        <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{eyebrow}</p>
+        <p className="font-mono text-[0.6rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{eyebrow}</p>
         <h1 className="font-display text-5xl md:text-6xl font-medium">{heading}</h1>
       </div>
     </div>
@@ -261,13 +261,13 @@ function ImageTextSection({ section }: { section: CmsSection }) {
                 {config.stats.map((s: { value: string; label: string }) => (
                   <div key={s.label}>
                     <div className="font-display text-3xl font-medium text-accent">{s.value}</div>
-                    <div className="font-mono text-[0.5rem] tracking-wider uppercase text-muted-foreground mt-1 leading-relaxed">{s.label}</div>
+                    <div className="font-mono text-[0.58rem] tracking-wider uppercase text-muted-foreground mt-1 leading-relaxed">{s.label}</div>
                   </div>
                 ))}
               </div>
             )}
             {config.cta && (
-              <CmsLink link={config.cta} className="inline-flex items-center gap-2 bg-accent text-accent-foreground px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans hover:opacity-90 transition-opacity">
+              <CmsLink link={config.cta} className="inline-flex items-center gap-2 bg-accent text-accent-foreground px-7 py-3.5 text-[0.7rem] tracking-[0.18em] uppercase font-sans hover:opacity-90 transition-opacity">
                 {config.cta.label} <ArrowRight size={13} />
               </CmsLink>
             )}
@@ -301,7 +301,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
             )}
             <div className="bg-foreground text-primary-foreground p-8">
               <p className="font-sans text-base italic font-light leading-relaxed mb-4">&ldquo;{config.quote.text}&rdquo;</p>
-              <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{config.quote.attribution}</span>
+              <span className="font-mono text-[0.58rem] tracking-widest uppercase text-accent">{config.quote.attribution}</span>
             </div>
           </div>
         </div>
@@ -323,7 +323,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
               <p key={i} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : "mb-10"}`}>{p}</p>
             ))}
             {config.cta && (
-              <CmsLink link={config.cta} className="inline-flex items-center gap-2 text-[0.62rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 hover:text-accent hover:border-accent transition-colors">
+              <CmsLink link={config.cta} className="inline-flex items-center gap-2 text-[0.7rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 hover:text-accent hover:border-accent transition-colors">
                 {config.cta.label} <ArrowRight size={12} />
               </CmsLink>
             )}
@@ -336,7 +336,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
             )}
             <div className="absolute -bottom-6 -left-6 bg-accent text-accent-foreground px-8 py-6">
               <div className="font-display text-4xl font-medium">{config.calloutBadge.value}</div>
-              <div className="font-mono text-[0.5rem] tracking-[0.2em] uppercase opacity-80 mt-1">{config.calloutBadge.label}</div>
+              <div className="font-mono text-[0.58rem] tracking-[0.2em] uppercase opacity-80 mt-1">{config.calloutBadge.label}</div>
             </div>
           </motion.div>
         </div>
@@ -385,7 +385,7 @@ function RichTextSection({ section }: { section: CmsSection }) {
           <div className="grid md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-border">
             {columns.map((col, i) => (
               <div key={col.label} className={i === 0 ? "py-14 md:pr-14" : "py-14 md:pl-14"}>
-                <span className="font-mono text-[0.52rem] tracking-[0.22em] uppercase text-accent block mb-6">{col.label}</span>
+                <span className="font-mono text-[0.6rem] tracking-[0.22em] uppercase text-accent block mb-6">{col.label}</span>
                 {col.emphasis === "display" ? (
                   <p className="font-display text-2xl md:text-3xl font-medium leading-[1.25]" dangerouslySetInnerHTML={{ __html: col.body }} />
                 ) : (
@@ -420,7 +420,7 @@ function RichTextSection({ section }: { section: CmsSection }) {
         <div className="lg:col-span-2 space-y-5">
           {facts.map((fact) => (
             <div key={fact.label} className="flex items-end justify-between border-b border-border pb-4">
-              <span className="font-mono text-[0.56rem] tracking-widest uppercase text-muted-foreground">{fact.label}</span>
+              <span className="font-mono text-[0.64rem] tracking-widest uppercase text-muted-foreground">{fact.label}</span>
               <span className="font-display text-xl font-medium">{fact.value}</span>
             </div>
           ))}
@@ -443,7 +443,7 @@ function StatisticsSection({ section }: { section: CmsSection }) {
           {items.map((s) => (
             <motion.div key={s.label} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center md:px-8">
               <div className="font-display text-4xl md:text-5xl font-medium text-accent mb-2">{s.value}</div>
-              <div className="font-mono text-[0.52rem] tracking-widest uppercase text-muted-foreground">{s.label}</div>
+              <div className="font-mono text-[0.6rem] tracking-widest uppercase text-muted-foreground">{s.label}</div>
             </motion.div>
           ))}
         </div>
@@ -483,7 +483,7 @@ function TestimonialsSection({ section, moduleData }: { section: CmsSection; mod
                 </div>
                 <div>
                   <div className="font-sans text-xs font-medium">{s.authorName}</div>
-                  <div className="font-mono text-[0.46rem] tracking-wider text-muted-foreground uppercase">{s.authorRole}</div>
+                  <div className="font-mono text-[0.54rem] tracking-wider text-muted-foreground uppercase">{s.authorRole}</div>
                 </div>
               </div>
             </div>
@@ -508,7 +508,7 @@ function TestimonialsSection({ section, moduleData }: { section: CmsSection; mod
             </blockquote>
             <div className="flex items-center justify-center gap-4">
               <div className="w-10 h-px bg-accent" />
-              <span className="font-mono text-[0.52rem] tracking-[0.25em] uppercase text-primary-foreground/38">{t.authorName} · {t.authorRole}</span>
+              <span className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-primary-foreground/38">{t.authorName} · {t.authorRole}</span>
               <div className="w-10 h-px bg-accent" />
             </div>
           </>
@@ -564,7 +564,7 @@ function DirectorySection({ section }: { section: CmsSection }) {
         <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-border">
           {groups.map((fl) => (
             <div key={fl.title} className="p-7">
-              <div className="font-mono text-[0.52rem] tracking-widest uppercase text-accent mb-4">{fl.title}</div>
+              <div className="font-mono text-[0.6rem] tracking-widest uppercase text-accent mb-4">{fl.title}</div>
               {fl.items.map((room) => (
                 <div key={room} className="flex items-center gap-2.5 py-2 border-b border-border/40 last:border-0">
                   <div className="w-1.5 h-1.5 rounded-full bg-accent/50 shrink-0" />
@@ -595,7 +595,7 @@ function CtaSection({ section }: { section: CmsSection }) {
           <p className="font-sans text-sm text-primary-foreground/48 max-w-lg font-light leading-relaxed">{config.text}</p>
         </div>
         {config.cta && (
-          <CmsLink link={config.cta} className="shrink-0 flex items-center gap-3 bg-accent text-accent-foreground px-8 py-4 text-[0.6rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity">
+          <CmsLink link={config.cta} className="shrink-0 flex items-center gap-3 bg-accent text-accent-foreground px-8 py-4 text-[0.68rem] tracking-[0.2em] uppercase font-sans hover:opacity-90 transition-opacity">
             <Play size={15} /> {config.cta.label}
           </CmsLink>
         )}
@@ -614,7 +614,7 @@ function PartnerListSection({ section }: { section: CmsSection }) {
   return (
     <section className="bg-secondary py-14 border-t border-border">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10 text-center">
-        <p className="font-mono text-[0.52rem] tracking-[0.25em] uppercase text-muted-foreground mb-8">{config.heading}</p>
+        <p className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-muted-foreground mb-8">{config.heading}</p>
         <div className="flex flex-wrap justify-center gap-x-10 gap-y-3 items-center">
           {items.map((p) => (
             <span key={p.name} className="font-display text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-default">{p.name}</span>
@@ -650,7 +650,7 @@ function TeamMembersSection({ section }: { section: CmsSection }) {
                 </div>
               )}
             </div>
-            <span className="font-mono text-[0.48rem] tracking-widest uppercase text-accent block mb-1">{member.department}</span>
+            <span className="font-mono text-[0.56rem] tracking-widest uppercase text-accent block mb-1">{member.department}</span>
             <h3 className="font-display text-sm font-medium mb-1">{member.name}</h3>
             <p className="font-sans text-xs text-muted-foreground font-light">{member.role}</p>
           </motion.div>
@@ -686,7 +686,7 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
           <div><SectionLabel>{config.sectionLabel}</SectionLabel><h2 className="font-display text-3xl md:text-4xl font-medium">{config.heading}</h2></div>
           <div className="flex gap-1 flex-wrap">
             {filters.map((f) => (
-              <button key={f} onClick={() => setActiveFilter(f)} className={`font-mono text-[0.52rem] tracking-widest uppercase px-3.5 py-2 border transition-colors ${activeFilter === f ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"}`}>{f}</button>
+              <button key={f} onClick={() => setActiveFilter(f)} className={`font-mono text-[0.6rem] tracking-widest uppercase px-3.5 py-2 border transition-colors ${activeFilter === f ? "border-accent bg-accent text-accent-foreground" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"}`}>{f}</button>
             ))}
           </div>
         </div>
@@ -698,7 +698,7 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
               </div>
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-base font-medium group-hover:text-accent transition-colors">{col.name}</h3>
-                {col.worksCountLabel && <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{col.worksCountLabel}</span>}
+                {col.worksCountLabel && <span className="font-mono text-[0.58rem] tracking-wider text-muted-foreground">{col.worksCountLabel}</span>}
               </div>
             </motion.div>
           ))}
@@ -716,7 +716,7 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
         <div className="flex items-end justify-between mb-12">
           <div><SectionLabel>{config.sectionLabel}</SectionLabel><h2 className="font-display text-3xl md:text-4xl font-medium">{config.heading}</h2></div>
           {config.viewAllLink && (
-            <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
+            <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.68rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
               {config.viewAllLink.label} <ArrowRight size={12} />
             </CmsLink>
           )}
@@ -730,9 +730,9 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
               <div className="flex items-start justify-between">
                 <div>
                   <h3 className="font-display text-lg font-medium mb-1 group-hover:text-accent transition-colors">{col.name}</h3>
-                  {col.periodLabel && <p className="font-mono text-[0.52rem] tracking-widest uppercase text-muted-foreground">{col.periodLabel}</p>}
+                  {col.periodLabel && <p className="font-mono text-[0.6rem] tracking-widest uppercase text-muted-foreground">{col.periodLabel}</p>}
                 </div>
-                {col.worksCountLabel && <span className="font-mono text-[0.52rem] tracking-wider text-accent mt-1">{col.worksCountLabel}</span>}
+                {col.worksCountLabel && <span className="font-mono text-[0.6rem] tracking-wider text-accent mt-1">{col.worksCountLabel}</span>}
               </div>
             </motion.div>
           ))}
@@ -768,10 +768,10 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
           <div className="max-w-screen-xl mx-auto px-6 lg:px-10 py-3.5 flex flex-wrap gap-x-10 gap-y-2.5">
             {config.enableYearFilter && (
               <div className="flex items-center gap-3">
-                <span className="font-mono text-[0.48rem] tracking-widest uppercase text-muted-foreground">Year</span>
+                <span className="font-mono text-[0.56rem] tracking-widest uppercase text-muted-foreground">Year</span>
                 <div className="flex gap-1">
                   {years.map((y) => (
-                    <button key={y} onClick={() => setYear(y)} className={`font-mono text-[0.52rem] tracking-widest uppercase px-3 py-1.5 border transition-colors ${year === y ? "border-accent bg-accent text-accent-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                    <button key={y} onClick={() => setYear(y)} className={`font-mono text-[0.6rem] tracking-widest uppercase px-3 py-1.5 border transition-colors ${year === y ? "border-accent bg-accent text-accent-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                       {y === "all" ? "All" : y}
                     </button>
                   ))}
@@ -780,10 +780,10 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
             )}
             {config.enableCategoryFilter && (
               <div className="flex items-center gap-3">
-                <span className="font-mono text-[0.48rem] tracking-widest uppercase text-muted-foreground">Category</span>
+                <span className="font-mono text-[0.56rem] tracking-widest uppercase text-muted-foreground">Category</span>
                 <div className="flex gap-1">
                   {cats.map((c) => (
-                    <button key={c} onClick={() => setCat(c)} className={`font-mono text-[0.52rem] tracking-widest uppercase px-3 py-1.5 border transition-colors ${cat === c ? "border-accent bg-accent text-accent-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                    <button key={c} onClick={() => setCat(c)} className={`font-mono text-[0.6rem] tracking-widest uppercase px-3 py-1.5 border transition-colors ${cat === c ? "border-accent bg-accent text-accent-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
                       {c === "all" ? "All" : c}
                     </button>
                   ))}
@@ -805,12 +805,12 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
                   </div>
                   <div className="pt-4 pb-6 border-b border-border">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{ex.category}</span>
-                      <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{ex.dateLabel}</span>
+                      <span className="font-mono text-[0.58rem] tracking-widest uppercase text-accent">{ex.category}</span>
+                      <span className="font-mono text-[0.58rem] tracking-wider text-muted-foreground">{ex.dateLabel}</span>
                     </div>
                     <h3 className="font-display text-lg font-medium mb-1.5 group-hover:text-accent transition-colors">{ex.title}</h3>
                     <p className="font-sans text-xs text-muted-foreground leading-relaxed mb-2 font-light">{ex.description}</p>
-                    {ex.curator && <p className="font-mono text-[0.48rem] tracking-widest uppercase text-muted-foreground/55">Curator: {ex.curator}</p>}
+                    {ex.curator && <p className="font-mono text-[0.56rem] tracking-widest uppercase text-muted-foreground/55">Curator: {ex.curator}</p>}
                   </div>
                 </motion.div>
               ))}
@@ -846,7 +846,7 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
           <div className="absolute inset-0 bg-gradient-to-t from-[#1C1A16]/70 via-transparent to-transparent" />
           {list.length > 0 && (
             <div className="absolute bottom-8 left-8 right-8">
-              <span className="font-mono text-[0.52rem] tracking-widest uppercase text-white/48 block mb-2">{exhibitionLocLine(featured)}</span>
+              <span className="font-mono text-[0.6rem] tracking-widest uppercase text-white/48 block mb-2">{exhibitionLocLine(featured)}</span>
               <h3 className="font-display text-2xl md:text-3xl text-white font-medium">{featured.title}</h3>
             </div>
           )}
@@ -855,17 +855,17 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
           // A single current exhibition gets a full editorial panel —
           // image and text as one composition, never an empty side rail.
           <div className="lg:col-span-2 flex flex-col justify-center p-8 lg:p-10 border-t lg:border-t-0 lg:border-l border-border">
-            <span className="font-mono text-[0.52rem] tracking-widest uppercase text-accent block mb-3">{exhibitionLocLine(featured)}</span>
+            <span className="font-mono text-[0.6rem] tracking-widest uppercase text-accent block mb-3">{exhibitionLocLine(featured)}</span>
             <h3 className="font-display text-2xl md:text-3xl font-medium leading-snug mb-3">{featured.title}</h3>
             {featured.dateLabel && (
-              <span className="font-mono text-[0.55rem] tracking-wider uppercase text-muted-foreground block mb-5">{featured.dateLabel}</span>
+              <span className="font-mono text-[0.63rem] tracking-wider uppercase text-muted-foreground block mb-5">{featured.dateLabel}</span>
             )}
             {featured.description &&
               featured.description.split(/\n\n+/).map((para, i, arr) => (
                 <p key={i} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < arr.length - 1 ? "mb-4" : "mb-8"}`}>{para}</p>
               ))}
             {config.viewAllLink && (
-              <CmsLink link={config.viewAllLink} className="inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 self-start hover:text-accent hover:border-accent transition-colors">
+              <CmsLink link={config.viewAllLink} className="inline-flex items-center gap-2 text-[0.68rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 self-start hover:text-accent hover:border-accent transition-colors">
                 {config.viewAllLink.label} <ArrowRight size={12} />
               </CmsLink>
             )}
@@ -874,14 +874,14 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
         <div className="lg:col-span-2 flex flex-col divide-y divide-border border-l border-border">
           {list.map((ex) => (
             <div key={ex.id} className="p-7 group cursor-pointer hover:bg-secondary/60 transition-colors" onClick={() => goToPage(config.viewAllLink?.pageId)}>
-              <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-2">{exhibitionLocLine(ex)}</span>
+              <span className="font-mono text-[0.58rem] tracking-widest uppercase text-accent block mb-2">{exhibitionLocLine(ex)}</span>
               <h3 className="font-display text-base font-medium mb-2 group-hover:text-accent transition-colors">{ex.title}</h3>
               <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{ex.description}</p>
             </div>
           ))}
           <div className="p-7">
             {config.viewAllLink && (
-              <CmsLink link={config.viewAllLink} className="inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 hover:text-accent hover:border-accent transition-colors">
+              <CmsLink link={config.viewAllLink} className="inline-flex items-center gap-2 text-[0.68rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 hover:text-accent hover:border-accent transition-colors">
                 {config.viewAllLink.label} <ArrowRight size={12} />
               </CmsLink>
             )}
@@ -914,8 +914,8 @@ export function NewsRows({ articles, query }: { articles: NewsArticleRecord[]; q
         {articles.map((article) => (
           <article key={article.id} className="grid md:grid-cols-6 gap-6 py-10 group cursor-pointer hover:bg-secondary/40 -mx-6 lg:-mx-10 px-6 lg:px-10 transition-colors">
             <div className="md:col-span-1">
-              <span className={`font-mono text-[0.5rem] tracking-widest uppercase block mb-1 ${article.colorToken ?? "text-accent"}`}>{article.categoryName}</span>
-              <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground block mb-2">{formatNewsDate(article.publishedDate)}</span>
+              <span className={`font-mono text-[0.58rem] tracking-widest uppercase block mb-1 ${article.colorToken ?? "text-accent"}`}>{article.categoryName}</span>
+              <span className="font-mono text-[0.58rem] tracking-wider text-muted-foreground block mb-2">{formatNewsDate(article.publishedDate)}</span>
               <span className="font-sans text-xs font-medium text-foreground block">{article.sourceName}</span>
             </div>
             <div className="md:col-span-5">
@@ -923,7 +923,7 @@ export function NewsRows({ articles, query }: { articles: NewsArticleRecord[]; q
               <p className="font-sans text-xs text-muted-foreground leading-relaxed mb-4 font-light max-w-2xl">{article.summary}</p>
               <div className="flex items-center gap-6">
                 <button
-                  className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
+                  className="flex items-center gap-2 font-mono text-[0.58rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
                   onClick={() => {
                     if (article.documentUrl) window.open(article.documentUrl, "_blank", "noopener");
                   }}
@@ -931,7 +931,7 @@ export function NewsRows({ articles, query }: { articles: NewsArticleRecord[]; q
                   <Download size={11} /> Download PDF
                 </button>
                 <button
-                  className="flex items-center gap-2 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
+                  className="flex items-center gap-2 font-mono text-[0.58rem] tracking-widest uppercase text-muted-foreground hover:text-accent transition-colors"
                   onClick={() => {
                     if (article.externalUrl) window.open(article.externalUrl, "_blank", "noopener");
                   }}
@@ -964,7 +964,7 @@ function NewsListingSection({ section, moduleData }: { section: CmsSection; modu
         <div className="flex items-end justify-between mb-12">
           <div><SectionLabel>{config.sectionLabel}</SectionLabel><h2 className="font-display text-3xl md:text-4xl font-medium">{config.heading}</h2></div>
           {config.viewAllLink && (
-            <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
+            <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.68rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
               {config.viewAllLink.label} <ArrowRight size={12} />
             </CmsLink>
           )}
@@ -978,8 +978,8 @@ function NewsListingSection({ section, moduleData }: { section: CmsSection; modu
                 </div>
               )}
               <div className="flex items-center justify-between mb-3">
-                <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent">{item.categoryName}</span>
-                <span className="font-mono text-[0.5rem] tracking-wider text-muted-foreground">{formatNewsDate(item.publishedDate)}</span>
+                <span className="font-mono text-[0.58rem] tracking-widest uppercase text-accent">{item.categoryName}</span>
+                <span className="font-mono text-[0.58rem] tracking-wider text-muted-foreground">{formatNewsDate(item.publishedDate)}</span>
               </div>
               <h3 className="font-display text-lg font-medium leading-snug mb-2 group-hover:text-accent transition-colors">{item.title}</h3>
               <p className="font-sans text-xs text-muted-foreground">{item.sourceName}</p>
@@ -1015,7 +1015,7 @@ function FoundationProgramsSection({ section, moduleData }: { section: CmsSectio
                 <div className="flex items-start gap-4 mb-6">
                   <div className="p-3 bg-accent/10 shrink-0"><Icon size={18} className="text-accent" /></div>
                   <div>
-                    <span className="font-mono text-[0.5rem] tracking-widest uppercase text-accent block mb-1">{p.categoryLabel}</span>
+                    <span className="font-mono text-[0.58rem] tracking-widest uppercase text-accent block mb-1">{p.categoryLabel}</span>
                     <h3 className="font-display text-xl font-medium">{p.name}</h3>
                   </div>
                 </div>
@@ -1023,7 +1023,7 @@ function FoundationProgramsSection({ section, moduleData }: { section: CmsSectio
                 {p.impactMetric && (
                   <div className="flex items-center gap-2">
                     <Star size={11} className="text-accent fill-accent" />
-                    <span className="font-mono text-[0.52rem] tracking-wider text-accent uppercase">{p.impactMetric}</span>
+                    <span className="font-mono text-[0.6rem] tracking-wider text-accent uppercase">{p.impactMetric}</span>
                   </div>
                 )}
               </div>
@@ -1069,7 +1069,7 @@ function ContactInformationColumn({ section }: { section: CmsSection }) {
             <div key={field} className="flex items-start gap-4">
               <Icon size={15} className="text-accent mt-0.5 shrink-0" />
               <div>
-                <span className="font-mono text-[0.48rem] tracking-widest uppercase text-primary-foreground/33 block mb-0.5">{meta.label}</span>
+                <span className="font-mono text-[0.56rem] tracking-widest uppercase text-primary-foreground/33 block mb-0.5">{meta.label}</span>
                 <span className="font-sans text-sm text-primary-foreground/65 font-light whitespace-pre-line">{value}</span>
               </div>
             </div>
@@ -1114,7 +1114,7 @@ function ContactFormColumn({ section }: { section: CmsSection }) {
   const inputClass =
     "w-full bg-primary-foreground/8 border border-primary-foreground/15 px-4 py-3.5 text-sm font-sans focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/40 text-primary-foreground placeholder:text-primary-foreground/25 disabled:opacity-60";
   const labelClass =
-    "font-mono text-[0.48rem] tracking-widest uppercase text-primary-foreground/55 block mb-1.5";
+    "font-mono text-[0.56rem] tracking-widest uppercase text-primary-foreground/55 block mb-1.5";
   const errorClass = "text-[#f0a198] text-xs font-sans mt-1.5";
 
   const setField = (name: keyof typeof values) => (e: { target: { value: string } }) => {
@@ -1355,7 +1355,7 @@ function ContactFormColumn({ section }: { section: CmsSection }) {
           <button
             type="submit"
             disabled={busy}
-            className="w-full bg-accent text-accent-foreground py-4 text-[0.58rem] tracking-[0.22em] uppercase font-sans hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            className="w-full bg-accent text-accent-foreground py-4 text-[0.66rem] tracking-[0.22em] uppercase font-sans hover:opacity-90 transition-opacity disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
             {busy ? (
               <>
@@ -1478,7 +1478,7 @@ function FeaturedProductsSection({ section, moduleData }: { section: CmsSection;
           )}
         </div>
         {config.viewAllLink && (
-          <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.6rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
+          <CmsLink link={config.viewAllLink} className="hidden md:inline-flex items-center gap-2 text-[0.68rem] tracking-[0.18em] uppercase font-sans text-muted-foreground hover:text-accent transition-colors">
             {config.viewAllLink.label} <ArrowRight size={12} />
           </CmsLink>
         )}
@@ -1491,13 +1491,13 @@ function FeaturedProductsSection({ section, moduleData }: { section: CmsSection;
                 <img src={product.image.url} alt={product.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
               )}
               {!product.inStock && (
-                <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.5rem] tracking-[0.18em] uppercase text-foreground">
+                <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.58rem] tracking-[0.18em] uppercase text-foreground">
                   Out of Stock
                 </span>
               )}
             </div>
             <h3 className="font-display text-sm font-medium leading-snug mb-1">{product.name}</h3>
-            <p className="font-mono text-[0.5rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
+            <p className="font-mono text-[0.58rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
             <span className="font-display text-base font-medium text-accent">{formatRs(product.effectivePricePaisa)}</span>
             {product.salePricePaisa != null && (
               <span className="ml-2 font-display text-sm text-muted-foreground line-through">{formatRs(product.pricePaisa)}</span>
@@ -1543,7 +1543,7 @@ function NewsletterSignupSection({ section }: { section: CmsSection }) {
           />
           <button
             type="submit"
-            className="bg-accent text-accent-foreground px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans hover:opacity-90 transition-opacity"
+            className="bg-accent text-accent-foreground px-7 py-3.5 text-[0.7rem] tracking-[0.18em] uppercase font-sans hover:opacity-90 transition-opacity"
           >
             {config.buttonLabel}
           </button>

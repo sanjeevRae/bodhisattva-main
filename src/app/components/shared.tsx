@@ -30,7 +30,7 @@ export function SectionLabel({ children, light = false }: { children: React.Reac
   return (
     <div className="flex items-center gap-3 mb-4">
       <span className={`block w-8 h-px ${light ? "bg-amber-400" : "bg-accent"}`} />
-      <span className={`font-mono text-[0.6rem] tracking-[0.22em] uppercase ${light ? "text-amber-400" : "text-accent"}`}>
+      <span className={`font-mono text-[0.68rem] tracking-[0.22em] uppercase ${light ? "text-amber-400" : "text-accent"}`}>
         {children}
       </span>
     </div>

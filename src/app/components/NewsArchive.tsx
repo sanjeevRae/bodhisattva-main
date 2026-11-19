@@ -94,16 +94,16 @@ export function NewsListRow({
         <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1">
           {article.categoryName && (
             <span
-              className={`font-mono text-[0.52rem] tracking-widest uppercase ${article.colorToken ?? "text-accent"}`}
+              className={`font-mono text-[0.6rem] tracking-widest uppercase ${article.colorToken ?? "text-accent"}`}
             >
               {article.categoryName}
             </span>
           )}
-          <span className="font-mono text-[0.52rem] tracking-wider text-muted-foreground">
+          <span className="font-mono text-[0.6rem] tracking-wider text-muted-foreground">
             {formatNewsDate(article.publishedDate)}
           </span>
           {article.isFeatured && (
-            <span className="inline-flex items-center gap-1 font-mono text-[0.52rem] tracking-widest uppercase text-accent">
+            <span className="inline-flex items-center gap-1 font-mono text-[0.6rem] tracking-widest uppercase text-accent">
               <Star size={10} /> Featured
             </span>
           )}
@@ -132,7 +132,7 @@ export function NewsListRow({
             {article.tags.map((tag) => (
               <span
                 key={tag.id}
-                className="border border-border px-2 py-1 font-mono text-[0.5rem] tracking-widest uppercase text-muted-foreground"
+                className="border border-border px-2 py-1 font-mono text-[0.58rem] tracking-widest uppercase text-muted-foreground"
               >
                 {tag.name}
               </span>
@@ -142,14 +142,14 @@ export function NewsListRow({
         <div className="mt-5 flex flex-wrap items-center gap-6">
           <Link
             to={`/news/${article.slug}`}
-            className="flex items-center gap-2 font-mono text-[0.55rem] tracking-widest uppercase text-foreground transition-colors hover:text-accent"
+            className="flex items-center gap-2 font-mono text-[0.63rem] tracking-widest uppercase text-foreground transition-colors hover:text-accent"
           >
             Read Article <ArrowRight size={11} />
           </Link>
           {article.hasPdf && (
             <Link
               to={`/news/${article.slug}`}
-              className="flex items-center gap-2 font-mono text-[0.55rem] tracking-widest uppercase text-muted-foreground transition-colors hover:text-accent"
+              className="flex items-center gap-2 font-mono text-[0.63rem] tracking-widest uppercase text-muted-foreground transition-colors hover:text-accent"
             >
               <FileText size={11} /> View PDF
             </Link>
@@ -177,7 +177,7 @@ function FilterSelect({
 }) {
   return (
     <label className="flex min-w-[9.5rem] flex-1 flex-col gap-1.5 sm:flex-none">
-      <span className="font-mono text-[0.5rem] tracking-[0.2em] uppercase text-muted-foreground">
+      <span className="font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground">
         {label}
       </span>
       <select
@@ -205,7 +205,7 @@ function ToggleChip({
       type="button"
       aria-pressed={active}
       onClick={onClick}
-      className={`border px-3.5 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase transition-colors ${
+      className={`border px-3.5 py-2.5 font-mono text-[0.6rem] tracking-[0.16em] uppercase transition-colors ${
         active
           ? "border-foreground bg-foreground text-background"
           : "border-border text-muted-foreground hover:border-accent hover:text-accent"
@@ -457,12 +457,12 @@ export default function NewsArchive({
             </Link>
             <div className="flex flex-col justify-center p-8 md:p-12">
               <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="inline-flex items-center gap-1.5 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-accent">
+                <span className="inline-flex items-center gap-1.5 font-mono text-[0.63rem] tracking-[0.2em] uppercase text-accent">
                   <Star size={11} /> Featured clipping
                 </span>
                 {featured.categoryName && (
                   <span
-                    className={`font-mono text-[0.52rem] tracking-widest uppercase ${featured.colorToken ?? "text-accent"}`}
+                    className={`font-mono text-[0.6rem] tracking-widest uppercase ${featured.colorToken ?? "text-accent"}`}
                   >
                     {featured.categoryName}
                   </span>
@@ -490,14 +490,14 @@ export default function NewsArchive({
               <div className="mt-7 flex flex-wrap items-center gap-3">
                 <Link
                   to={`/news/${featured.slug}`}
-                  className="inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent"
+                  className="inline-flex items-center gap-2 bg-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent"
                 >
                   Read Article <ArrowRight size={12} />
                 </Link>
                 {featured.hasPdf && (
                   <Link
                     to={`/news/${featured.slug}`}
-                    className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
+                    className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
                   >
                     <FileText size={12} /> View PDF
                   </Link>
@@ -576,7 +576,7 @@ export default function NewsArchive({
         </div>
         <div className="mt-4 flex flex-wrap items-end gap-x-5 gap-y-4 border-t border-border pt-4">
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[0.5rem] tracking-[0.2em] uppercase text-muted-foreground">
+            <span className="font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground">
               From
             </span>
             <input
@@ -588,7 +588,7 @@ export default function NewsArchive({
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="font-mono text-[0.5rem] tracking-[0.2em] uppercase text-muted-foreground">
+            <span className="font-mono text-[0.58rem] tracking-[0.2em] uppercase text-muted-foreground">
               To
             </span>
             <input
@@ -614,7 +614,7 @@ export default function NewsArchive({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1.5 px-2 py-2.5 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:text-accent"
+                className="inline-flex items-center gap-1.5 px-2 py-2.5 font-mono text-[0.6rem] tracking-[0.16em] uppercase text-muted-foreground transition-colors hover:text-accent"
               >
                 <RotateCcw size={11} /> Clear filters
               </button>
@@ -625,7 +625,7 @@ export default function NewsArchive({
 
       {/* Result count */}
       {!loading && !error && meta && (
-        <p className="py-4 font-mono text-[0.55rem] tracking-[0.2em] uppercase text-muted-foreground">
+        <p className="py-4 font-mono text-[0.63rem] tracking-[0.2em] uppercase text-muted-foreground">
           {meta.total} {meta.total === 1 ? "article" : "articles"}
           {searchTerm && (
             <>
@@ -651,7 +651,7 @@ export default function NewsArchive({
           <button
             type="button"
             onClick={() => setReloadTick((t) => t + 1)}
-            className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
+            className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
           >
             <RotateCcw size={12} /> Retry
           </button>
@@ -671,7 +671,7 @@ export default function NewsArchive({
           <button
             type="button"
             onClick={clearFilters}
-            className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.55rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
+            className="inline-flex items-center gap-2 border border-foreground px-5 py-3 font-mono text-[0.63rem] tracking-[0.18em] uppercase transition-colors hover:border-accent hover:text-accent"
           >
             <RotateCcw size={12} /> Clear filters
           </button>
@@ -697,11 +697,11 @@ export default function NewsArchive({
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 bg-foreground px-6 py-3.5 font-mono text-[0.55rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent disabled:opacity-50"
+            className="inline-flex items-center gap-2 bg-foreground px-6 py-3.5 font-mono text-[0.63rem] tracking-[0.18em] uppercase text-background transition-colors hover:bg-accent disabled:opacity-50"
           >
             {loadingMore ? "Loading…" : "Load more articles"}
           </button>
-          <p className="font-mono text-[0.52rem] tracking-[0.18em] uppercase text-muted-foreground">
+          <p className="font-mono text-[0.6rem] tracking-[0.18em] uppercase text-muted-foreground">
             Showing {items.length} of {meta.total}
           </p>
           {moreError && (
@@ -712,7 +712,7 @@ export default function NewsArchive({
         </div>
       )}
       {!loading && !error && meta && allLoaded && items.length > PAGE_SIZE && (
-        <p className="py-10 text-center font-mono text-[0.52rem] tracking-[0.18em] uppercase text-muted-foreground">
+        <p className="py-10 text-center font-mono text-[0.6rem] tracking-[0.18em] uppercase text-muted-foreground">
           All {meta.total} articles loaded
         </p>
       )}

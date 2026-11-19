@@ -154,11 +154,11 @@ export default function AccountAddressesPage() {
             {addresses.map((a) => (
               <div key={a.id} className="border border-border bg-background p-6">
                 <div className="mb-3 flex items-center justify-between">
-                  <span className="font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground">
+                  <span className="font-mono text-[0.63rem] uppercase tracking-[0.2em] text-muted-foreground">
                     {a.label || "Address"}
                   </span>
                   {a.isDefault && (
-                    <span className="border border-accent/50 px-2 py-0.5 font-mono text-[0.5rem] uppercase tracking-widest text-accent">
+                    <span className="border border-accent/50 px-2 py-0.5 font-mono text-[0.58rem] uppercase tracking-widest text-accent">
                       Default
                     </span>
                   )}
@@ -182,14 +182,14 @@ export default function AccountAddressesPage() {
                 <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2">
                   <button
                     onClick={() => openEdit(a)}
-                    className="font-mono text-[0.55rem] uppercase tracking-widest text-accent transition-colors hover:text-foreground"
+                    className="font-mono text-[0.63rem] uppercase tracking-widest text-accent transition-colors hover:text-foreground"
                   >
                     Edit
                   </button>
                   {!a.isDefault && (
                     <button
                       onClick={() => void makeDefault(a)}
-                      className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                      className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                     >
                       Make default
                     </button>
@@ -199,13 +199,13 @@ export default function AccountAddressesPage() {
                       <span className="font-sans text-xs text-destructive">Delete this address?</span>
                       <button
                         onClick={() => void remove(a.id)}
-                        className="font-mono text-[0.55rem] uppercase tracking-widest text-destructive"
+                        className="font-mono text-[0.63rem] uppercase tracking-widest text-destructive"
                       >
                         Yes, delete
                       </button>
                       <button
                         onClick={() => setConfirmDelete(null)}
-                        className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground"
+                        className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground"
                       >
                         Keep
                       </button>
@@ -213,7 +213,7 @@ export default function AccountAddressesPage() {
                   ) : (
                     <button
                       onClick={() => setConfirmDelete(a.id)}
-                      className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-destructive"
+                      className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-destructive"
                     >
                       Delete
                     </button>
@@ -224,7 +224,7 @@ export default function AccountAddressesPage() {
             {editing === null && (
               <button
                 onClick={openNew}
-                className="flex min-h-40 items-center justify-center border border-dashed border-border p-6 font-mono text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
+                className="flex min-h-40 items-center justify-center border border-dashed border-border p-6 font-mono text-[0.66rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:border-accent hover:text-accent"
               >
                 + Add a new address
               </button>
@@ -283,14 +283,14 @@ export default function AccountAddressesPage() {
                 <button
                   type="submit"
                   disabled={busy}
-                  className="bg-accent px-8 py-3.5 font-sans text-[0.6rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="bg-accent px-8 py-3.5 font-sans text-[0.68rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   {busy ? "Saving…" : editing === "new" ? "Save Address" : "Save Changes"}
                 </button>
                 <button
                   type="button"
                   onClick={() => setEditing(null)}
-                  className="border border-border px-8 py-3.5 font-sans text-[0.6rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+                  className="border border-border px-8 py-3.5 font-sans text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
                 >
                   Cancel
                 </button>

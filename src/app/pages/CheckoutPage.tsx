@@ -98,7 +98,7 @@ export default function CheckoutPage() {
       <div className="pt-16">
         <div className="mx-auto max-w-2xl px-6 py-24 text-center">
           <CheckCircle2 size={44} className="mx-auto mb-6 text-accent" strokeWidth={1.25} />
-          <p className="mb-3 font-mono text-[0.55rem] uppercase tracking-[0.28em] text-muted-foreground">
+          <p className="mb-3 font-mono text-[0.63rem] uppercase tracking-[0.28em] text-muted-foreground">
             Order Placed · {formatPlacedAt(order.placedAt)}
           </p>
           <h1 className="mb-4 font-display text-4xl font-medium md:text-5xl">Thank You</h1>
@@ -116,11 +116,11 @@ export default function CheckoutPage() {
                   <span>
                     <span className="font-display font-medium">{item.name}</span>
                     {item.variantName && (
-                      <span className="ml-2 font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                      <span className="ml-2 font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                         {item.variantName}
                       </span>
                     )}
-                    <span className="ml-2 font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                    <span className="ml-2 font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                       ×{item.quantity}
                     </span>
                   </span>
@@ -132,13 +132,13 @@ export default function CheckoutPage() {
           <div className="flex flex-wrap justify-center gap-4">
             <Link
               to="/account/orders"
-              className="bg-accent px-8 py-3.5 font-sans text-[0.6rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
+              className="bg-accent px-8 py-3.5 font-sans text-[0.68rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
             >
               View My Orders
             </Link>
             <Link
               to="/shop"
-              className="border border-border px-8 py-3.5 font-sans text-[0.6rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
+              className="border border-border px-8 py-3.5 font-sans text-[0.68rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:text-foreground"
             >
               Continue Shopping
             </Link>
@@ -212,7 +212,7 @@ export default function CheckoutPage() {
     <div className="pt-16">
       <div className="border-b border-border bg-secondary">
         <div className="mx-auto max-w-screen-xl px-6 py-14 lg:px-10">
-          <p className="mb-3 font-mono text-[0.52rem] uppercase tracking-[0.28em] text-muted-foreground">
+          <p className="mb-3 font-mono text-[0.6rem] uppercase tracking-[0.28em] text-muted-foreground">
             Gift Shop
           </p>
           <h1 className="font-display text-4xl font-medium md:text-5xl">Checkout</h1>
@@ -224,7 +224,7 @@ export default function CheckoutPage() {
 
       <form onSubmit={submit} className="mx-auto grid max-w-screen-xl gap-12 px-6 py-14 lg:grid-cols-[3fr_2fr] lg:px-10">
         <div>
-          <h2 className="mb-5 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-muted-foreground">
+          <h2 className="mb-5 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
             Delivery address
           </h2>
           {error && (
@@ -233,7 +233,7 @@ export default function CheckoutPage() {
             </p>
           )}
           {addresses === null ? (
-            <p className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground">Loading addresses…</p>
+            <p className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground">Loading addresses…</p>
           ) : (
             <div className="space-y-3">
               {addresses.map((a) => (
@@ -253,7 +253,7 @@ export default function CheckoutPage() {
                   <span className="font-sans text-sm leading-relaxed">
                     <span className="font-display text-base font-medium">{a.recipientName}</span>
                     {a.isDefault && (
-                      <span className="ml-2 font-mono text-[0.5rem] uppercase tracking-widest text-accent">Default</span>
+                      <span className="ml-2 font-mono text-[0.58rem] uppercase tracking-widest text-accent">Default</span>
                     )}
                     <br />
                     {a.addressLine}, {a.city}
@@ -323,7 +323,7 @@ export default function CheckoutPage() {
             </div>
           )}
 
-          <h2 className="mb-4 mt-12 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-muted-foreground">
+          <h2 className="mb-4 mt-12 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
             Order notes (optional)
           </h2>
           <textarea
@@ -335,7 +335,7 @@ export default function CheckoutPage() {
             placeholder="Anything the museum should know about this order…"
           />
 
-          <h2 className="mb-4 mt-12 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-muted-foreground">
+          <h2 className="mb-4 mt-12 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
             Payment
           </h2>
           <div className="border border-border bg-background p-6">
@@ -350,11 +350,11 @@ export default function CheckoutPage() {
 
         <div>
           <div className="border border-border bg-background p-7 lg:sticky lg:top-24">
-            <h2 className="mb-5 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-muted-foreground">
+            <h2 className="mb-5 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
               Order summary
             </h2>
             {!cart ? (
-              <p className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground">Loading…</p>
+              <p className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground">Loading…</p>
             ) : (
               <>
                 <ul className="divide-y divide-border">
@@ -365,7 +365,7 @@ export default function CheckoutPage() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <p className="font-display text-sm font-medium leading-snug">{item.name}</p>
-                        <p className="font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                        <p className="font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                           {item.variantName ? `${item.variantName} · ` : ""}×{item.quantity} · {formatRs(item.unitPricePaisa)}
                         </p>
                       </div>
@@ -396,7 +396,7 @@ export default function CheckoutPage() {
                 <button
                   type="submit"
                   disabled={placing || !cart || cart.items.length === 0}
-                  className="mt-7 w-full bg-accent py-4 font-sans text-[0.62rem] uppercase tracking-[0.22em] text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  className="mt-7 w-full bg-accent py-4 font-sans text-[0.7rem] uppercase tracking-[0.22em] text-accent-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                 >
                   {placing ? "Placing Order…" : "Place Order — Cash on Delivery"}
                 </button>

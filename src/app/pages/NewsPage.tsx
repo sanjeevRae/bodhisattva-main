@@ -32,7 +32,7 @@ export default function NewsPage() {
             return (
               <div className="bg-secondary border-b border-border py-20">
                 <div className="max-w-screen-xl mx-auto px-6 lg:px-10">
-                  <p className="font-mono text-[0.52rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
+                  <p className="font-mono text-[0.6rem] tracking-[0.28em] uppercase text-muted-foreground mb-3">{section.config.eyebrow}</p>
                   <h1 className="font-display text-5xl md:text-6xl font-medium mb-10">{section.config.heading}</h1>
                   <div className="relative max-w-2xl">
                     <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" />

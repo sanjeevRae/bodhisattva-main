@@ -79,6 +79,12 @@
 }
 
 @theme inline {
+  /* Small-text bump (owner request, 2026-11-19): the site's small tiers
+     read too small — xs 12px -> 13px, sm 14px -> 15px. Headings and
+     body (base/lg+) are untouched. Micro label sizes in components
+     (text-[0.46rem]..text-[0.62rem]) were raised +0.08rem alongside. */
+  --text-xs: 0.8125rem;
+  --text-sm: 0.9375rem;
   --font-display: 'Bebas Neue', 'Impact', sans-serif;
   --font-sans: 'Montserrat', system-ui, sans-serif;
   --font-mono: 'Pier Sans', 'Montserrat', system-ui, sans-serif;
@@ -176,7 +182,7 @@
 
   .privacy-screen span {
     font-family: var(--font-mono, monospace);
-    font-size: 0.6rem;
+    font-size: 0.68rem;
     letter-spacing: 0.22em;
     text-transform: uppercase;
     color: rgba(240, 235, 224, 0.55);

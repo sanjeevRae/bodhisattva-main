@@ -29,20 +29,20 @@ export default function AccountPage() {
     <AccountLayout title="Profile">
       <div className="grid gap-10 lg:grid-cols-[1fr_2fr]">
         <div>
-          <h2 className="mb-4 font-mono text-[0.6rem] uppercase tracking-[0.22em] text-muted-foreground">
+          <h2 className="mb-4 font-mono text-[0.68rem] uppercase tracking-[0.22em] text-muted-foreground">
             Account details
           </h2>
           <dl className="space-y-4 border border-border bg-background p-6">
             <div>
-              <dt className="font-mono text-[0.52rem] uppercase tracking-widest text-muted-foreground">Name</dt>
+              <dt className="font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">Name</dt>
               <dd className="mt-1 font-display text-lg font-medium">{user?.name}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[0.52rem] uppercase tracking-widest text-muted-foreground">Email</dt>
+              <dt className="font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">Email</dt>
               <dd className="mt-1 font-sans text-sm">{user?.email}</dd>
             </div>
             <div>
-              <dt className="font-mono text-[0.52rem] uppercase tracking-widest text-muted-foreground">Cart</dt>
+              <dt className="font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">Cart</dt>
               <dd className="mt-1 font-sans text-sm">
                 {cartCount === 0 ? (
                   "Empty"
@@ -64,7 +64,7 @@ export default function AccountPage() {
               </p>
               <Link
                 to={card.to}
-                className="mt-auto font-mono text-[0.58rem] uppercase tracking-[0.2em] text-accent transition-colors hover:text-foreground"
+                className="mt-auto font-mono text-[0.66rem] uppercase tracking-[0.2em] text-accent transition-colors hover:text-foreground"
               >
                 {card.action} →
               </Link>

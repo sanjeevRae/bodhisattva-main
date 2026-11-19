@@ -112,7 +112,7 @@ export default function CartDrawer() {
                     setCartOpen(false);
                     navigate(`/login?return=${encodeURIComponent(location.pathname)}`);
                   }}
-                  className="bg-accent px-8 py-3.5 font-sans text-[0.58rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
+                  className="bg-accent px-8 py-3.5 font-sans text-[0.66rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
                 >
                   Sign In
                 </button>
@@ -132,7 +132,7 @@ export default function CartDrawer() {
                     setCartOpen(false);
                     navigate("/shop");
                   }}
-                  className="bg-accent px-8 py-3.5 font-sans text-[0.58rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
+                  className="bg-accent px-8 py-3.5 font-sans text-[0.66rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
                 >
                   Browse the Gift Shop
                 </button>
@@ -166,11 +166,11 @@ export default function CartDrawer() {
                             </button>
                           </div>
                           {item.variantName && (
-                            <p className="mt-0.5 font-mono text-[0.55rem] uppercase tracking-wider text-muted-foreground">
+                            <p className="mt-0.5 font-mono text-[0.63rem] uppercase tracking-wider text-muted-foreground">
                               {item.variantName}
                             </p>
                           )}
-                          <p className="mt-0.5 font-mono text-[0.55rem] uppercase tracking-wider text-muted-foreground">
+                          <p className="mt-0.5 font-mono text-[0.63rem] uppercase tracking-wider text-muted-foreground">
                             {formatRs(item.unitPricePaisa)} each
                           </p>
                           <div className="mt-auto flex items-center justify-between pt-2">
@@ -204,7 +204,7 @@ export default function CartDrawer() {
                             </span>
                           </div>
                           {item.quantity >= item.availableQty && (
-                            <p className="mt-1.5 font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                            <p className="mt-1.5 font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                               All available stock is in your cart
                             </p>
                           )}
@@ -214,14 +214,14 @@ export default function CartDrawer() {
                   </ul>
                   <button
                     onClick={() => void mutate(-1, () => clearCart())}
-                    className="mt-2 font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                    className="mt-2 font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Clear cart
                   </button>
                 </div>
                 <div className="border-t border-border px-6 py-5">
                   <div className="mb-1.5 flex items-center justify-between">
-                    <span className="font-mono text-[0.6rem] uppercase tracking-[0.18em] text-muted-foreground">Subtotal</span>
+                    <span className="font-mono text-[0.68rem] uppercase tracking-[0.18em] text-muted-foreground">Subtotal</span>
                     <span className="font-display text-xl font-medium">{formatRs(cart.subtotalPaisa)}</span>
                   </div>
                   <p className="mb-5 font-sans text-xs font-light text-muted-foreground">
@@ -232,14 +232,14 @@ export default function CartDrawer() {
                       setCartOpen(false);
                       navigate("/checkout");
                     }}
-                    className="w-full bg-accent py-4 font-sans text-[0.6rem] uppercase tracking-[0.22em] text-accent-foreground transition-opacity hover:opacity-90"
+                    className="w-full bg-accent py-4 font-sans text-[0.68rem] uppercase tracking-[0.22em] text-accent-foreground transition-opacity hover:opacity-90"
                   >
                     Proceed to Checkout
                   </button>
                   <Link
                     to="/shop"
                     onClick={() => setCartOpen(false)}
-                    className="mt-3 block text-center font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
+                    className="mt-3 block text-center font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground transition-colors hover:text-foreground"
                   >
                     Continue shopping
                   </Link>

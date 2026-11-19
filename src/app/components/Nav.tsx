@@ -95,7 +95,7 @@ export default function Nav({ dark, onToggleDark }: {
           <span className={`block font-display text-[1.05rem] font-semibold tracking-[0.12em] uppercase leading-none transition-colors ${hero ? "text-white" : "text-foreground"}`}>
             {siteName}
           </span>
-          <span className={`block font-mono text-[0.46rem] tracking-[0.3em] uppercase mt-0.5 transition-colors ${hero ? "text-amber-300/70" : "text-accent"}`}>
+          <span className={`block font-mono text-[0.54rem] tracking-[0.3em] uppercase mt-0.5 transition-colors ${hero ? "text-amber-300/70" : "text-accent"}`}>
             {siteTagline}
           </span>
         </button>
@@ -103,7 +103,7 @@ export default function Nav({ dark, onToggleDark }: {
         <nav className="hidden xl:flex items-center gap-7">
           {items.map((item) => (
             <Link key={item.path} to={item.path}
-              className={`font-mono text-[0.57rem] tracking-[0.16em] uppercase transition-colors ${current === item.page ? (hero ? "text-amber-400" : "text-accent") : (hero ? "text-white/55 hover:text-white" : "text-muted-foreground hover:text-foreground")}`}>
+              className={`font-mono text-[0.65rem] tracking-[0.16em] uppercase transition-colors ${current === item.page ? (hero ? "text-amber-400" : "text-accent") : (hero ? "text-white/55 hover:text-white" : "text-muted-foreground hover:text-foreground")}`}>
               {item.label}
             </Link>
           ))}
@@ -111,11 +111,11 @@ export default function Nav({ dark, onToggleDark }: {
 
         <div className="flex items-center gap-4">
           {signedIn ? (
-            <Link to="/account" className={`hidden sm:block font-mono text-[0.54rem] tracking-widest uppercase transition-colors ${hero ? "text-white/60 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            <Link to="/account" className={`hidden sm:block font-mono text-[0.62rem] tracking-widest uppercase transition-colors ${hero ? "text-white/60 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}>
               {firstName}
             </Link>
           ) : (
-            <Link to="/login" className={`hidden sm:block font-mono text-[0.54rem] tracking-widest uppercase transition-colors ${hero ? "text-white/60 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}>
+            <Link to="/login" className={`hidden sm:block font-mono text-[0.62rem] tracking-widest uppercase transition-colors ${hero ? "text-white/60 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}>
               Sign In
             </Link>
           )}
@@ -125,12 +125,12 @@ export default function Nav({ dark, onToggleDark }: {
           <button onClick={() => setCartOpen(true)} className={`relative hidden sm:block transition-colors ${hero ? "text-white/55 hover:text-white" : "text-muted-foreground hover:text-foreground"}`} aria-label="Cart">
             <ShoppingBag size={15} />
             {signedIn && cartCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[0.52rem] font-medium text-accent-foreground">
+              <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[0.6rem] font-medium text-accent-foreground">
                 {cartCount}
               </span>
             )}
           </button>
-          <Link to={planVisitPath} className={`hidden sm:flex items-center gap-1.5 font-mono text-[0.54rem] tracking-widest uppercase px-4 py-2 border transition-colors ${hero ? "border-white/25 text-white/60 hover:border-white hover:text-white" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"}`}>
+          <Link to={planVisitPath} className={`hidden sm:flex items-center gap-1.5 font-mono text-[0.62rem] tracking-widest uppercase px-4 py-2 border transition-colors ${hero ? "border-white/25 text-white/60 hover:border-white hover:text-white" : "border-border text-muted-foreground hover:border-foreground hover:text-foreground"}`}>
             {planVisitLabel}
           </Link>
           <button onClick={() => setOpen(!open)} className={`xl:hidden transition-colors ${hero ? "text-white/70 hover:text-white" : "text-muted-foreground hover:text-foreground"}`}>

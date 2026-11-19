@@ -69,7 +69,7 @@ function ProgressTimeline({ status }: { status: string }) {
                 aria-hidden
               />
               <span
-                className={`font-mono text-[0.52rem] uppercase tracking-widest ${
+                className={`font-mono text-[0.6rem] uppercase tracking-widest ${
                   done ? "text-foreground" : "text-muted-foreground"
                 }`}
               >
@@ -166,7 +166,7 @@ export default function AccountOrdersPage() {
           </p>
           <Link
             to="/shop"
-            className="inline-block bg-accent px-8 py-3.5 font-sans text-[0.58rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
+            className="inline-block bg-accent px-8 py-3.5 font-sans text-[0.66rem] uppercase tracking-[0.2em] text-accent-foreground transition-opacity hover:opacity-90"
           >
             Browse the Gift Shop
           </Link>
@@ -185,28 +185,28 @@ export default function AccountOrdersPage() {
                     aria-expanded={open}
                   >
                     <span className="font-display text-base font-medium">{order.orderNumber}</span>
-                    <span className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground">
+                    <span className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground">
                       {formatPlacedAt(order.placedAt)}
                     </span>
-                    <span className="border border-accent/50 px-2.5 py-1 font-mono text-[0.52rem] uppercase tracking-widest text-accent">
+                    <span className="border border-accent/50 px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-widest text-accent">
                       {statusLabel(order.status)}
                     </span>
                     {INVOICED_STATUSES.has(order.status) && (
-                      <span className="border border-border px-2.5 py-1 font-mono text-[0.52rem] uppercase tracking-widest text-muted-foreground">
+                      <span className="border border-border px-2.5 py-1 font-mono text-[0.6rem] uppercase tracking-widest text-muted-foreground">
                         Invoice available
                       </span>
                     )}
                     <span className="ml-auto font-display text-base font-medium">
                       {formatRs(order.grandTotalPaisa)}
                     </span>
-                    <span className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground">
+                    <span className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground">
                       {open ? "Hide" : "Details"}
                     </span>
                   </button>
                   {open && (
                     <div className="border-t border-border bg-secondary/40 px-6 py-6">
                       {!detail ? (
-                        <p className="font-mono text-[0.55rem] uppercase tracking-widest text-muted-foreground">
+                        <p className="font-mono text-[0.63rem] uppercase tracking-widest text-muted-foreground">
                           Loading details…
                         </p>
                       ) : (
@@ -221,11 +221,11 @@ export default function AccountOrdersPage() {
                                     <td className="py-2.5 pr-4">
                                       <span className="font-display font-medium">{item.name}</span>
                                       {item.variantName && (
-                                        <span className="ml-2 font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                                        <span className="ml-2 font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                                           {item.variantName}
                                         </span>
                                       )}
-                                      <span className="block font-mono text-[0.52rem] uppercase tracking-wider text-muted-foreground">
+                                      <span className="block font-mono text-[0.6rem] uppercase tracking-wider text-muted-foreground">
                                         {item.sku} · ×{item.quantity}
                                       </span>
                                     </td>
@@ -256,7 +256,7 @@ export default function AccountOrdersPage() {
                             </dl>
                           </div>
                           <div>
-                            <h3 className="mb-2 font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground">
+                            <h3 className="mb-2 font-mono text-[0.63rem] uppercase tracking-[0.2em] text-muted-foreground">
                               Delivery
                             </h3>
                             <p className="font-sans text-sm leading-relaxed">
@@ -281,7 +281,7 @@ export default function AccountOrdersPage() {
                             </p>
                             {invoices[order.id] && (
                               <div className="mt-6 border border-border bg-background p-4">
-                                <h3 className="mb-1 font-mono text-[0.55rem] uppercase tracking-[0.2em] text-muted-foreground">
+                                <h3 className="mb-1 font-mono text-[0.63rem] uppercase tracking-[0.2em] text-muted-foreground">
                                   Invoice
                                 </h3>
                                 <p className="font-display text-base font-medium">
@@ -294,7 +294,7 @@ export default function AccountOrdersPage() {
                                 </p>
                                 <a
                                   href={invoices[order.id]!.downloadPath}
-                                  className="inline-block border border-foreground px-5 py-2.5 font-mono text-[0.55rem] uppercase tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
+                                  className="inline-block border border-foreground px-5 py-2.5 font-mono text-[0.63rem] uppercase tracking-[0.2em] transition-colors hover:bg-foreground hover:text-background"
                                 >
                                   Download PDF
                                 </a>
@@ -314,7 +314,7 @@ export default function AccountOrdersPage() {
             <div className="mt-8 text-center">
               <button
                 onClick={loadMore}
-                className="border border-border px-8 py-3 font-mono text-[0.58rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
+                className="border border-border px-8 py-3 font-mono text-[0.66rem] uppercase tracking-[0.2em] text-muted-foreground transition-colors hover:border-foreground hover:text-foreground"
               >
                 Load More ({orders.length} of {total})
               </button>
