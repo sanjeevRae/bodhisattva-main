@@ -167,7 +167,7 @@ export function HeroSection({ section, bannerClass = "h-[62vh] min-h-[460px]" }:
             <h1 className="font-display text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-medium text-white leading-[0.92] mb-7 max-w-4xl">
               {config.headingLine1}<br /><em className="font-sans italic font-light text-amber-200/90">{config.headingAccent}</em>
             </h1>
-            <p className="font-sans text-sm text-white/52 max-w-md leading-relaxed mb-10 font-light">{config.subtext}</p>
+            <p className="font-sans text-base text-white/75 max-w-md leading-relaxed mb-10 font-light">{config.subtext}</p>
             <div className="flex flex-wrap gap-4">
               {config.primaryCta && (
                 <CmsLink link={config.primaryCta} className="inline-flex items-center gap-2 bg-amber-800/85 hover:bg-amber-800 text-amber-50 px-7 py-3.5 text-[0.62rem] tracking-[0.18em] uppercase font-sans transition-colors">

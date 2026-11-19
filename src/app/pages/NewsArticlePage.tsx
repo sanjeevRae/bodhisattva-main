@@ -182,11 +182,6 @@ export default function NewsArticlePage({
                 {article.type}
               </span>
             )}
-            {article.isFeatured && (
-              <span className="border border-accent px-2.5 py-1 font-mono text-[0.52rem] tracking-[0.16em] uppercase text-accent">
-                Featured
-              </span>
-            )}
           </div>
           <h1 className="font-display text-4xl font-medium leading-[1.08] md:text-6xl">
             {article.title}
@@ -258,7 +253,7 @@ export default function NewsArticlePage({
           <>
             <div className="mx-auto mt-12 max-w-[68ch]">
               <SectionLabel>Editorial transcription</SectionLabel>
-              <p className="font-sans text-xs font-light leading-relaxed text-muted-foreground">
+              <p className="font-sans text-xs leading-relaxed text-foreground/75">
                 Transcribed from the original newspaper page, reproduced
                 below; subheadings added for readability.
               </p>
