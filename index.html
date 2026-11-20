@@ -31,14 +31,14 @@
       <meta name="twitter:image" content="https://bodhisattvainternational.com/og-share.jpg" />
       <!--OG_END-->
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      <!-- First-visit entrance ("Museum Signature Reveal"): this
+      <!-- First-visit entrance ("The Threshold"): this
            script runs before the app bundle. On a genuine first
            visit (public pages only, motion allowed) it CLAIMS the
            visit immediately — writing the flag up front means a
            refresh mid-intro or a second tab can never replay it —
            paints the theme background so there is no white flash,
            preloads the emblem, and removes its own class after
-           2 s if the app never mounts (fail open). Any storage
+           2.6 s if the app never mounts (fail open). Any storage
            error is treated as "already seen": the entrance must
            never block the website. The overlay itself is the
            EntranceIntro React component. -->
@@ -58,7 +58,7 @@
             document.head.appendChild(link);
             window.setTimeout(function () {
               root.classList.remove("bi-intro");
-            }, 2000);
+            }, 2600);
           } catch (e) {
             /* storage unavailable — no entrance, never a block */
           }

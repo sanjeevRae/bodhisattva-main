@@ -1,11 +1,17 @@
-/* First-visit entrance ("Museum Signature Reveal") — see
-   src/app/components/EntranceIntro.tsx. Opacity-only motion by
-   design: no gradients, no glow, no masks, no spinning. The
-   pre-app paint (background colour, scroll lock) lives in the
+/* First-visit entrance ("The Threshold") — see
+   src/app/components/EntranceIntro.tsx. Two flat ivory door panels
+   part from the centre to reveal the page, carrying a gold hairline
+   with them; the museum's emblem sits perfectly still inside a fine
+   gold ring while the architecture moves around it, then lifts away
+   as the opening widens past it. Transform/opacity only — no
+   shadows, gradients, glow or textures on the moving surfaces.
+   The pre-app paint (background colour, scroll lock) lives in the
    inline <style> in index.html so there is no white flash before
    the bundle arrives; this file styles the overlay itself. */
 
 .bi-intro-overlay {
+  --seal-size: 152px;
+  --line-w: 180px;
   position: fixed;
   inset: 0;
   height: 100vh;
@@ -13,17 +19,9 @@
   z-index: 200;
   display: grid;
   place-items: center;
-  background: var(--background, #f7f3ec);
-  opacity: 1;
-  transition: opacity 350ms ease-out;
   /* Pure-CSS backstop: even if every JS timer failed after mount,
-     the overlay removes itself visually by ~2 s. The delay phase
-     has no fill, so it cannot interfere with the normal fade. */
-  animation: bi-intro-backstop 100ms linear 1950ms forwards;
-}
-
-.bi-intro-overlay.is-leaving {
-  opacity: 0;
+     the overlay removes itself visually by ~2.6 s. */
+  animation: bi-intro-backstop 100ms linear 2550ms forwards;
 }
 
 @keyframes bi-intro-backstop {
@@ -33,31 +31,141 @@
   }
 }
 
-.bi-intro-emblem {
-  width: clamp(112px, 12vw, 152px);
-  height: auto;
-  display: block;
-  user-select: none;
-  -webkit-user-drag: none;
-  /* The whole movement of the piece: a fade with a 3 px settle so
-     slight it is felt rather than seen. */
-  animation: bi-emblem-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+@media (max-width: 768px) {
+  .bi-intro-overlay {
+    --seal-size: 112px;
+    --line-w: 140px;
+  }
 }
 
-@keyframes bi-emblem-in {
+@media (max-width: 400px) {
+  .bi-intro-overlay {
+    --seal-size: 96px;
+    --line-w: 128px;
+  }
+}
+
+/* The doors: two flat ivory panels, each 50.5% wide so their inner
+   edges overlap by 1% at the centre and no sliver of the page can
+   show through the seam before they part. */
+.bi-door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 50.5%;
+  background: var(--background, #f7f3ec);
+  will-change: transform;
+}
+
+.bi-door-left {
+  left: 0;
+  animation: bi-door-left 1100ms cubic-bezier(0.76, 0, 0.24, 1) both;
+  animation-delay: var(--bi-door-delay, 700ms);
+}
+
+.bi-door-right {
+  right: 0;
+  animation: bi-door-right 1100ms cubic-bezier(0.76, 0, 0.24, 1) both;
+  animation-delay: var(--bi-door-delay, 700ms);
+}
+
+@keyframes bi-door-left {
   from {
-    opacity: 0;
-    transform: translateY(3px);
+    transform: translateX(0);
   }
   to {
+    transform: translateX(-102%);
+  }
+}
+
+@keyframes bi-door-right {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(102%);
+  }
+}
+
+/* The gold hairline: one line beneath the seal, drawn outward from
+   the centre. Each half belongs to its door panel (inset 0.5vw puts
+   the half's inner end exactly on the viewport centre line), so
+   when the doors part the line travels away with them and is never
+   left suspended over the artwork. */
+.bi-line {
+  position: absolute;
+  top: calc(50% + (var(--seal-size) + 10px) / 2 + 24px);
+  width: calc(var(--line-w) / 2);
+  height: 2px;
+  background: rgba(184, 151, 88, 0.85);
+  animation: bi-line-draw 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation-delay: var(--bi-line-delay, 0ms);
+}
+
+.bi-line-left {
+  right: 0.5vw;
+  transform-origin: right center;
+}
+
+.bi-line-right {
+  left: 0.5vw;
+  transform-origin: left center;
+}
+
+@keyframes bi-line-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* The seal: the original emblem, completely still, presented inside
+   a separate fine gold ring (1px, with a 4px ivory gap) so its white
+   disc reads as an enamelled museum seal on the ivory rather than
+   an un-blended asset. The PNG itself is untouched. Departure is a
+   CSS animation whose delay the component sets from the actual
+   opening geometry (the moment the parting gap passes ~1.1x the
+   framed seal's diameter); the default below is the fallback. */
+.bi-intro-seal {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+  padding: 4px;
+  border: 1px solid rgba(184, 151, 88, 0.55);
+  border-radius: 9999px;
+  will-change: transform, opacity;
+  animation: bi-seal-depart 450ms ease-out both;
+  animation-delay: var(--bi-depart-delay, 1050ms);
+}
+
+@keyframes bi-seal-depart {
+  from {
     opacity: 1;
     transform: translateY(0);
   }
+  to {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
+.bi-intro-emblem {
+  width: var(--seal-size);
+  height: auto;
+  display: block;
+  border-radius: 9999px;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bi-intro-overlay,
-  .bi-intro-emblem {
+  .bi-door,
+  .bi-line,
+  .bi-intro-seal {
     animation: none;
     transition: none;
   }
