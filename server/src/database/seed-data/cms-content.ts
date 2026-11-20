@@ -874,12 +874,16 @@ export const CMS_PAGES: readonly CmsPageSeed[] = [
         config: {
           heading: "Partner Organizations",
           items: [
-            { name: "Weltmuseum Wien" },
-            { name: "UNESCO Nepal" },
-            { name: "Siddhartha Art Gallery" },
-            { name: "Hyatt Regency Kathmandu" },
-            { name: "Nepal Art Council" },
-            { name: "Embassy of Nepal in China" },
+            { name: "Weltmuseum Wien", url: "https://www.weltmuseumwien.at" },
+            { name: "UNESCO Nepal", url: "https://www.unesco.org/en/fieldoffice/kathmandu" },
+            { name: "Siddhartha Art Gallery", url: "https://www.siddharthaartgallery.com" },
+            { name: "Hyatt Regency Kathmandu", url: "https://www.hyatt.com/hyatt-regency/en-US/kathm-hyatt-regency-kathmandu" },
+            { name: "Nepal Art Council", url: "https://www.nepalartcouncil.org.np" },
+            { name: "Embassy of Nepal in China", url: "https://cn.nepalembassy.gov.np" },
+            // No verified live website: the Alliance's site is
+            // unreachable and the Beijing gallery's identity could not
+            // be confirmed — both stay as plain names rather than
+            // risk a dead or wrong link (checked 2026-11-20).
             { name: "Silk Road Cities Alliance" },
             { name: "Lan Gallery, Beijing" },
           ],

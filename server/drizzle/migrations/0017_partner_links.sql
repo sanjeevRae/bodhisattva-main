@@ -1,0 +1,21 @@
+-- 0017_partner_links (2026-11-20)
+-- The Foundation page's Partner Organizations strip showed names
+-- only. The owner chose clickable names: each partner with a
+-- verified official website now carries its URL (the CMS schema and
+-- the admin editor already supported a per-partner url; only the
+-- public renderer ignored it — it now renders http(s) URLs as
+-- new-tab links). URLs verified live on 2026-11-20:
+--  - Weltmuseum Wien, UNESCO Kathmandu office, Siddhartha Art
+--    Gallery, Nepal Art Council and the Embassy of Nepal in Beijing
+--    all answered 200; the Hyatt Regency Kathmandu property page is
+--    the official hyatt.com URL (Hyatt bot-walls curl with a 403;
+--    the page itself is live).
+--  - Silk Road Cities Alliance: its site (srca-info.com) is
+--    unreachable — left unlinked rather than pointing at a dead
+--    site.
+--  - Lan Gallery, Beijing: two similarly named galleries exist and
+--    neither could be confirmed as the 2024 exhibition venue — left
+--    unlinked rather than risk linking the wrong business.
+-- Seed parity: cms-content.ts (F6 partner list).
+
+UPDATE `page_sections` ps JOIN `pages` p ON (ps.`revision_id` = p.`published_revision_id` OR ps.`revision_id` = p.`draft_revision_id`) SET ps.`config` = '{"heading":"Partner Organizations","items":[{"name":"Weltmuseum Wien","url":"https://www.weltmuseumwien.at"},{"name":"UNESCO Nepal","url":"https://www.unesco.org/en/fieldoffice/kathmandu"},{"name":"Siddhartha Art Gallery","url":"https://www.siddharthaartgallery.com"},{"name":"Hyatt Regency Kathmandu","url":"https://www.hyatt.com/hyatt-regency/en-US/kathm-hyatt-regency-kathmandu"},{"name":"Nepal Art Council","url":"https://www.nepalartcouncil.org.np"},{"name":"Embassy of Nepal in China","url":"https://cn.nepalembassy.gov.np"},{"name":"Silk Road Cities Alliance"},{"name":"Lan Gallery, Beijing"}]}' WHERE p.`slug` = 'foundation' AND ps.`sort_order` = 5;

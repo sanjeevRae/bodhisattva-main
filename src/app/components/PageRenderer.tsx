@@ -612,15 +612,30 @@ function CtaSection({ section }: { section: CmsSection }) {
 
 function PartnerListSection({ section }: { section: CmsSection }) {
   const config = section.config;
-  const items: { name: string }[] = config.items ?? [];
+  const items: { name: string; url?: string }[] = config.items ?? [];
   return (
     <section className="bg-secondary py-14 border-t border-border">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10 text-center">
         <p className="font-mono text-[0.6rem] tracking-[0.25em] uppercase text-muted-foreground mb-8">{config.heading}</p>
         <div className="flex flex-wrap justify-center gap-x-10 gap-y-3 items-center">
-          {items.map((p) => (
-            <span key={p.name} className="font-display text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-default">{p.name}</span>
-          ))}
+          {items.map((p) =>
+            // Only http(s) URLs become links — the stored value is
+            // admin-entered text, so anything else (javascript:, data:,
+            // relative paths) renders as a plain name.
+            p.url && /^https?:\/\//i.test(p.url) ? (
+              <a
+                key={p.name}
+                href={p.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-display text-sm font-medium text-muted-foreground hover:text-foreground underline decoration-border underline-offset-4 hover:decoration-accent transition-colors"
+              >
+                {p.name}
+              </a>
+            ) : (
+              <span key={p.name} className="font-display text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-default">{p.name}</span>
+            ),
+          )}
         </div>
       </div>
     </section>
