@@ -559,6 +559,22 @@ export async function getNewsArticle(slug: string): Promise<NewsArticleDetail> {
   return normalizeArticleDetail(body.data);
 }
 
+/** One of the three legal policy pages (footer links). */
+export interface PolicyPublic {
+  slug: string;
+  title: string;
+  bodyHtml: string;
+  version: number;
+  updatedAt: string;
+}
+
+export async function getPolicy(slug: string): Promise<PolicyPublic> {
+  const body = await fetchNewsEnvelope<PolicyPublic>(
+    `/api/policies/${encodeURIComponent(slug)}`,
+  );
+  return body.data;
+}
+
 export async function getNewsPreview(token: string): Promise<NewsArticleDetail> {
   const body = await fetchNewsEnvelope<NewsArticleDetail>(
     `/api/news/preview/${encodeURIComponent(token)}`,

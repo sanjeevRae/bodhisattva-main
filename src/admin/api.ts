@@ -44,6 +44,9 @@ import type {
   PageMeta,
   ProductAdmin,
   PopupAdmin,
+  PolicyAdmin,
+  PolicyRevision,
+  PolicyRevisionDetail,
   ProductCategoryAdmin,
   ProductImageAdmin,
   ProductVariantAdmin,
@@ -819,5 +822,26 @@ export const popupsApi = {
   },
   deactivate(id: number): Promise<PopupAdmin> {
     return moduleOne(`/api/admin/popups/${id}/deactivate`, { method: "POST" });
+  },
+};
+
+export const policiesApi = {
+  list(): Promise<{ items: PolicyAdmin[]; meta: PageMeta }> {
+    return moduleList("/api/admin/policies");
+  },
+  get(slug: string): Promise<PolicyAdmin> {
+    return moduleOne(`/api/admin/policies/${slug}`);
+  },
+  update(slug: string, body: { title: string; bodyHtml: string; version: number }): Promise<PolicyAdmin> {
+    return moduleOne(`/api/admin/policies/${slug}`, { method: "PUT", body });
+  },
+  revisions(slug: string): Promise<{ items: PolicyRevision[]; meta: PageMeta }> {
+    return moduleList(`/api/admin/policies/${slug}/revisions`);
+  },
+  revision(slug: string, revisionId: number): Promise<PolicyRevisionDetail> {
+    return moduleOne(`/api/admin/policies/${slug}/revisions/${revisionId}`);
+  },
+  restore(slug: string, body: { revisionId: number; version: number }): Promise<PolicyAdmin> {
+    return moduleOne(`/api/admin/policies/${slug}/restore`, { method: "POST", body });
   },
 };

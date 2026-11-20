@@ -29,10 +29,18 @@
  *                                     protocol-relative URLs are refused)
  *
  * StarterKit features that could emit non-allowlisted markup (inline
- * code, code blocks, horizontal rules) are disabled. No image, table or
+ * code, code blocks, horizontal rules) are disabled. No table or
  * text-style extensions are loaded, so pasted spans, inline styles,
- * tables, images and scripts are stripped by the schema parser on the
- * way in — paste cleanup is structural, not a post-processing pass.
+ * tables and scripts are stripped by the schema parser on the way
+ * in — paste cleanup is structural, not a post-processing pass.
+ *
+ * IMAGES (policies only): when the parent passes `mediaPick`, the
+ * Image extension is loaded and a toolbar button inserts an image
+ * chosen from the media library. That is for the legal policy pages,
+ * whose OWN sanitizer (server/src/modules/policies/sanitize.ts)
+ * allows img with media-library sources only. CMS fields never pass
+ * mediaPick, so their contract above is unchanged: no Image node,
+ * pasted images stripped on the way in.
  *
  * The value contract is unchanged: an HTML string in the section config
  * ("" means empty). The public renderer injects these fields as raw
@@ -42,6 +50,7 @@ import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
+import Image from "@tiptap/extension-image";
 import Underline from "@tiptap/extension-underline";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
@@ -53,6 +62,7 @@ import {
   Heading2,
   Heading3,
   Heading4,
+  Image as ImageIcon,
   Italic,
   Link2,
   Link2Off,
@@ -88,7 +98,8 @@ const PROSE_CLS =
   "[&_ul]:mb-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:mb-2 [&_ol]:list-decimal [&_ol]:pl-5 " +
   "[&_li]:mb-0.5 [&_li>p]:mb-0 " +
   "[&_blockquote]:my-2 [&_blockquote]:border-l-2 [&_blockquote]:border-accent [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:text-muted-foreground " +
-  "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2";
+  "[&_a]:text-accent [&_a]:underline [&_a]:underline-offset-2 " +
+  "[&_img]:my-2 [&_img]:h-auto [&_img]:max-w-full [&_img]:rounded-sm";
 
 function countWords(editor: Editor): { words: number; chars: number } {
   const text = editor.getText();
@@ -103,10 +114,17 @@ export default function RichTextField({
   value,
   onChange,
   ariaLabel,
+  mediaPick,
 }: {
   value: string;
   onChange: (html: string) => void;
   ariaLabel?: string;
+  /**
+   * Optional media-library image picker (policy pages). When given,
+   * an "Insert image" toolbar button appears; it must resolve with
+   * the picked image URL + alt text, or null when cancelled.
+   */
+  mediaPick?: () => Promise<{ url: string; alt: string } | null>;
 }) {
   const lastEmitted = useRef<string | null>(null);
   const [stats, setStats] = useState({ words: 0, chars: 0 });
@@ -142,6 +160,9 @@ export default function RichTextField({
       Underline,
       Subscript,
       Superscript,
+      // Only for consumers whose sanitizer allows media images
+      // (policies). allowBase64 stays false: sources are URLs.
+      ...(mediaPick ? [Image.configure({ inline: false, allowBase64: false })] : []),
     ],
     content: value || "",
     editorProps: {
@@ -279,6 +300,19 @@ export default function RichTextField({
             >
               <Link2Off size={14} />
             </ToolBtn>
+            {mediaPick ? (
+              <ToolBtn
+                label="Insert image from media library"
+                onClick={async () => {
+                  const picked = await mediaPick();
+                  if (picked) {
+                    editor.chain().focus().setImage({ src: picked.url, alt: picked.alt }).run();
+                  }
+                }}
+              >
+                <ImageIcon size={14} />
+              </ToolBtn>
+            ) : null}
             <ToolBtn
               label="Clear formatting"
               onClick={() => editor.chain().focus().unsetAllMarks().clearNodes().run()}

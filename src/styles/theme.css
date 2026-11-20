@@ -418,6 +418,100 @@
 }
 
 /**
+ * Policy body — the legal pages (Privacy Policy, Terms of Use,
+ * Accessibility). Same reading typography as .article-body but tuned
+ * for reference text: no drop-cap lead, slightly tighter measure,
+ * and heading scroll-margin so the sticky table of contents can
+ * anchor-jump without the fixed header covering the section title.
+ */
+.policy-body {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  font-weight: 300;
+  line-height: 1.8;
+  color: var(--foreground);
+  overflow-wrap: break-word;
+}
+
+.policy-body p {
+  margin: 0 0 1.2em;
+}
+
+.policy-body h2,
+.policy-body h3,
+.policy-body h4 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.25;
+  letter-spacing: 0.01em;
+  margin: 1.6em 0 0.55em;
+  scroll-margin-top: 6.5rem;
+}
+
+.policy-body h2 {
+  font-size: 1.55rem;
+}
+
+.policy-body h3 {
+  font-size: 1.25rem;
+}
+
+.policy-body h4 {
+  font-size: 1.05rem;
+}
+
+.policy-body a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.policy-body a:hover {
+  opacity: 0.8;
+}
+
+.policy-body strong {
+  font-weight: 600;
+}
+
+.policy-body blockquote {
+  border-left: 2px solid var(--accent);
+  margin: 1.4em 0;
+  padding: 0.1em 0 0.1em 1.1em;
+  color: var(--muted-foreground);
+}
+
+.policy-body blockquote p {
+  margin: 0;
+}
+
+.policy-body ul,
+.policy-body ol {
+  margin: 0 0 1.2em;
+  padding-left: 1.4em;
+}
+
+.policy-body ul {
+  list-style: disc;
+}
+
+.policy-body ol {
+  list-style: decimal;
+}
+
+.policy-body li {
+  margin-bottom: 0.35em;
+}
+
+.policy-body img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.4em auto;
+  border-radius: 2px;
+}
+
+/**
  * Contact form subject select (About page, dark ContactBand).
  * The closed control is styled dark-on-dark by Tailwind classes, but the
  * native option popup is painted by the OS/browser on its default white

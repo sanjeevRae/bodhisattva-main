@@ -127,8 +127,12 @@ export default function Footer() {
         <div className="border-t border-border pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <span className="font-mono text-[0.54rem] tracking-widest uppercase text-muted-foreground">{copyright}</span>
           <div className="flex gap-6">
-            {["Privacy Policy", "Terms of Use", "Accessibility"].map((item) => (
-              <span key={item} className="font-mono text-[0.54rem] tracking-wider text-muted-foreground cursor-pointer hover:text-accent transition-colors">{item}</span>
+            {[
+              { label: "Privacy Policy", path: "/privacy-policy" },
+              { label: "Terms of Use", path: "/terms-of-use" },
+              { label: "Accessibility", path: "/accessibility" },
+            ].map((item) => (
+              <Link key={item.path} to={item.path} className="font-mono text-[0.54rem] tracking-wider text-muted-foreground hover:text-accent transition-colors">{item.label}</Link>
             ))}
           </div>
         </div>

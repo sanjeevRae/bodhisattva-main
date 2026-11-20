@@ -626,3 +626,26 @@ export interface PopupAdmin {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface PolicyAdmin {
+  slug: string;
+  title: string;
+  bodyHtml: string;
+  version: number;
+  updatedAt: string;
+  updatedBy: number | null;
+  revisionsCount: number;
+}
+
+export interface PolicyRevision {
+  id: number;
+  slug: string;
+  title: string;
+  version: number;
+  savedBy: number | null;
+  createdAt: string;
+}
+
+export interface PolicyRevisionDetail extends PolicyRevision {
+  bodyHtml: string;
+}

@@ -102,6 +102,7 @@ const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'news.manage': 'Manage news clippings and news categories',
   'foundation.manage': 'Manage foundation programs, impact statistics and testimonials',
   'popup.manage': 'Manage the website announcement popup',
+  'policy.manage': 'Manage the legal policy pages (privacy, terms, accessibility)',
   'contact.read': 'View contact-form submissions',
   'contact.manage': 'Mark submissions resolved; delete submissions',
   // §4.5 Store
@@ -174,6 +175,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'news.manage',
   'foundation.manage',
   'popup.manage',
+  'policy.manage',
   'contact.read',
   'contact.manage',
 ];

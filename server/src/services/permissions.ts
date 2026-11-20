@@ -17,6 +17,7 @@
  */
 import {
   isPermission,
+  PERMISSIONS,
   type Permission,
   type Role,
 } from "@bodhisattva/shared/permissions";
@@ -83,11 +84,28 @@ export async function getUserRoles(
 /**
  * The user's effective permission set: the union of every permission
  * granted to every role they hold, restricted to the shared catalogue.
+ *
+ * SUPER_ADMIN holds the FULL catalogue by construction (PERMISSIONS.md
+ * §2/§5) — enforced HERE, at resolution time, not only by seed rows.
+ * The seed grants SUPER_ADMIN every permission that exists when it
+ * runs, but a permission introduced later by a migration reaches
+ * existing databases only through that migration's own grants; when
+ * 0018/0019/0020 granted their new permissions to ADMIN alone,
+ * Super Admins on previously-seeded databases silently lost access
+ * to those features (owner report, 2026-11-20: Website Popup visible
+ * to Admin, not to Super Admin). Resolving the full catalogue for
+ * SUPER_ADMIN makes the documented model true on every database,
+ * whatever its seed/migration history. No endpoint can edit a role's
+ * permission set, so nothing can legitimately trim this.
  */
 export async function getEffectivePermissions(
   db: Database,
   userId: number,
 ): Promise<Set<Permission>> {
+  const rolesHeld = await getUserRoles(db, userId);
+  if (rolesHeld.includes("SUPER_ADMIN")) {
+    return new Set(PERMISSIONS);
+  }
   const rows = await db
     .select({ code: permissionsTable.code })
     .from(userRoles)

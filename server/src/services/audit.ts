@@ -86,6 +86,8 @@ export const AUDIT_ACTIONS = {
   popupDelete: "popup.delete",
   popupActivate: "popup.activate",
   popupDeactivate: "popup.deactivate",
+  policyUpdate: "policy.update",
+  policyRestore: "policy.restore",
   museumGalleryReorder: "museum.gallery.reorder",
   newsArticlesCreate: "news.articles.create",
   newsArticlesUpdate: "news.articles.update",

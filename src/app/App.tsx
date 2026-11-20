@@ -16,6 +16,7 @@ import NewsPage from "./pages/NewsPage";
 import NewsArticlePage from "./pages/NewsArticlePage";
 import FoundationPage from "./pages/FoundationPage";
 import AboutPage from "./pages/AboutPage";
+import PolicyPage from "./pages/PolicyPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
@@ -77,6 +78,9 @@ function Shell() {
                 <Route path="/news/:slug" element={<NewsArticlePage />} />
                 <Route path="/foundation" element={<FoundationPage />} />
                 <Route path="/about" element={<AboutPage />} />
+                <Route path="/privacy-policy" element={<PolicyPage slug="privacy-policy" />} />
+                <Route path="/terms-of-use" element={<PolicyPage slug="terms-of-use" />} />
+                <Route path="/accessibility" element={<PolicyPage slug="accessibility" />} />
                 {/* Customer accounts + checkout (Phase 6). These paths are
                     in RESERVED_SLUGS so a CMS page can never shadow them. */}
                 <Route path="/login" element={<LoginPage />} />

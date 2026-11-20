@@ -46,6 +46,7 @@ export const PERMISSIONS = [
   "news.manage",
   "foundation.manage",
   "popup.manage",
+  "policy.manage",
   "contact.read",
   "contact.manage",
 

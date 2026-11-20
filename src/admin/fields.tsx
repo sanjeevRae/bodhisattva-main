@@ -95,10 +95,12 @@ export function RichTextFieldLazy({
   value,
   onChange,
   ariaLabel,
+  mediaPick,
 }: {
   value: string;
   onChange: (html: string) => void;
   ariaLabel?: string;
+  mediaPick?: () => Promise<{ url: string; alt: string } | null>;
 }) {
   const fallback = (
     <textarea
@@ -112,7 +114,7 @@ export function RichTextFieldLazy({
   return (
     <RichTextErrorBoundary fallback={fallback}>
       <Suspense fallback={fallback}>
-        <RichTextFieldImpl value={value} onChange={onChange} ariaLabel={ariaLabel} />
+        <RichTextFieldImpl value={value} onChange={onChange} ariaLabel={ariaLabel} mediaPick={mediaPick} />
       </Suspense>
     </RichTextErrorBoundary>
   );

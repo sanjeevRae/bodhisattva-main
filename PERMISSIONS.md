@@ -53,6 +53,15 @@ later phases. Nothing here should be read as a claim that a control is already i
 | `STORE_ADMIN` | Invitation only (created by Super Admin) | **Required (TOTP)** | Store operations only: products, categories, inventory, orders, invoices, invoice templates, store settings |
 | `CUSTOMER` | Public registration **with mandatory email verification** (spec §7.1) | Not required (see §7) | Own profile, addresses, cart, checkout, own orders and invoices |
 
+**SUPER_ADMIN's full-catalogue access is enforced at resolution time**
+(`server/src/services/permissions.ts`): a Super Admin's effective set is
+the whole catalogue, whatever the `role_permissions` rows say. The seed
+also grants the rows, and migration 0021 repaired them on older
+databases — but the rows are not the mechanism. (Before 2026-11-20 the
+rows WERE the only mechanism, and permissions added by migrations
+0018–0020, granted to ADMIN alone, silently locked Super Admins on
+previously-seeded databases out of those features.)
+
 There is deliberately **no** public administrator registration endpoint, and no permission that
 allows creating a Super Admin through the ordinary user-management API — role assignment is itself
 permission-gated (`roles.manage`, Super Admin only) and audited.
@@ -122,6 +131,7 @@ though the permission string matches. This scoping rule must be covered by an au
 | `news.manage` | Manage news clippings and news categories |
 | `foundation.manage` | Manage foundation programs, impact statistics and testimonials |
 | `popup.manage` | Manage the website announcement popup |
+| `policy.manage` | Manage the legal policy pages (privacy, terms, accessibility) |
 | `contact.read` | View contact-form submissions |
 | `contact.manage` | Mark submissions resolved; delete submissions |
 
@@ -190,6 +200,7 @@ A "—" is enforced by the API regardless of what any UI shows.
 | `news.manage` | ✓ | ✓ | — | — |
 | `foundation.manage` | ✓ | ✓ | — | — |
 | `popup.manage` | ✓ | ✓ | — | — |
+| `policy.manage` | ✓ | ✓ | — | — |
 | `contact.read` | ✓ | ✓ | — | — |
 | `contact.manage` | ✓ | ✓ | — | — |
 | `store.products.manage` | ✓ | — | ✓ | — |

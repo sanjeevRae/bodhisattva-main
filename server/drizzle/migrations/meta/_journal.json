@@ -141,6 +141,20 @@
       "when": 1795165634273,
       "tag": "0019_site_popups",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1795167575145,
+      "tag": "0020_site_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1795168682546,
+      "tag": "0021_super_admin_full_grants",
+      "breakpoints": true
     }
   ]
 }
