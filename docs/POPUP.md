@@ -1,4 +1,4 @@
-# Website Popup — announcement / welcome popup (2026-11-20)
+# Site Announcement — home-page popup (2026-11-20)
 
 Owner feature: an admin-controlled popup on the home page — an
 advertisement or welcome message — shown **once per visitor**, fully
@@ -32,7 +32,7 @@ adopted (below).
 
 ## Admin
 
-- Sidebar → **Website Popup** (permission `popup.manage`: Super
+- Sidebar → **Site Announcement** (permission `popup.manage`: Super
   Admin + Admin; Store Admin deliberately excluded — marketing
   content, not shop operations). Permission count 49 → **50**
   (shared catalogue + PERMISSIONS.md + seed data + migration grant).

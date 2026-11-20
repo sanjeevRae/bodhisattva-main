@@ -76,7 +76,7 @@ export default function PopupsScreen() {
     <div className="mx-auto max-w-5xl space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl tracking-wide">Website Popup</h1>
+          <h1 className="font-display text-3xl tracking-wide">Site Announcement</h1>
           <p className="text-sm text-muted-foreground">
             A welcome or announcement popup on the home page. Each visitor sees it only once.
           </p>

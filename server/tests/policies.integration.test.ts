@@ -450,5 +450,20 @@ describe.runIf(RUN)("policy pages (integration)", () => {
     expect(policies.status, JSON.stringify(policies.body)).toBe(200);
     const popups = await state.root!.get("/api/admin/popups");
     expect(popups.status, JSON.stringify(popups.body)).toBe(200);
+    // The admin SPA builds its sidebar from GET /api/admin/roles —
+    // that list must ALSO present SUPER_ADMIN with the full
+    // catalogue, or the menu items stay hidden even though the API
+    // itself would allow them (the owner's actual symptom).
+    const rolesRes = await state.root!.get("/api/admin/roles");
+    expect(rolesRes.status, JSON.stringify(rolesRes.body)).toBe(200);
+    // NB: the roles route predates the response envelope — it
+    // answers a bare { items } body.
+    const roleViews = rolesRes.body.items as { code: string; permissions: string[] }[];
+    const superRole = roleViews.find((r) => r.code === "SUPER_ADMIN");
+    expect(superRole?.permissions).toContain("popup.manage");
+    expect(superRole?.permissions).toContain("policy.manage");
+    const storeRole = roleViews.find((r) => r.code === "STORE_ADMIN");
+    expect(storeRole?.permissions).not.toContain("popup.manage");
+    expect(storeRole?.permissions).not.toContain("policy.manage");
   });
 });

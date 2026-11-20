@@ -17,7 +17,7 @@
  *  - Every assignment is audited with from/to roles.
  */
 import { AppError } from "@bodhisattva/shared/errors";
-import { isRole, type Role } from "@bodhisattva/shared/permissions";
+import { isRole, PERMISSIONS, type Role } from "@bodhisattva/shared/permissions";
 import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
 import { MAX_SUPER_ADMINS } from "../../config/limits.js";
@@ -90,7 +90,18 @@ export async function listRoles(db: Database): Promise<RoleView[]> {
         code: role.code,
         name: role.name,
         description: role.description,
-        permissions: byRole.get(role.id) ?? [],
+        // SUPER_ADMIN holds the full catalogue by construction
+        // (PERMISSIONS.md §2/§5) — present it that way regardless of
+        // the grant rows, exactly as getEffectivePermissions
+        // resolves it. The admin SPA builds its sidebar from this
+        // list; row-only data hid newer features (popup, policies,
+        // store settings) from Super Admins on databases seeded
+        // before those permissions existed (owner report,
+        // 2026-11-20).
+        permissions:
+          role.code === "SUPER_ADMIN"
+            ? [...PERMISSIONS].sort()
+            : (byRole.get(role.id) ?? []),
       },
     ];
   });

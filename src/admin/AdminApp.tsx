@@ -192,7 +192,7 @@ const NAV_ITEMS: Array<{
   { to: "/admin/exhibitions", label: "Exhibitions", icon: <CalendarRange size={17} />, permission: "museum.exhibitions.manage" },
   { to: "/admin/news", label: "News Clippings", icon: <Newspaper size={17} />, permission: "news.manage" },
   { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
-  { to: "/admin/popups", label: "Website Popup", icon: <Megaphone size={17} />, permission: "popup.manage" },
+  { to: "/admin/popups", label: "Site Announcement", icon: <Megaphone size={17} />, permission: "popup.manage" },
   { to: "/admin/policies", label: "Policy Pages", icon: <ScrollText size={17} />, permission: "policy.manage" },
   { to: "/admin/products", label: "Products", icon: <ShoppingBag size={17} />, permission: "store.products.manage" },
   { to: "/admin/product-categories", label: "Product Categories", icon: <Tags size={17} />, permission: "store.categories.manage" },
