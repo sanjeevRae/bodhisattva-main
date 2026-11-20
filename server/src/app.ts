@@ -52,10 +52,6 @@ import {
   createOrdersCustomerRouter,
 } from "./modules/orders/orders.routes.js";
 import {
-  createPopupAdminRouter,
-  createPopupPublicRouter,
-} from "./modules/popups/routes.js";
-import {
   createPolicyAdminRouter,
   createPolicyPublicRouter,
 } from "./modules/policies/routes.js";
@@ -145,10 +141,6 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/admin", createRolesRouter({ db, config }));
     app.use("/api", createCmsPublicRouter({ db, config }));
     app.use("/api/admin", createCmsAdminRouter({ db, config }));
-    // The popup's public read must sit with the other PUBLIC routers:
-    // the customer routers below guard every fall-through /api path
-    // with a session check and would 401 anonymous visitors.
-    app.use("/api", createPopupPublicRouter({ db, config }));
     app.use("/api", createPolicyPublicRouter({ db, config }));
     const media = createMediaRouters({ db, config });
     app.use("/api", media.publicRouter);
@@ -160,7 +152,6 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/admin", createStoreAdminRouter({ db, config }));
     app.use("/api", createOrdersCustomerRouter({ db, config }));
     app.use("/api/admin", createOrdersAdminRouter({ db, config }));
-    app.use("/api/admin", createPopupAdminRouter({ db, config }));
     app.use("/api/admin", createPolicyAdminRouter({ db, config }));
     app.use("/api/admin", createAuditRouter({ db, config }));
   }

@@ -130,7 +130,6 @@ though the permission string matches. This scoping rule must be covered by an au
 | `museum.gallery.manage` | Manage gallery items, captions, categories, years, ordering |
 | `news.manage` | Manage news clippings and news categories |
 | `foundation.manage` | Manage foundation programs, impact statistics and testimonials |
-| `popup.manage` | Manage the website announcement popup |
 | `policy.manage` | Manage the legal policy pages (privacy, terms, accessibility) |
 | `contact.read` | View contact-form submissions |
 | `contact.manage` | Mark submissions resolved; delete submissions |
@@ -199,7 +198,6 @@ A "—" is enforced by the API regardless of what any UI shows.
 | `museum.gallery.manage` | ✓ | ✓ | — | — |
 | `news.manage` | ✓ | ✓ | — | — |
 | `foundation.manage` | ✓ | ✓ | — | — |
-| `popup.manage` | ✓ | ✓ | — | — |
 | `policy.manage` | ✓ | ✓ | — | — |
 | `contact.read` | ✓ | ✓ | — | — |
 | `contact.manage` | ✓ | ✓ | — | — |

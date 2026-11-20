@@ -94,7 +94,7 @@ export async function listRoles(db: Database): Promise<RoleView[]> {
         // (PERMISSIONS.md §2/§5) — present it that way regardless of
         // the grant rows, exactly as getEffectivePermissions
         // resolves it. The admin SPA builds its sidebar from this
-        // list; row-only data hid newer features (popup, policies,
+        // list; row-only data hid newer features (policies,
         // store settings) from Super Admins on databases seeded
         // before those permissions existed (owner report,
         // 2026-11-20).

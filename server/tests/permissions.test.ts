@@ -2,16 +2,17 @@
  * Permission catalogue integrity (Phase 1 review, ChatGPT §7A): the shared
  * catalogue is the single source for the TypeScript union, the Phase 2
  * seed data and the frontend's visibility hints — drift or duplicates here
- * would silently corrupt authorization. PERMISSIONS.md defines 51 grantable
+ * would silently corrupt authorization. PERMISSIONS.md defines 50 grantable
  * permissions (audit.update / audit.delete deliberately do not exist).
- * (50 after popup.manage, 51 after policy.manage — 2026-11-20.)
+ * (51 after policy.manage, back to 50 when the popup feature was
+ * removed the same day — 2026-11-20.)
  */
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS, isPermission } from "@bodhisattva/shared/permissions";
 
 describe("permission catalogue", () => {
-  it("contains exactly the 51 grantable permissions from PERMISSIONS.md", () => {
-    expect(PERMISSIONS).toHaveLength(51);
+  it("contains exactly the 50 grantable permissions from PERMISSIONS.md", () => {
+    expect(PERMISSIONS).toHaveLength(50);
   });
 
   it("has no duplicates", () => {

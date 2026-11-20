@@ -45,7 +45,6 @@ export const PERMISSIONS = [
   "museum.gallery.manage",
   "news.manage",
   "foundation.manage",
-  "popup.manage",
   "policy.manage",
   "contact.read",
   "contact.manage",

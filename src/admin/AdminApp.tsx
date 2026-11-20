@@ -32,7 +32,6 @@ import {
   LayoutDashboard,
   Library,
   LogOut,
-  Megaphone,
   Menu as MenuIcon,
   Newspaper,
   Receipt,
@@ -59,7 +58,6 @@ import CollectionsScreen from "./screens/Collections";
 import ExhibitionsScreen from "./screens/Exhibitions";
 import NewsScreen from "./screens/News";
 import FoundationScreen from "./screens/Foundation";
-import PopupsScreen from "./screens/Popups";
 import PoliciesScreen from "./screens/Policies";
 import ProductsScreen from "./screens/Products";
 import ProductEditorScreen from "./screens/ProductEditor";
@@ -192,7 +190,6 @@ const NAV_ITEMS: Array<{
   { to: "/admin/exhibitions", label: "Exhibitions", icon: <CalendarRange size={17} />, permission: "museum.exhibitions.manage" },
   { to: "/admin/news", label: "News Clippings", icon: <Newspaper size={17} />, permission: "news.manage" },
   { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
-  { to: "/admin/popups", label: "Site Announcement", icon: <Megaphone size={17} />, permission: "popup.manage" },
   { to: "/admin/policies", label: "Policy Pages", icon: <ScrollText size={17} />, permission: "policy.manage" },
   { to: "/admin/products", label: "Products", icon: <ShoppingBag size={17} />, permission: "store.products.manage" },
   { to: "/admin/product-categories", label: "Product Categories", icon: <Tags size={17} />, permission: "store.categories.manage" },
@@ -366,7 +363,6 @@ function Shell() {
             <Route path="exhibitions" element={<ExhibitionsScreen />} />
             <Route path="news" element={<NewsScreen />} />
             <Route path="foundation" element={<FoundationScreen />} />
-            <Route path="popups" element={<PopupsScreen />} />
             <Route path="policies" element={<PoliciesScreen />} />
             <Route path="products" element={<ProductsScreen />} />
             <Route path="products/new" element={<ProductEditorScreen />} />

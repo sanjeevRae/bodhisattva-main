@@ -90,10 +90,10 @@ export async function getUserRoles(
  * The seed grants SUPER_ADMIN every permission that exists when it
  * runs, but a permission introduced later by a migration reaches
  * existing databases only through that migration's own grants; when
- * 0018/0019/0020 granted their new permissions to ADMIN alone,
+ * 0018/0020 granted their new permissions to ADMIN alone,
  * Super Admins on previously-seeded databases silently lost access
- * to those features (owner report, 2026-11-20: Website Popup visible
- * to Admin, not to Super Admin). Resolving the full catalogue for
+ * to those features (owner report, 2026-11-20: newer admin screens
+ * visible to Admin, not to Super Admin). Resolving the full catalogue for
  * SUPER_ADMIN makes the documented model true on every database,
  * whatever its seed/migration history. No endpoint can edit a role's
  * permission set, so nothing can legitimately trim this.

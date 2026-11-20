@@ -431,25 +431,26 @@ describe.runIf(RUN)("policy pages (integration)", () => {
     expect((res.body.data as PolicyBody).version).toBe(2);
   });
 
-  it("REGRESSION (owner report 2026-11-20): Super Admin keeps popup + policy access even when the grant ROWS are missing", async () => {
-    // Simulate Meena's local database: seeded BEFORE popup.manage
-    // and policy.manage existed, then migrated — migrations 0019 /
-    // 0020 granted ADMIN alone, so the SUPER_ADMIN role_permissions
-    // rows for the new permissions do not exist. Resolution must
-    // still grant the Super Admin the full catalogue (PERMISSIONS.md
-    // §2/§5, enforced in services/permissions.ts). On the pre-fix
-    // code both requests below are 403.
+  it("REGRESSION (owner report 2026-11-20): Super Admin keeps policy + store-settings access even when the grant ROWS are missing", async () => {
+    // Simulate Meena's local database: seeded BEFORE
+    // store.settings.manage and policy.manage existed, then
+    // migrated — migrations 0018 / 0020 granted ADMIN alone, so the
+    // SUPER_ADMIN role_permissions rows for the new permissions do
+    // not exist. Resolution must still grant the Super Admin the
+    // full catalogue (PERMISSIONS.md §2/§5, enforced in
+    // services/permissions.ts). On the pre-fix code both requests
+    // below are 403.
     const p = pool();
     await p.query(
       `DELETE rp FROM role_permissions rp
        JOIN roles r ON r.id = rp.role_id
        JOIN permissions perm ON perm.id = rp.permission_id
-       WHERE r.code = 'SUPER_ADMIN' AND perm.code IN ('popup.manage', 'policy.manage')`,
+       WHERE r.code = 'SUPER_ADMIN' AND perm.code IN ('store.settings.manage', 'policy.manage')`,
     );
     const policies = await state.root!.get("/api/admin/policies");
     expect(policies.status, JSON.stringify(policies.body)).toBe(200);
-    const popups = await state.root!.get("/api/admin/popups");
-    expect(popups.status, JSON.stringify(popups.body)).toBe(200);
+    const settings = await state.root!.get("/api/admin/settings");
+    expect(settings.status, JSON.stringify(settings.body)).toBe(200);
     // The admin SPA builds its sidebar from GET /api/admin/roles —
     // that list must ALSO present SUPER_ADMIN with the full
     // catalogue, or the menu items stay hidden even though the API
@@ -460,10 +461,9 @@ describe.runIf(RUN)("policy pages (integration)", () => {
     // answers a bare { items } body.
     const roleViews = rolesRes.body.items as { code: string; permissions: string[] }[];
     const superRole = roleViews.find((r) => r.code === "SUPER_ADMIN");
-    expect(superRole?.permissions).toContain("popup.manage");
     expect(superRole?.permissions).toContain("policy.manage");
+    expect(superRole?.permissions).toContain("store.settings.manage");
     const storeRole = roleViews.find((r) => r.code === "STORE_ADMIN");
-    expect(storeRole?.permissions).not.toContain("popup.manage");
     expect(storeRole?.permissions).not.toContain("policy.manage");
   });
 });

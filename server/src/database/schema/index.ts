@@ -16,5 +16,4 @@ export * from './museum.js';
 export * from './store.js';
 export * from './invoices.js';
 export * from './system.js';
-export * from './popups.js';
 export * from './policies.js';

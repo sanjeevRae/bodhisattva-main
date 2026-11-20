@@ -155,6 +155,13 @@
       "when": 1795168682546,
       "tag": "0021_super_admin_full_grants",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1795170534718,
+      "tag": "0022_remove_site_announcement",
+      "breakpoints": true
     }
   ]
 }

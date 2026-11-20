@@ -604,29 +604,6 @@ export interface AuditLogAdmin {
   createdAt: string;
 }
 
-// ---------------------------------------------------------------------------
-// Website popup (2026-11-20) — mirrors the server's PopupAdminView.
-// At most one popup is active at a time; `version` bumps only when the
-// visitor-facing content changes, and the browser's seen marker is
-// keyed by (id, version) so edited content shows once more.
-// ---------------------------------------------------------------------------
-
-export interface PopupAdmin {
-  id: number;
-  heading: string;
-  message: string;
-  imageMediaId: number | null;
-  imageUrl: string | null;
-  buttonLabel: string | null;
-  linkUrl: string | null;
-  isActive: boolean;
-  version: number;
-  createdBy: number | null;
-  updatedBy: number | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface PolicyAdmin {
   slug: string;
   title: string;
