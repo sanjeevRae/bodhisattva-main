@@ -22,6 +22,8 @@ import {
 import { Link, NavLink, Navigate, Route, Routes, useLocation, useNavigate } from "react-router";
 import {
   CalendarRange,
+  ChevronsLeft,
+  ChevronsRight,
   ClipboardList,
   ExternalLink,
   FileText,
@@ -197,47 +199,122 @@ const NAV_ITEMS: Array<{
   { to: "/admin/users", label: "Users", icon: <UsersIcon size={17} />, permission: "roles.read" },
 ];
 
+const SIDEBAR_PREF_KEY = "bodhisattva-admin-sidebar";
+
+function readSidebarPreference(): boolean {
+  try {
+    return window.localStorage.getItem(SIDEBAR_PREF_KEY) === "collapsed";
+  } catch {
+    return false;
+  }
+}
+
 function Shell() {
   const { user, logout, hasPermission } = useAuth();
+  const location = useLocation();
+  const isPageEditor = /^\/admin\/pages\/[^/]+\/edit$/.test(location.pathname);
+  // Sidebar state has two separate sources (kept apart so the editor
+  // never rewrites the user's own choice):
+  //  - preferenceCollapsed: the user's persistent preference, used on
+  //    every screen except the page editor, saved to localStorage.
+  //  - editorOverride: a temporary in-editor choice. Entering the
+  //    page editor collapses the sidebar by default (the editor's
+  //    canvas + inspector need the width); the user can expand it
+  //    while editing, and leaving the editor drops the override and
+  //    restores the preference.
+  const [preferenceCollapsed, setPreferenceCollapsed] = useState<boolean>(readSidebarPreference);
+  const [editorOverride, setEditorOverride] = useState<boolean | null>(null);
+  useEffect(() => {
+    setEditorOverride(null);
+  }, [isPageEditor]);
+  const collapsed = isPageEditor ? (editorOverride ?? true) : preferenceCollapsed;
+  const toggleSidebar = () => {
+    if (isPageEditor) {
+      setEditorOverride(!collapsed);
+      return;
+    }
+    const next = !collapsed;
+    setPreferenceCollapsed(next);
+    try {
+      window.localStorage.setItem(SIDEBAR_PREF_KEY, next ? "collapsed" : "expanded");
+    } catch {
+      // Storage unavailable (private mode) — the choice just won't persist.
+    }
+  };
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col border-r border-border bg-card">
-        <div className="border-b border-border px-5 py-4">
-          <p className="font-display text-xl tracking-wide">Bodhisattva</p>
-          <p className="font-mono text-[0.6rem] tracking-[0.22em] uppercase text-muted-foreground">
-            Museum Admin
-          </p>
-        </div>
-        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4" aria-label="Admin">
+      <aside
+        className={cx(
+          "sticky top-0 flex h-screen shrink-0 flex-col border-r border-border bg-card transition-[width] duration-200",
+          collapsed ? "w-16" : "w-60",
+        )}
+      >
+        {collapsed ? (
+          <div className="border-b border-border px-2 py-4" title="Bodhisattva — Museum Admin">
+            <p className="text-center font-display text-xl tracking-wide" aria-hidden="true">B</p>
+            <span className="sr-only">Bodhisattva — Museum Admin</span>
+          </div>
+        ) : (
+          <div className="border-b border-border px-5 py-4">
+            <p className="font-display text-xl tracking-wide">Bodhisattva</p>
+            <p className="font-mono text-[0.6rem] tracking-[0.22em] uppercase text-muted-foreground">
+              Museum Admin
+            </p>
+          </div>
+        )}
+        <nav className={cx("flex-1 space-y-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")} aria-label="Admin">
           {NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission)).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.end}
+              title={item.label}
+              aria-label={item.label}
               onClick={(e) => {
                 if (!confirmNavigation()) e.preventDefault();
               }}
               className={({ isActive }) =>
                 cx(
                   "flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors",
+                  collapsed && "justify-center px-0",
                   isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary",
                 )
               }
             >
               {item.icon}
-              {item.label}
+              {!collapsed && item.label}
             </NavLink>
           ))}
         </nav>
-        <div className="border-t border-border px-3 py-3">
+        <div className="space-y-1 border-t border-border px-3 py-3">
+          <button
+            type="button"
+            onClick={toggleSidebar}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className={cx(
+              "flex w-full items-center gap-3 rounded-sm px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground",
+              collapsed && "justify-center px-0",
+            )}
+          >
+            {collapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
+            {!collapsed && "Collapse"}
+          </button>
           <Link
             to="/"
             onClick={(e) => {
               if (!confirmNavigation()) e.preventDefault();
             }}
-            className="flex items-center gap-3 rounded-sm px-3 py-2 text-sm hover:bg-secondary"
+            title="View site"
+            aria-label="View site"
+            className={cx(
+              "flex items-center gap-3 rounded-sm px-3 py-2 text-sm hover:bg-secondary",
+              collapsed && "justify-center px-0",
+            )}
           >
-            <ExternalLink size={17} /> View site
+            <ExternalLink size={17} />
+            {!collapsed && "View site"}
           </Link>
         </div>
       </aside>

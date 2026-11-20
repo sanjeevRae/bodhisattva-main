@@ -3,7 +3,8 @@
  * Tailwind v4 tokens: background/card/secondary/muted/accent/border), so
  * the admin reads as part of the same product as the public site.
  */
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ShieldCheck, X } from "lucide-react";
 import { ApiError, authApi } from "./api";
 
@@ -93,6 +94,43 @@ export function Spinner({ label = "Loading…" }: { label?: string }) {
   );
 }
 
+// -- Shared modal stack ---------------------------------------------------
+// Every open Modal registers here. The stack owns the two behaviours
+// that must be global across nested dialogs (e.g. the media picker
+// opening above the image-position editor): Escape closes ONLY the
+// topmost dialog, and the body scroll lock is held until the LAST
+// dialog closes.
+const modalStack: Array<{ id: number; close: () => void }> = [];
+let modalSeq = 0;
+let savedBodyOverflow: string | null = null;
+
+function onModalStackKey(e: KeyboardEvent) {
+  if (e.key === "Escape") {
+    modalStack[modalStack.length - 1]?.close();
+  }
+}
+
+function pushModal(entry: { id: number; close: () => void }) {
+  if (modalStack.length === 0) {
+    savedBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onModalStackKey);
+  }
+  modalStack.push(entry);
+}
+
+function popModal(id: number) {
+  const index = modalStack.findIndex((m) => m.id === id);
+  if (index >= 0) modalStack.splice(index, 1);
+  if (modalStack.length === 0) {
+    window.removeEventListener("keydown", onModalStackKey);
+    if (savedBodyOverflow !== null) {
+      document.body.style.overflow = savedBodyOverflow;
+      savedBodyOverflow = null;
+    }
+  }
+}
+
 export function Modal({
   open,
   onClose,
@@ -106,34 +144,69 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const idRef = useRef<number | null>(null);
+  if (idRef.current === null) idRef.current = ++modalSeq;
+  const panelRef = useRef<HTMLDivElement>(null);
+  const backdropDownRef = useRef(false);
+  // The stack entry calls the LATEST onClose without re-registering
+  // when a parent re-renders with a new closure.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+    const id = idRef.current as number;
+    pushModal({ id, close: () => onCloseRef.current() });
+    // Move focus into the dialog; restore it to the invoking control
+    // when this dialog closes.
+    const prevFocus = document.activeElement as HTMLElement | null;
+    panelRef.current?.focus();
+    return () => {
+      popModal(id);
+      if (prevFocus && document.contains(prevFocus)) prevFocus.focus?.();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
+  }, [open ]);
 
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-4 sm:p-8" role="presentation" onClick={onClose}>
+  // Portaled to <body>: rendered inline, the dialog's `fixed` box and
+  // z-index are trapped by any transformed/filtered ancestor in the
+  // admin tree (the page editor's canvas subtree painted its hero text
+  // over dialogs, and the sticky shell header clipped the title). As a
+  // direct body child the backdrop joins the root stacking context and
+  // always paints above app content.
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[100] flex items-start justify-center overflow-y-auto overscroll-contain bg-black/50 p-4 sm:p-8"
+      role="presentation"
+      onPointerDown={(e) => {
+        backdropDownRef.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        // Close only for a genuine backdrop click — a press that began
+        // inside the panel (text selection, a drag) and released over
+        // the backdrop must not dismiss the dialog.
+        if (backdropDownRef.current && e.target === e.currentTarget) onClose();
+      }}
+    >
       <div
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
-        className={cx("w-full rounded-sm border border-border bg-background shadow-xl", wide ? "max-w-5xl" : "max-w-lg")}
+        aria-labelledby={`modal-title-${idRef.current}`}
+        className={cx("w-full rounded-sm border border-border bg-background shadow-xl outline-none", wide ? "max-w-5xl" : "max-w-lg")}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-5 py-3">
-          <h2 className="font-display text-lg tracking-wide text-foreground">{title}</h2>
+          <h2 id={`modal-title-${idRef.current}`} className="font-display text-lg tracking-wide text-foreground">{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close dialog" className="rounded-sm p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
             <X size={18} />
           </button>
         </div>
         <div className="px-5 py-4">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

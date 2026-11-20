@@ -636,7 +636,7 @@ export default function PageEditor() {
         {/* Canvas */}
         <div className="min-w-0 flex-1 rounded-sm border border-border bg-secondary/30 p-3">
           <div
-            className="mx-auto bg-background shadow-sm transition-[max-width] duration-200"
+            className="isolate mx-auto bg-background shadow-sm transition-[max-width] duration-200"
             style={{ maxWidth: DEVICE_WIDTH[device] }}
           >
             {sections.map((section, index) => (
