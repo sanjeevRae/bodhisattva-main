@@ -344,6 +344,22 @@ export default function PageEditor() {
   );
 
   // -------------------------------------------------------------- save ---
+  // Selecting from the Sections list also brings the section into view
+  // in the canvas preview (owner request) — selection alone left users
+  // hunting for where the section sits on a long page. NOTE: this hook
+  // must stay ABOVE the loading/error early returns below — when it
+  // sat below them, the loading → loaded transition changed the hook
+  // count and React threw "Rendered more hooks than during the
+  // previous render", blanking the editor (fixed 2026-11-20).
+  const selectAndScroll = useCallback((uid: string) => {
+    setSelectedUid(uid);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-canvas-section="${uid}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
   const save = useCallback(async (): Promise<boolean> => {
     if (savingRef.current) return false;
     savingRef.current = true;
@@ -526,18 +542,6 @@ export default function PageEditor() {
   }
 
   const selected = sections.find((s) => s.uid === selectedUid) ?? null;
-
-  // Selecting from the Sections list also brings the section into view
-  // in the canvas preview (owner request) — selection alone left users
-  // hunting for where the section sits on a long page.
-  const selectAndScroll = useCallback((uid: string) => {
-    setSelectedUid(uid);
-    requestAnimationFrame(() => {
-      document
-        .querySelector(`[data-canvas-section="${uid}"]`)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  }, []);
   const selectedSpec = selected ? SECTION_SPECS[selected.type] : null;
   const canUndo = undoStack.current.length > 0;
   const canRedo = redoStack.current.length > 0;
