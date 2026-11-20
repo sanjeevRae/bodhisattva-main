@@ -5,8 +5,8 @@
  */
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { FileText, Images, Menu as MenuIcon, Settings as SettingsIcon, Users as UsersIcon } from "lucide-react";
-import { mediaApi, menusApi, pagesApi, settingsApi, usersApi } from "../api";
+import { FileText, Images, Menu as MenuIcon, ScrollText, Settings as SettingsIcon, Users as UsersIcon } from "lucide-react";
+import { mediaApi, menusApi, pagesApi, policiesApi, settingsApi, usersApi } from "../api";
 import { useAuth } from "../AdminApp";
 import { Spinner } from "../ui";
 
@@ -17,6 +17,7 @@ interface Counts {
   settings?: number;
   users?: number;
   pendingInvitations?: number;
+  policies?: number;
 }
 
 export default function Dashboard() {
@@ -39,6 +40,9 @@ export default function Dashboard() {
     }
     if (hasPermission("settings.manage")) {
       settingsApi.list().then((d) => collect({ settings: d.items.length })).catch(() => undefined);
+    }
+    if (hasPermission("policy.manage")) {
+      policiesApi.list().then((d) => collect({ policies: d.items.length })).catch(() => undefined);
     }
     if (hasPermission("roles.read")) {
       usersApi.list(1, 1).then((d) => collect({ users: d.meta.total })).catch(() => undefined);
@@ -65,6 +69,13 @@ export default function Dashboard() {
       icon: <UsersIcon size={22} />,
       value: counts?.users,
       hint: counts?.pendingInvitations ? `${counts.pendingInvitations} invitation(s) pending` : "Accounts, roles and invitations",
+    },
+    {
+      to: "/admin/policies",
+      label: "Policy Pages",
+      icon: <ScrollText size={22} />,
+      value: counts?.policies,
+      hint: "Privacy policy, terms of use and accessibility",
     },
   ];
 
