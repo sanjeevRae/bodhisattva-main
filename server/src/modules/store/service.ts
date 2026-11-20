@@ -48,11 +48,13 @@ import {
   desc,
   eq,
   inArray,
+  isNotNull,
   isNull,
   like,
   or,
   sql,
 } from "drizzle-orm";
+import pino from "pino";
 import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import { withDeadlockRetry } from "../../database/tx-retry.js";
@@ -70,10 +72,17 @@ import {
   productImages,
   products,
   productVariants,
+  roles,
   siteSettings,
+  userRoles,
   users,
 } from "../../database/schema/index.js";
+import { createRateLimiter } from "../../security/rate-limit.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
+import {
+  drainOutboxSoon,
+  enqueueEmail,
+} from "../orders/outbox.service.js";
 import { normalizePhone } from "../../utils/phone.js";
 import { mediaFileUrl } from "../media/media.service.js";
 import type {
@@ -1206,6 +1215,157 @@ export interface CheckoutResult {
   created: boolean;
 }
 
+const log = pino({ name: "store-checkout", level: process.env.LOG_LEVEL ?? "info" });
+
+/**
+ * Order-placed emails (owner request, 2026-11-20; plan reviewed by
+ * ChatGPT 9.3/10 and Gemini 9.2/10). Enqueued INSIDE the checkout
+ * transaction via the orders module's transactional outbox, so an
+ * order and its emails commit or roll back together, and the
+ * idempotency replay paths (which never reach the fresh-placement
+ * code) can never duplicate them. Delivery is at-least-once (the
+ * outbox's lease/retry semantics), never exactly-once — SMTP cannot
+ * promise more. Recipients are resolved server-side only: the
+ * customer at their snapshotted account email, staff from role
+ * assignments in the DB. Nothing about recipients comes from the
+ * request, and no mail configuration ever reaches the client.
+ */
+const ORDER_STAFF_ROLES: readonly string[] = ["ADMIN", "SUPER_ADMIN", "STORE_ADMIN"];
+
+/**
+ * Placed orders per customer per hour (replays and failed attempts
+ * don't count — the hit is recorded in the order's own transaction).
+ * 20 is generous for a gift shop (an order every 3 minutes, sustained)
+ * while capping one account's staff-notification fan-out.
+ */
+const CHECKOUT_RATE_LIMIT = 20;
+const CHECKOUT_RATE_WINDOW_SECONDS = 3600;
+
+/**
+ * Collapse newlines/control characters in free-text values before
+ * they are interpolated into a plain-text email body, so a crafted
+ * name or address cannot forge fake lines inside the message
+ * (body-injection hygiene). Headers never carry user input at all.
+ */
+function oneLineText(value: string): string {
+  return value
+    .replace(/[\u0000-\u001F\u007F]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function orderItemLines(itemRows: OrderItemRow[]): string {
+  return itemRows
+    .map((item) => {
+      const name = oneLineText(
+        item.variantNameSnapshot
+          ? `${item.productNameSnapshot} (${item.variantNameSnapshot})`
+          : item.productNameSnapshot,
+      );
+      return `- ${name} x ${item.quantity} — NPR ${item.lineTotal}`;
+    })
+    .join("\n");
+}
+
+function deliveryBlock(order: OrderRow): string {
+  const parts = [
+    order.shipAddressLine,
+    order.shipCity,
+    order.shipDistrict,
+    order.shipPostalCode,
+  ]
+    .filter((part): part is string => typeof part === "string" && part.trim().length > 0)
+    .map(oneLineText);
+  return (
+    `Deliver to: ${oneLineText(order.shipRecipientName)}\n` +
+    `Address: ${parts.join(", ")}\n` +
+    `Phone: ${oneLineText(order.shipPhone)}`
+  );
+}
+
+async function enqueueOrderPlacedEmails(
+  tx: DbLike,
+  order: OrderRow,
+  itemRows: OrderItemRow[],
+  customerUserId: number,
+): Promise<void> {
+  const lines = orderItemLines(itemRows);
+  await enqueueEmail(tx, {
+    type: "ORDER_PLACED",
+    recipientEmail: order.customerEmailSnapshot,
+    recipientUserId: customerUserId,
+    subject: `Your order ${order.orderNumber} has been placed`,
+    text:
+      `Dear ${oneLineText(order.shipRecipientName)},\n\n` +
+      `Thank you — your order ${order.orderNumber} has been placed and is awaiting approval.\n\n` +
+      `${lines}\n\n` +
+      `Subtotal: NPR ${order.subtotal}\n` +
+      `Shipping: NPR ${order.shippingFee}\n` +
+      `VAT: NPR ${order.taxTotal}\n` +
+      `Total on delivery: NPR ${order.grandTotal}\n\n` +
+      `${deliveryBlock(order)}\n\n` +
+      `Payment is cash on delivery. We will email your invoice once your order is approved.`,
+    relatedType: "order",
+    relatedId: order.id,
+  });
+
+  // Staff recipients: ACTIVE, email-verified holders of the staff
+  // roles, deduplicated by normalized email (two accounts sharing an
+  // address get one copy). Resolved and snapshotted NOW, at
+  // placement — later role changes do not rewrite this order's
+  // notifications.
+  const staffRows = await tx
+    .select({
+      userId: users.id,
+      email: users.email,
+      emailNormalized: users.emailNormalized,
+    })
+    .from(users)
+    .innerJoin(userRoles, eq(userRoles.userId, users.id))
+    .innerJoin(roles, eq(roles.id, userRoles.roleId))
+    .where(
+      and(
+        inArray(roles.code, [...ORDER_STAFF_ROLES]),
+        eq(users.status, "ACTIVE"),
+        isNotNull(users.emailVerifiedAt),
+      ),
+    );
+  const seen = new Set<string>();
+  const staff: { userId: number; email: string }[] = [];
+  for (const row of staffRows) {
+    const key = row.emailNormalized.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    staff.push({ userId: row.userId, email: row.email });
+  }
+  if (staff.length === 0) {
+    // Never block the order — but never let it go unnoticed either.
+    log.error(
+      { orderId: order.id, orderNumber: order.orderNumber },
+      "order placed with NO eligible staff notification recipients (no ACTIVE, verified Admin/Super Admin/Store Admin account)",
+    );
+  }
+  for (const recipient of staff) {
+    await enqueueEmail(tx, {
+      type: "ORDER_PLACED_ADMIN",
+      recipientEmail: recipient.email,
+      recipientUserId: recipient.userId,
+      subject: `New order ${order.orderNumber} — NPR ${order.grandTotal}`,
+      text:
+        `A new order has been placed on the website and is awaiting approval.\n\n` +
+        `Order: ${order.orderNumber}\n` +
+        `Customer: ${oneLineText(order.shipRecipientName)}\n` +
+        `Phone: ${oneLineText(order.shipPhone)}\n\n` +
+        `${lines}\n\n` +
+        `Total on delivery: NPR ${order.grandTotal} (cash on delivery)\n\n` +
+        `${deliveryBlock(order)}\n\n` +
+        `Review and approve it in Admin → Orders.`,
+      relatedType: "order",
+      relatedId: order.id,
+    });
+  }
+}
+
 export async function checkout(
   deps: StoreDeps,
   actor: StoreActor,
@@ -1219,6 +1379,30 @@ export async function checkout(
   // no side effects — even though the cart has since been cleared.
   const replay = await findOrderByIdempotencyKey(db, userId, input.idempotencyKey);
   if (replay) return { order: replay, created: false };
+
+  // Abuse guard (2026-11-20 review): a genuinely new order also fans
+  // out notification emails to every staff account, so cap PLACED
+  // orders per customer. Semantics: this peek only gates — the hit is
+  // recorded inside the transaction (see below), so replays (above),
+  // failed checkouts and rolled-back attempts never consume quota;
+  // only orders that actually commit count. The peek-then-record gap
+  // lets a small concurrent burst overshoot by its own size, which is
+  // acceptable for an abuse guard (it is not a security boundary).
+  const rateLimiter = createRateLimiter({
+    db,
+    keySecret: deps.config.secrets.otpHmacSecret,
+  });
+  const limit = await rateLimiter.checkLimit(
+    "checkout:user",
+    String(userId),
+    CHECKOUT_RATE_LIMIT,
+    CHECKOUT_RATE_WINDOW_SECONDS,
+  );
+  if (!limit.allowed) {
+    throw new AppError("RATE_LIMITED", undefined, [
+      { field: "retryAfter", issue: String(limit.retryAfterSeconds) },
+    ]);
+  }
 
   let result: CheckoutResult | undefined;
   try {
@@ -1489,6 +1673,17 @@ export async function checkout(
         .from(orderItems)
         .where(eq(orderItems.orderId, orderId))
         .orderBy(asc(orderItems.id));
+      // Record the rate-limit hit INSIDE the transaction: it commits
+      // or rolls back with the order, so only real orders count.
+      await createRateLimiter({
+        db: tx as unknown as Database,
+        keySecret: deps.config.secrets.otpHmacSecret,
+      }).recordHit("checkout:user", String(userId), CHECKOUT_RATE_WINDOW_SECONDS);
+
+      // Order-placed emails ride the SAME transaction (transactional
+      // outbox): they exist if and only if this order commits.
+      await enqueueOrderPlacedEmails(tx, orderRow, itemRows, userId);
+
       result = { order: toOrderView(orderRow, itemRows), created: true };
       // READ COMMITTED is load-bearing (see the module header): the
       // availability re-check after the product-row locks must see
@@ -1511,6 +1706,9 @@ export async function checkout(
   }
 
   if (result!.created) {
+    // Post-commit only: nudge the outbox drain (the cron/CLI drain is
+    // the reliable backstop if this process dies first).
+    drainOutboxSoon(deps);
     await writeAudit(db, {
       actorId: userId,
       actorType: "CUSTOMER",

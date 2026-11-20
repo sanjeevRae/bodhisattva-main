@@ -241,6 +241,9 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     await pool.query("DELETE FROM product_variants");
     await pool.query("DELETE FROM products");
     await pool.query("DELETE FROM product_categories");
+    // Checkout now enqueues order-placed emails (recipient_user_id →
+    // users): the outbox must be wiped before the identity tables.
+    await pool.query("DELETE FROM email_outbox");
     await pool.query("DELETE FROM user_roles");
     await pool.query("DELETE FROM user_sessions");
     await pool.query("DELETE FROM email_verification_codes");
@@ -1136,4 +1139,102 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
       { key: "store.tax_rate_percent", value: "0" },
     ])).status).toBe(200);
   });
+
+  it("order placement emails the customer and all staff roles — once, and never on replay", async () => {
+    const db = handle.db;
+    // Two INELIGIBLE staff accounts: a SUSPENDED admin (verified) and
+    // an ACTIVE admin whose email was never verified. Neither may
+    // receive the staff notification.
+    const roleRows = await db
+      .select({ id: rolesTable.id, code: rolesTable.code })
+      .from(rolesTable);
+    const roleIdByCode = new Map(roleRows.map((r) => [r.code, r.id]));
+    const suspendedEmail = `store-suspended-admin-${runId}@example.com`;
+    const unverifiedEmail = `store-unverified-admin-${runId}@example.com`;
+    const hash = await hashPassword("ineligible-staff-pass");
+    const [suspended] = await db
+      .insert(users)
+      .values({
+        fullName: "Suspended Admin",
+        email: suspendedEmail,
+        emailNormalized: suspendedEmail,
+        passwordHash: hash,
+        emailVerifiedAt: new Date(),
+        status: "SUSPENDED",
+      })
+      .$returningId();
+    const [unverified] = await db
+      .insert(users)
+      .values({
+        fullName: "Unverified Admin",
+        email: unverifiedEmail,
+        emailNormalized: unverifiedEmail,
+        passwordHash: hash,
+        emailVerifiedAt: null,
+        status: "ACTIVE",
+      })
+      .$returningId();
+    await db.insert(userRoles).values([
+      { userId: suspended.id, roleId: roleIdByCode.get("ADMIN")!, grantedBy: null },
+      { userId: unverified.id, roleId: roleIdByCode.get("ADMIN")!, grantedBy: null },
+    ]);
+
+    const outboxFor = async (orderId: number) => {
+      const [rows] = await handle.pool.query(
+        "SELECT type, recipient_email FROM email_outbox WHERE related_type = 'order' AND related_id = ?",
+        [orderId],
+      );
+      return rows as { type: string; recipient_email: string }[];
+    };
+
+    const agentA = state.custA!;
+    const list = await request(app).get("/api/shop/products?category=souvenirs");
+    const item = (list.body.data as ShopItem[])[0];
+    const added = await agentA
+      .post("/api/cart/items")
+      .set("X-CSRF-Token", state.csrfA!)
+      .send({ productId: item.id, quantity: 1 });
+    expect(added.status).toBe(200);
+    const placed = await agentA
+      .post("/api/checkout")
+      .set("X-CSRF-Token", state.csrfA!)
+      .send({ addressId: state.addressAId, idempotencyKey: `placed-mail-${runId}` });
+    expect(placed.status).toBe(201);
+    const order = placed.body.data.order as OrderBody;
+
+    const rows = await outboxFor(order.id);
+    const customerRows = rows.filter((r) => r.type === "ORDER_PLACED");
+    const staffRows = rows.filter((r) => r.type === "ORDER_PLACED_ADMIN");
+    expect(customerRows).toEqual([
+      { type: "ORDER_PLACED", recipient_email: EMAIL_A },
+    ]);
+    const staffRecipients = staffRows.map((r) => r.recipient_email).sort();
+    expect(staffRecipients).toEqual(
+      [
+        ROOT_EMAIL, // Super Admin (bootstrapped)
+        `store-role-admin-${runId}@example.com`, // ADMIN
+        `store-role-store-${runId}@example.com`, // STORE_ADMIN
+      ].sort(),
+    );
+    expect(staffRecipients).not.toContain(suspendedEmail);
+    expect(staffRecipients).not.toContain(unverifiedEmail);
+    expect(staffRecipients).not.toContain(EMAIL_B);
+
+    // Replay with the same idempotency key: no second set of emails.
+    const replay = await agentA
+      .post("/api/checkout")
+      .set("X-CSRF-Token", state.csrfA!)
+      .send({ addressId: state.addressAId, idempotencyKey: `placed-mail-${runId}` });
+    expect(replay.status).toBe(200);
+    const rowsAfter = await outboxFor(order.id);
+    expect(rowsAfter).toHaveLength(rows.length);
+
+    // The opportunistic drain actually delivers: the sink ends up
+    // holding the customer confirmation naming this order.
+    const mail = await waitForMail(
+      (t) => t.includes(EMAIL_A) && t.includes(order.orderNumber),
+      20000,
+    );
+    expect(mail).toContain("has been placed");
+  }, 120000);
 });
