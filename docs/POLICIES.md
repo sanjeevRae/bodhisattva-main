@@ -92,6 +92,28 @@ for the client's legal review, and the admin editor shows a notice
 saying so. Seeding uses `INSERT IGNORE`: re-running the migration
 never overwrites an admin's edits (integration-tested).
 
+**Full texts (migration 0023, 2026-11-20):** the owner asked for
+complete policies. `0023_site_policy_content` replaces the starter
+texts with full Privacy Policy (12 sections), Terms of Use
+(19 sections, including a complete Gift Shop chapter: order
+acknowledgement vs approval-as-acceptance, COD-only payment,
+delivery responsibility, cancellation before dispatch, damaged /
+defective / not-as-described returns with refund including VAT,
+authenticity limited to per-item descriptions, complaints) and
+Accessibility (7 sections; WCAG 2.2 AA named as a guide, not a
+conformance claim; the scanned-press-archive limitations stated
+plainly). Structure reviewed with ChatGPT (Nepal framing: Privacy
+Act 2075 purpose-limitation; no GDPR boilerplate; no statute
+section numbers are cited in the published text — ChatGPT's
+citations were not independently verified). Before overwriting,
+0023 snapshots each page's current content into
+`site_policy_revisions` (saved_by NULL), so the starter texts
+remain restorable from the admin History; the down migration
+restores them the same way. Still drafts for legal review: open
+owner decisions include the change-of-mind returns wording, the
+complaint-handling process, and Nepal e-commerce platform
+registration/disclosure duties that go beyond these three pages.
+
 ## Data
 
 - Migration `0020_site_policies` (+ `_down`): `site_policies`

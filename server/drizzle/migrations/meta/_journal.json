@@ -162,6 +162,13 @@
       "when": 1795170534718,
       "tag": "0022_remove_site_announcement",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1795173188508,
+      "tag": "0023_site_policy_content",
+      "breakpoints": true
     }
   ]
 }
