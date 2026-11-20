@@ -200,7 +200,7 @@ function renderDocumentPdf(
       show.taxRegistrationNumber &&
       snapshot.seller.taxRegistrationNumber
     ) {
-      doc.text(`Tax Reg. No: ${snapshot.seller.taxRegistrationNumber}`, { width });
+      doc.text(`VAT Reg. No: ${snapshot.seller.taxRegistrationNumber}`, { width });
     }
     doc.moveDown(0.4);
     doc
@@ -344,7 +344,7 @@ function renderDocumentPdf(
     if (snapshot.totals.discountTotal !== "0.00") {
       totalRow("Discount", `-${formatMoney(snapshot.totals.discountTotal, { currency: snapshot.currency })}`);
     }
-    totalRow("Tax", formatMoney(snapshot.totals.taxTotal, { currency: snapshot.currency }));
+    totalRow("VAT", formatMoney(snapshot.totals.taxTotal, { currency: snapshot.currency }));
     doc
       .strokeColor(cfg.accentColor)
       .lineWidth(1)

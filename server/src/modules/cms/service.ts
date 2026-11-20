@@ -1105,12 +1105,78 @@ export interface SettingInput {
   isPublic?: boolean;
 }
 
+/**
+ * The store settings a holder of store.settings.manage (Admin, Store
+ * Admin) may read and write — an explicit allowlist, NOT a "store."
+ * prefix (review amendment, 2026-11-20: a prefix would silently
+ * extend the grant to any future store.* key). Display note: the
+ * `store.tax_rate_percent` key keeps its internal name; every
+ * user-facing surface calls it the VAT rate.
+ */
+export const STORE_SETTING_KEYS: readonly string[] = [
+  "store.shipping_flat_fee",
+  "store.tax_rate_percent",
+  "store.cod_enabled",
+];
+
+const DECIMAL_RE = /^\d+(\.\d{1,2})?$/;
+
+function decimalIssue(key: string, value: unknown, max: number, label: string): string | null {
+  const raw =
+    typeof value === "number" && Number.isFinite(value)
+      ? String(value)
+      : typeof value === "string"
+        ? value.trim()
+        : null;
+  if (raw === null || !DECIMAL_RE.test(raw)) {
+    return `${label} must be a non-negative amount with at most 2 decimal places.`;
+  }
+  if (Number(raw) > max) {
+    return `${label} must not exceed ${max}.`;
+  }
+  return null;
+}
+
+/**
+ * Strict value validation for the store settings, applied to EVERY
+ * settings write (Super Admins included) before anything is stored:
+ * the checkout-side parsers are deliberately lenient (a malformed
+ * stored value reads as 0), so the write path is where bad values
+ * must be stopped — otherwise a typo silently turns shipping or VAT
+ * off. Throws AppError.validation listing every bad entry, so a
+ * mixed valid/invalid batch writes nothing at all.
+ */
+export function validateStoreSettingEntries(entries: SettingInput[]): void {
+  const issues: { field: string; issue: string }[] = [];
+  for (const entry of entries) {
+    if (entry.key === "store.shipping_flat_fee") {
+      const issue = decimalIssue(entry.key, entry.value, 100_000, "Shipping flat fee (Rs)");
+      if (issue) issues.push({ field: entry.key, issue });
+    } else if (entry.key === "store.tax_rate_percent") {
+      const issue = decimalIssue(entry.key, entry.value, 100, "VAT rate (%)");
+      if (issue) issues.push({ field: entry.key, issue });
+    } else if (entry.key === "store.cod_enabled") {
+      const v = entry.value;
+      const ok =
+        typeof v === "boolean" ||
+        (typeof v === "string" && (v.toLowerCase() === "true" || v.toLowerCase() === "false"));
+      if (!ok) issues.push({ field: entry.key, issue: "COD enabled must be true or false." });
+    }
+  }
+  if (issues.length > 0) {
+    throw AppError.validation(issues, "Some store settings are invalid; nothing was saved.");
+  }
+}
+
 export async function updateSettings(
   deps: CmsDeps,
   actor: CmsActor,
   entries: SettingInput[],
   meta: RequestMeta,
 ): Promise<SettingView[]> {
+  // All-or-nothing: validate the whole batch (store keys) before the
+  // transaction writes any of it.
+  validateStoreSettingEntries(entries);
   const { db } = deps;
   const changes: { key: string; oldValue: unknown; newValue: unknown }[] = [];
 

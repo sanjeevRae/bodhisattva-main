@@ -384,7 +384,7 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">
-                      Tax{config && config.taxRatePercent > 0 ? ` (${config.taxRatePercent}%)` : ""}
+                      VAT{config && config.taxRatePercent > 0 ? ` (${config.taxRatePercent}%)` : ""}
                     </dt>
                     <dd>{tax === 0 ? "—" : formatRs(tax)}</dd>
                   </div>

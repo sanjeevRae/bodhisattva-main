@@ -115,7 +115,7 @@ const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'store.invoices.resend': 'Resend / retry an invoice email (never creates a second invoice)',
   'store.invoice_templates.manage': 'Edit invoice template configuration and manage template versions',
   'store.reports.read': 'View store-specific operational reports',
-  'store.settings.manage': 'Store-scoped settings only: shipping fee, COD options, tax toggles',
+  'store.settings.manage': 'Store-scoped settings only: shipping fee, COD options, VAT rate',
   // §4.6 Administration and system
   'users.read': 'List/view user accounts (admin user management screens)',
   'users.manage': 'Activate/deactivate accounts; revoke sessions; reset MFA via authorized procedure',
@@ -148,6 +148,10 @@ const ACCOUNT_PERMISSIONS: readonly Permission[] = [
 /** ADMIN — 28 grants (§5): account + CMS + media + museum/editorial. No store, no system administration. */
 const ADMIN_PERMISSIONS: readonly Permission[] = [
   ...ACCOUNT_PERMISSIONS,
+  // Store *settings* only (shipping fee, VAT rate, COD toggle) — the
+  // owner asked Admins to manage these (2026-11-20); the rest of the
+  // store domain stays STORE_ADMIN-only.
+  'store.settings.manage',
   'cms.pages.read',
   'cms.pages.create',
   'cms.pages.update',

@@ -225,7 +225,7 @@ export default function CartDrawer() {
                     <span className="font-display text-xl font-medium">{formatRs(cart.subtotalPaisa)}</span>
                   </div>
                   <p className="mb-5 font-sans text-xs font-light text-muted-foreground">
-                    Shipping and any taxes are calculated at checkout. Payment is cash on delivery.
+                    Shipping and VAT are calculated at checkout. Payment is cash on delivery.
                   </p>
                   <button
                     onClick={() => {

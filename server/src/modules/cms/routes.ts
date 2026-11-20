@@ -67,6 +67,7 @@ import {
   saveDraft,
   updatePageMetadata,
   updateSettings,
+  STORE_SETTING_KEYS,
   type CmsActor,
   type CmsDeps,
   type RequestMeta,
@@ -343,19 +344,31 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
     }),
   );
 
+  // GET /settings: settings.manage sees every setting. A caller
+  // holding only store.settings.manage sees ONLY the store keys in
+  // STORE_SETTING_KEYS — global settings are not exposed to them.
   router.get(
     "/settings",
     fullSession,
-    requirePermission(deps.db, "settings.manage"),
-    asyncHandler(async (_req, res) => {
-      res.status(200).json({ items: await listSettingsAdmin(cms) });
+    requireAnyPermission(deps.db, "settings.manage", "store.settings.manage"),
+    asyncHandler(async (req, res) => {
+      const items = await listSettingsAdmin(cms);
+      const granted = await getEffectivePermissions(deps.db, actorOf(req).userId);
+      if (!granted.has("settings.manage")) {
+        const storeKeys = new Set<string>(STORE_SETTING_KEYS);
+        res.status(200).json({ items: items.filter((item) => storeKeys.has(item.key)) });
+        return;
+      }
+      res.status(200).json({ items });
     }),
   );
 
-  // PUT /settings: settings.manage may write any key. Since Phase 6 a
-  // caller holding only store.settings.manage may also use this route,
-  // but ONLY for keys beginning "store." — all-or-nothing per request:
-  // one non-store key in the payload rejects the whole update (403).
+  // PUT /settings: settings.manage may write any key. A caller
+  // holding only store.settings.manage may write ONLY the allowlisted
+  // store keys (STORE_SETTING_KEYS) — all-or-nothing per request: one
+  // foreign key in the payload rejects the whole update (403). Store
+  // key VALUES are strictly validated for every caller inside
+  // updateSettings (invalid → 400, nothing written).
   router.put(
     "/settings",
     fullSession,
@@ -365,12 +378,11 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
       const actor = actorOf(req);
       const granted = await getEffectivePermissions(deps.db, actor.userId);
       if (!granted.has("settings.manage")) {
-        const foreign = settings.find(
-          (entry) => !entry.key.startsWith("store."),
-        );
+        const storeKeys = new Set<string>(STORE_SETTING_KEYS);
+        const foreign = settings.find((entry) => !storeKeys.has(entry.key));
         if (foreign) {
           throw AppError.forbidden(
-            "store.settings.manage allows updating store.* settings only.",
+            "store.settings.manage allows updating the store settings only (shipping fee, VAT rate, COD).",
           );
         }
       }
@@ -932,7 +944,7 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
  *   get:
  *     tags: [CMS]
  *     summary: List all site settings (admin)
- *     description: Requires the settings.manage permission.
+ *     description: Requires the settings.manage permission (all settings), or store.settings.manage (only the store settings — shipping fee, VAT rate, COD — are returned).
  *     operationId: cmsAdminListSettings
  *     security:
  *       - cookieAuth: []
@@ -950,7 +962,7 @@ export function createCmsAdminRouter(deps: CmsRouterDeps): Router {
  *   put:
  *     tags: [CMS]
  *     summary: Update site settings (admin)
- *     description: Requires the settings.manage or store.settings.manage permission.
+ *     description: Requires the settings.manage permission (any key) or store.settings.manage (only the store settings — shipping fee, VAT rate, COD; one foreign key rejects the whole request with 403). Store values are strictly validated for every caller; an invalid value rejects the whole request with 400 and writes nothing.
  *     operationId: cmsAdminUpdateSettings
  *     security:
  *       - cookieAuth: []

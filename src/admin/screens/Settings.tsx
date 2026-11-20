@@ -7,6 +7,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import { settingsApi } from "../api";
+import { useAuth } from "../AdminApp";
+import StoreSettingsCard from "../StoreSettingsCard";
 import type { Setting } from "../types";
 import { Badge, Btn, ErrorBox, Field, Notice, Spinner, Switch, cx, inputCls } from "../ui";
 
@@ -44,7 +46,35 @@ function parseDraft(draft: DraftSetting): unknown {
   }
 }
 
+/**
+ * The Settings page: a friendly Store settings card for holders of
+ * store.settings.manage (Admin, Store Admin, Super Admin), and below
+ * it the raw key/value editor, which stays settings.manage-only.
+ */
 export default function SettingsScreen() {
+  const { hasPermission } = useAuth();
+  const canStore = hasPermission("store.settings.manage");
+  const canGlobal = hasPermission("settings.manage");
+  return (
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div>
+        <h1 className="font-display text-3xl tracking-wide">Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          {canGlobal
+            ? "Site-wide values. “Public” settings are exposed to the website (contact details, opening hours); everything else stays server-side."
+            : "The store values you can change are below."}
+        </p>
+      </div>
+      {canStore && <StoreSettingsCard />}
+      {canGlobal && <GlobalSettingsEditor />}
+      {!canStore && !canGlobal && (
+        <p className="text-sm text-muted-foreground">You don’t have permission to change settings.</p>
+      )}
+    </div>
+  );
+}
+
+function GlobalSettingsEditor() {
   const [drafts, setDrafts] = useState<DraftSetting[] | null>(null);
   const [baseline, setBaseline] = useState("");
   const [error, setError] = useState<unknown>(null);
@@ -133,13 +163,10 @@ export default function SettingsScreen() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-5">
+    <div className="space-y-5">
       <div>
-        <h1 className="font-display text-3xl tracking-wide">Settings</h1>
-        <p className="text-sm text-muted-foreground">
-          Site-wide values. “Public” settings are exposed to the website (contact details, opening hours); everything
-          else stays server-side.
-        </p>
+        <h2 className="font-display text-xl tracking-wide">All settings</h2>
+        <p className="text-sm text-muted-foreground">The raw key/value store behind this page, including the store keys above.</p>
       </div>
 
       <ErrorBox error={error} />

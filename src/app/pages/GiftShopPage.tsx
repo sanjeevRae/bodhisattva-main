@@ -7,12 +7,30 @@ import { useCustomer } from "../lib/customer";
 import {
   formatRs,
   getShopCategories,
+  getShopConfig,
   getShopProduct,
   getShopProducts,
   type ShopCategory,
+  type ShopConfig,
   type ShopProduct,
   type ShopProductDetail,
 } from "../lib/shop";
+
+/**
+ * One-line delivery/VAT summary from the public shop config — the
+ * same source checkout uses, so the shop never promises a different
+ * fee or rate than the customer is charged. (The config's internal
+ * field is taxRatePercent; its display name is VAT.)
+ */
+function deliveryVatSummary(config: ShopConfig): string {
+  const delivery =
+    config.shippingFeePaisa > 0
+      ? `Delivery ${formatRs(config.shippingFeePaisa)} flat per order`
+      : "Free delivery";
+  const vat =
+    config.taxRatePercent > 0 ? ` · Plus VAT (${config.taxRatePercent}%) at checkout` : "";
+  return delivery + vat;
+}
 
 /**
  * Gift Shop — the page's only CMS section is the header band (hero),
@@ -47,6 +65,17 @@ export default function GiftShopPage() {
   const [wishlist, setWishlist] = useState<number[]>([]);
   const [previewSlug, setPreviewSlug] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<number | null>(null);
+  const [config, setConfig] = useState<ShopConfig | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getShopConfig()
+      .then((cfg) => alive && setConfig(cfg))
+      .catch(() => alive && setConfig(null));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -165,6 +194,14 @@ export default function GiftShopPage() {
           );
         }}
       />
+
+      {config && (
+        <div className="border-b border-border bg-muted/40">
+          <p className="max-w-screen-xl mx-auto px-6 lg:px-10 py-2.5 font-mono text-[0.6rem] tracking-wider uppercase text-muted-foreground">
+            {deliveryVatSummary(config)}
+          </p>
+        </div>
+      )}
 
       <div className="border-b border-border">
         <div className="max-w-screen-xl mx-auto px-6 lg:px-10 flex items-center justify-between gap-4">
@@ -288,12 +325,12 @@ export default function GiftShopPage() {
         )}
       </div>
 
-      {previewSlug && <QuickView slug={previewSlug} onClose={() => setPreviewSlug(null)} />}
+      {previewSlug && <QuickView slug={previewSlug} config={config} onClose={() => setPreviewSlug(null)} />}
     </div>
   );
 }
 
-function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
+function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig | null; onClose: () => void }) {
   const { status, cart, addToCartGated, setCartOpen } = useCustomer();
   const [detail, setDetail] = useState<ShopProductDetail | null>(null);
   const [failed, setFailed] = useState(false);
@@ -407,6 +444,21 @@ function QuickView({ slug, onClose }: { slug: string; onClose: () => void }) {
                   {!inStock ? "Out of stock" : available <= 5 ? `Only ${available} available` : "In stock"}
                   {inCartQty > 0 && status === "full" ? ` · ${inCartQty} in your cart` : ""}
                 </p>
+                {config && (
+                  <div className="mt-5 border-t border-border pt-4 space-y-1.5">
+                    <p className="font-mono text-[0.58rem] tracking-widest uppercase text-muted-foreground">Delivery &amp; VAT</p>
+                    <p className="font-sans text-[0.83rem] font-light text-muted-foreground">
+                      {config.shippingFeePaisa > 0
+                        ? `Delivery ${formatRs(config.shippingFeePaisa)} — one flat fee per order, however many pieces.`
+                        : "Free delivery on every order."}
+                    </p>
+                    {config.taxRatePercent > 0 && (
+                      <p className="font-sans text-[0.83rem] font-light text-muted-foreground">
+                        Plus VAT ({config.taxRatePercent}%) at checkout — prices shown exclude VAT.
+                      </p>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>

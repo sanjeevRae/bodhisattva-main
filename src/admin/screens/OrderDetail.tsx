@@ -295,7 +295,7 @@ export default function OrderDetailScreen() {
                 </div>
               )}
               <div className="flex justify-between">
-                <dt className="text-muted-foreground">Tax</dt>
+                <dt className="text-muted-foreground">VAT</dt>
                 <dd>{formatRsPaisa(order.taxTotalPaisa)}</dd>
               </div>
               <div className="flex justify-between border-t border-border pt-2 font-medium">

@@ -245,7 +245,7 @@ export default function AccountOrdersPage() {
                               </div>
                               {detail.taxTotalPaisa > 0 && (
                                 <div className="flex justify-between">
-                                  <dt className="text-muted-foreground">Tax</dt>
+                                  <dt className="text-muted-foreground">VAT</dt>
                                   <dd>{formatRs(detail.taxTotalPaisa)}</dd>
                                 </div>
                               )}

@@ -144,6 +144,10 @@ export function createStorePublicRouter(deps: StoreRouteDeps): Router {
   router.get(
     "/shop/config",
     asyncHandler(async (_req: Request, res: Response) => {
+      // Read fresh from the DB on every request and marked no-store:
+      // after an admin changes the shipping fee or VAT rate, the
+      // product page, cart and checkout must never serve a stale mix.
+      res.set("Cache-Control", "no-store");
       const config = await service.getStoreConfig(deps.db);
       sendData(res, 200, config);
     }),

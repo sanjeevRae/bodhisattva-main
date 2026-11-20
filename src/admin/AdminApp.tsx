@@ -179,6 +179,8 @@ const NAV_ITEMS: Array<{
   label: string;
   icon: ReactNode;
   permission?: string;
+  /** Visible when the user holds ANY of these (used when a screen serves two permission scopes). */
+  anyPermissions?: string[];
   end?: boolean;
 }> = [
   { to: "/admin", label: "Dashboard", icon: <LayoutDashboard size={17} />, end: true },
@@ -195,7 +197,7 @@ const NAV_ITEMS: Array<{
   { to: "/admin/audit-log", label: "Audit Log", icon: <ShieldCheck size={17} />, permission: "audit.read" },
   { to: "/admin/media", label: "Media", icon: <Images size={17} />, permission: "media.read" },
   { to: "/admin/menus", label: "Menus", icon: <MenuIcon size={17} />, permission: "cms.menus.manage" },
-  { to: "/admin/settings", label: "Settings", icon: <SettingsIcon size={17} />, permission: "settings.manage" },
+  { to: "/admin/settings", label: "Settings", icon: <SettingsIcon size={17} />, anyPermissions: ["settings.manage", "store.settings.manage"] },
   { to: "/admin/users", label: "Users", icon: <UsersIcon size={17} />, permission: "roles.read" },
 ];
 
@@ -263,7 +265,11 @@ function Shell() {
           </div>
         )}
         <nav className={cx("flex-1 space-y-1 overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", collapsed ? "px-2" : "px-3")} aria-label="Admin">
-          {NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission)).map((item) => (
+          {NAV_ITEMS.filter(
+            (item) =>
+              (!item.permission || hasPermission(item.permission)) &&
+              (!item.anyPermissions || item.anyPermissions.some((p) => hasPermission(p))),
+          ).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

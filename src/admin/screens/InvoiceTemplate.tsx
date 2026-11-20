@@ -33,7 +33,7 @@ const TOGGLES: Array<{ key: keyof InvoiceTemplateConfigAdmin["show"]; label: str
   { key: "logo", label: "Logo in the header" },
   { key: "companyPhone", label: "Company phone" },
   { key: "companyEmail", label: "Company email" },
-  { key: "taxRegistrationNumber", label: "Tax registration number" },
+  { key: "taxRegistrationNumber", label: "VAT registration number" },
   { key: "deliveryAddress", label: "Delivery address block" },
   { key: "paymentMethod", label: "Payment method line" },
   { key: "terms", label: "Terms text" },
@@ -159,7 +159,7 @@ export default function InvoiceTemplateScreen() {
           </Field>
         </div>
         <Field
-          label="Tax registration number (optional)"
+          label="VAT registration number (optional)"
           hint="Shown on invoices only when filled in — leave empty until the client supplies it."
         >
           <input

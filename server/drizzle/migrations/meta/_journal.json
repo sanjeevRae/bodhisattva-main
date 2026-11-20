@@ -127,6 +127,13 @@
       "when": 1795096800000,
       "tag": "0017_partner_links",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1795100400000,
+      "tag": "0018_store_settings_admin",
+      "breakpoints": true
     }
   ]
 }

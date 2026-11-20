@@ -29,6 +29,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { loadConfig, type AppConfig } from "../src/config/env.js";
 import {
+  roles as rolesTable,
+  userRoles,
+  users,
+} from "../src/database/schema/index.js";
+import { hashPassword } from "../src/utils/password.js";
+import {
   createDatabase,
   type DatabaseHandle,
 } from "../src/database/client.js";
@@ -156,6 +162,10 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     scarceId?: number;
     scarceOrderId?: number;
     raceId?: number;
+    roleAdmin?: Agent;
+    roleAdminCsrf?: string;
+    storeAdmin?: Agent;
+    storeAdminCsrf?: string;
   } = {};
 
   async function sqlCount(sql: string, params: unknown[]): Promise<number> {
@@ -922,5 +932,208 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     expect(restore.status).toBe(200);
     const cfgAfter = await request(app).get("/api/shop/config");
     expect(cfgAfter.body.data.shippingFeePaisa).toBe(0);
+  });
+
+  // -------------------------------------------------------------------------
+  // Store settings by role (2026-11-20): Admin + Store Admin manage the
+  // shipping fee / VAT rate / COD, scoped to exactly those keys; values
+  // are strictly validated; placed orders never move when settings do.
+  // -------------------------------------------------------------------------
+
+  async function makeRoleAgent(
+    email: string,
+    pass: string,
+    roleCode: string,
+  ): Promise<{ agent: Agent; csrf: string }> {
+    const db = handle.db;
+    const roleRows = await db
+      .select({ id: rolesTable.id, code: rolesTable.code })
+      .from(rolesTable);
+    const roleIdByCode = new Map(roleRows.map((r) => [r.code, r.id]));
+    const passwordHash = await hashPassword(pass);
+    const [created] = await db
+      .insert(users)
+      .values({
+        fullName: `Role ${roleCode}`,
+        email,
+        emailNormalized: email.toLowerCase(),
+        passwordHash,
+        emailVerifiedAt: new Date(),
+        status: "ACTIVE",
+      })
+      .$returningId();
+    await db.insert(userRoles).values([
+      { userId: created.id, roleId: roleIdByCode.get(roleCode)!, grantedBy: null },
+    ]);
+    const agent = request.agent(app);
+    const login = await agent
+      .post("/api/auth/login")
+      .send({ email, password: pass });
+    expect(login.status).toBe(200);
+    const csrf = login.body.csrfToken as string;
+    const enrol = await agent
+      .post("/api/auth/mfa/enrol")
+      .set("X-CSRF-Token", csrf)
+      .send({});
+    expect(enrol.status).toBe(200);
+    const confirm = await agent
+      .post("/api/auth/mfa/confirm")
+      .set("X-CSRF-Token", csrf)
+      .send({ code: authenticator.generate(enrol.body.secret as string) });
+    expect(confirm.status).toBe(200);
+    return { agent, csrf };
+  }
+
+  it("Admin and Store Admin manage store settings, scoped to the store keys only", async () => {
+    const adminRole = await makeRoleAgent(
+      `store-role-admin-${runId}@example.com`,
+      "role-admin-pass-2026",
+      "ADMIN",
+    );
+    state.roleAdmin = adminRole.agent;
+    state.roleAdminCsrf = adminRole.csrf;
+    const storeRole = await makeRoleAgent(
+      `store-role-store-${runId}@example.com`,
+      "role-store-pass-2026",
+      "STORE_ADMIN",
+    );
+    state.storeAdmin = storeRole.agent;
+    state.storeAdminCsrf = storeRole.csrf;
+
+    const STORE_KEYS = ["store.cod_enabled", "store.shipping_flat_fee", "store.tax_rate_percent"];
+
+    // Both roles read ONLY the store keys — global settings stay hidden.
+    for (const { agent } of [adminRole, storeRole]) {
+      const list = await agent.get("/api/admin/settings");
+      expect(list.status).toBe(200);
+      const keys = (list.body.items as { key: string }[]).map((i) => i.key).sort();
+      expect(keys).toEqual([...STORE_KEYS].sort());
+    }
+
+    // Admin writes the shipping fee; it flows into the public config.
+    const setFee = await adminRole.agent
+      .put("/api/admin/settings")
+      .set("X-CSRF-Token", adminRole.csrf)
+      .send({ settings: [{ key: "store.shipping_flat_fee", value: "120.00" }] });
+    expect(setFee.status).toBe(200);
+    const cfg = await request(app).get("/api/shop/config");
+    expect(cfg.body.data.shippingFeePaisa).toBe(12000);
+
+    // Admin may NOT touch a global key.
+    const foreign = await adminRole.agent
+      .put("/api/admin/settings")
+      .set("X-CSRF-Token", adminRole.csrf)
+      .send({ settings: [{ key: "site.tagline", value: "nope" }] });
+    expect(foreign.status).toBe(403);
+
+    // Store Admin writes the VAT rate.
+    const setRate = await storeRole.agent
+      .put("/api/admin/settings")
+      .set("X-CSRF-Token", storeRole.csrf)
+      .send({ settings: [{ key: "store.tax_rate_percent", value: "13" }] });
+    expect(setRate.status).toBe(200);
+    const cfg2 = await request(app).get("/api/shop/config");
+    expect(cfg2.body.data.taxRatePercent).toBe(13);
+
+    // A mixed batch (one store key + one global key) is rejected whole:
+    // the fee must NOT move.
+    const mixed = await storeRole.agent
+      .put("/api/admin/settings")
+      .set("X-CSRF-Token", storeRole.csrf)
+      .send({
+        settings: [
+          { key: "store.shipping_flat_fee", value: "130.00" },
+          { key: "site.tagline", value: "nope" },
+        ],
+      });
+    expect(mixed.status).toBe(403);
+    const cfg3 = await request(app).get("/api/shop/config");
+    expect(cfg3.body.data.shippingFeePaisa).toBe(12000);
+
+    // Restore placeholders.
+    const restore = await state.admin!
+      .put("/api/admin/settings")
+      .set("X-CSRF-Token", state.adminCsrf!)
+      .send({
+        settings: [
+          { key: "store.shipping_flat_fee", value: "0.00" },
+          { key: "store.tax_rate_percent", value: "0" },
+        ],
+      });
+    expect(restore.status).toBe(200);
+  }, 120000);
+
+  it("store setting values are strictly validated, and placed orders keep their snapshot", async () => {
+    const admin = state.admin!;
+    const put = (settings: { key: string; value: unknown }[]) =>
+      admin
+        .put("/api/admin/settings")
+        .set("X-CSRF-Token", state.adminCsrf!)
+        .send({ settings });
+
+    for (const bad of [
+      { key: "store.shipping_flat_fee", value: "-5" },
+      { key: "store.shipping_flat_fee", value: "10.999" },
+      { key: "store.shipping_flat_fee", value: "100001" },
+      { key: "store.tax_rate_percent", value: "101" },
+      { key: "store.tax_rate_percent", value: "abc" },
+      { key: "store.cod_enabled", value: "yes" },
+    ]) {
+      const res = await put([bad]);
+      expect(res.status, JSON.stringify(bad)).toBe(400);
+    }
+    // Mixed valid + invalid: rejected whole, the valid key does not move.
+    const mixed = await put([
+      { key: "store.shipping_flat_fee", value: "111.00" },
+      { key: "store.tax_rate_percent", value: "abc" },
+    ]);
+    expect(mixed.status).toBe(400);
+    const cfg0 = await request(app).get("/api/shop/config");
+    expect(cfg0.body.data.shippingFeePaisa).toBe(0);
+    expect(cfg0.body.data.taxRatePercent).toBe(0);
+
+    // Place an order at fee Rs 100 + VAT 13%.
+    expect((await put([
+      { key: "store.shipping_flat_fee", value: "100.00" },
+      { key: "store.tax_rate_percent", value: "13" },
+    ])).status).toBe(200);
+    const agentA = state.custA!;
+    const list = await request(app).get("/api/shop/products?category=souvenirs");
+    const item = (list.body.data as ShopItem[])[0];
+    const added = await agentA
+      .post("/api/cart/items")
+      .set("X-CSRF-Token", state.csrfA!)
+      .send({ productId: item.id, quantity: 1 });
+    expect(added.status).toBe(200);
+    const placed = await agentA
+      .post("/api/checkout")
+      .set("X-CSRF-Token", state.csrfA!)
+      .send({ addressId: state.addressAId, idempotencyKey: `vat-snap-${runId}` });
+    expect(placed.status).toBe(201);
+    const order = placed.body.data.order as OrderBody;
+    expect(order.shippingFeePaisa).toBe(10000);
+    const expectedTax = Math.round((item.effectivePricePaisa * 13) / 100);
+    expect(order.taxTotalPaisa).toBe(expectedTax);
+    expect(order.grandTotalPaisa).toBe(item.effectivePricePaisa + 10000 + expectedTax);
+
+    // Change both settings afterwards: the placed order must not move.
+    expect((await put([
+      { key: "store.shipping_flat_fee", value: "999.00" },
+      { key: "store.tax_rate_percent", value: "20" },
+    ])).status).toBe(200);
+    const cfgNew = await request(app).get("/api/shop/config");
+    expect(cfgNew.body.data.shippingFeePaisa).toBe(99900);
+    const reread = await agentA.get(`/api/orders/${order.id}`);
+    expect(reread.status).toBe(200);
+    const again = reread.body.data as OrderBody;
+    expect(again.shippingFeePaisa).toBe(10000);
+    expect(again.taxTotalPaisa).toBe(expectedTax);
+    expect(again.grandTotalPaisa).toBe(order.grandTotalPaisa);
+
+    // Restore placeholders.
+    expect((await put([
+      { key: "store.shipping_flat_fee", value: "0.00" },
+      { key: "store.tax_rate_percent", value: "0" },
+    ])).status).toBe(200);
   });
 });
