@@ -142,6 +142,46 @@ export default function PageEditor() {
   const [allPages, setAllPages] = useState<PageAdmin[]>([]);
   const [sections, setSections] = useState<LocalSection[]>([]);
   const [selectedUid, setSelectedUid] = useState<string | null>(null);
+  // Inspector width is user-resizable (drag its left edge); the choice
+  // persists across pages and visits.
+  const [inspectorWidth, setInspectorWidth] = useState<number>(() => {
+    try {
+      const raw = Number(window.localStorage.getItem("bodhisattva-inspector-width"));
+      return raw >= 300 && raw <= 560 ? raw : 360;
+    } catch {
+      return 360;
+    }
+  });
+  const inspectorDrag = useRef<{ startX: number; startWidth: number } | null>(null);
+  const onInspectorDragStart = (e: React.PointerEvent) => {
+    inspectorDrag.current = { startX: e.clientX, startWidth: inspectorWidth };
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    document.body.style.userSelect = "none";
+  };
+  const onInspectorDragMove = (e: React.PointerEvent) => {
+    const drag = inspectorDrag.current;
+    if (!drag) return;
+    const next = Math.min(560, Math.max(300, drag.startWidth + (drag.startX - e.clientX)));
+    setInspectorWidth(next);
+  };
+  const onInspectorDragEnd = () => {
+    if (!inspectorDrag.current) return;
+    inspectorDrag.current = null;
+    document.body.style.userSelect = "";
+    try {
+      window.localStorage.setItem("bodhisattva-inspector-width", String(inspectorWidth));
+    } catch {
+      // Storage unavailable — the width just won't persist.
+    }
+  };
+  const resetInspectorWidth = () => {
+    setInspectorWidth(360);
+    try {
+      window.localStorage.removeItem("bodhisattva-inspector-width");
+    } catch {
+      // ignore
+    }
+  };
   const [loadError, setLoadError] = useState<unknown>(null);
   const [loading, setLoading] = useState(true);
 
@@ -713,7 +753,24 @@ export default function PageEditor() {
         </div>
 
         {/* Inspector */}
-        <div className="sticky top-[4.25rem] max-h-[calc(100vh-5.5rem)] w-80 shrink-0 overflow-y-auto rounded-sm border border-border bg-card">
+        <div
+          className="sticky top-[4.25rem] max-h-[calc(100vh-5.5rem)] shrink-0 overflow-y-auto rounded-sm border border-border bg-card"
+          style={{ width: inspectorWidth }}
+        >
+          <div
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize inspector (double-click to reset)"
+            title="Drag to resize the inspector — double-click to reset"
+            className="group absolute inset-y-0 left-0 z-10 w-2 cursor-col-resize touch-none"
+            onPointerDown={onInspectorDragStart}
+            onPointerMove={onInspectorDragMove}
+            onPointerUp={onInspectorDragEnd}
+            onPointerCancel={onInspectorDragEnd}
+            onDoubleClick={resetInspectorWidth}
+          >
+            <span className="absolute inset-y-0 left-0 w-0.5 bg-transparent transition-colors group-hover:bg-accent" />
+          </div>
           <div className="border-b border-border px-4 py-2.5">
             <h2 className="font-mono text-[0.62rem] tracking-[0.18em] uppercase text-muted-foreground">Inspector</h2>
           </div>
