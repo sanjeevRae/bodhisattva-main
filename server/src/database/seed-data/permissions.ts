@@ -101,6 +101,7 @@ const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'museum.gallery.manage': 'Manage gallery items, captions, categories, years, ordering',
   'news.manage': 'Manage news clippings and news categories',
   'foundation.manage': 'Manage foundation programs, impact statistics and testimonials',
+  'popup.manage': 'Manage the website announcement popup',
   'contact.read': 'View contact-form submissions',
   'contact.manage': 'Mark submissions resolved; delete submissions',
   // §4.5 Store
@@ -172,6 +173,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'museum.gallery.manage',
   'news.manage',
   'foundation.manage',
+  'popup.manage',
   'contact.read',
   'contact.manage',
 ];

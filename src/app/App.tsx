@@ -4,6 +4,7 @@ import { motion, MotionConfig } from "motion/react";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
+import SitePopup from "./components/SitePopup";
 import { CustomerProvider } from "./lib/customer";
 import { routeMeta, setPageMeta } from "./lib/meta";
 import { useWebsiteProtection } from "./components/shared";
@@ -94,6 +95,7 @@ function Shell() {
           <Footer />
         </div>
         <CartDrawer />
+        <SitePopup />
         {contentObscured && (
           <div className="privacy-screen" aria-hidden="true">
             <span>Content protected — click anywhere to resume viewing</span>

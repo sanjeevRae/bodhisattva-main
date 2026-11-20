@@ -134,6 +134,13 @@
       "when": 1795100400000,
       "tag": "0018_store_settings_admin",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1795165634273,
+      "tag": "0019_site_popups",
+      "breakpoints": true
     }
   ]
 }

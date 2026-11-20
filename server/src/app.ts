@@ -51,6 +51,10 @@ import {
   createOrdersAdminRouter,
   createOrdersCustomerRouter,
 } from "./modules/orders/orders.routes.js";
+import {
+  createPopupAdminRouter,
+  createPopupPublicRouter,
+} from "./modules/popups/routes.js";
 import { createAuditRouter } from "./modules/audit/audit.routes.js";
 import { createRolesRouter } from "./modules/roles/roles.routes.js";
 import {
@@ -137,6 +141,10 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/admin", createRolesRouter({ db, config }));
     app.use("/api", createCmsPublicRouter({ db, config }));
     app.use("/api/admin", createCmsAdminRouter({ db, config }));
+    // The popup's public read must sit with the other PUBLIC routers:
+    // the customer routers below guard every fall-through /api path
+    // with a session check and would 401 anonymous visitors.
+    app.use("/api", createPopupPublicRouter({ db, config }));
     const media = createMediaRouters({ db, config });
     app.use("/api", media.publicRouter);
     app.use("/api/admin", media.adminRouter);
@@ -147,6 +155,7 @@ export function createApp(deps: AppDeps): Express {
     app.use("/api/admin", createStoreAdminRouter({ db, config }));
     app.use("/api", createOrdersCustomerRouter({ db, config }));
     app.use("/api/admin", createOrdersAdminRouter({ db, config }));
+    app.use("/api/admin", createPopupAdminRouter({ db, config }));
     app.use("/api/admin", createAuditRouter({ db, config }));
   }
 

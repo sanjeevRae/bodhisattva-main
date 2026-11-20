@@ -43,6 +43,7 @@ import type {
   PageAdmin,
   PageMeta,
   ProductAdmin,
+  PopupAdmin,
   ProductCategoryAdmin,
   ProductImageAdmin,
   ProductVariantAdmin,
@@ -795,3 +796,28 @@ export const auditApi = {
 export function pagePath(slug: string): string {
   return slug === "home" ? "/" : `/${slug}`;
 }
+
+// ---------------------------------------------------------------------------
+// Website popup (2026-11-20) — /api/admin/popups, popup.manage.
+// ---------------------------------------------------------------------------
+
+export const popupsApi = {
+  list(): Promise<{ items: PopupAdmin[]; meta: PageMeta }> {
+    return moduleList("/api/admin/popups");
+  },
+  create(body: Record<string, unknown>): Promise<PopupAdmin> {
+    return moduleOne("/api/admin/popups", { method: "POST", body });
+  },
+  update(id: number, body: Record<string, unknown>): Promise<PopupAdmin> {
+    return moduleOne(`/api/admin/popups/${id}`, { method: "PATCH", body });
+  },
+  remove(id: number): Promise<unknown> {
+    return request(`/api/admin/popups/${id}`, { method: "DELETE" });
+  },
+  activate(id: number): Promise<PopupAdmin> {
+    return moduleOne(`/api/admin/popups/${id}/activate`, { method: "POST" });
+  },
+  deactivate(id: number): Promise<PopupAdmin> {
+    return moduleOne(`/api/admin/popups/${id}/deactivate`, { method: "POST" });
+  },
+};
