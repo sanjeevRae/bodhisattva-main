@@ -4,7 +4,8 @@
  *
  * Boot sequence: load server/.env (local development only; production env
  * comes from the cPanel app configuration) → validate config (fail fast) →
- * create the database pool (lazy; connects on first query) → listen.
+ * create the database pool → verify the compiled permission catalogue
+ * exactly matches the database `permissions` table (fail fast) → listen.
  */
 import dotenv from "dotenv";
 
@@ -13,9 +14,10 @@ dotenv.config();
 import { ConfigError, loadConfig, type AppConfig } from "./config/env.js";
 import { createDatabase } from "./database/client.js";
 import { createLogger } from "./middleware/logger.js";
+import { assertPermissionCatalogueMatchesDb } from "./services/permissions.js";
 import { createApp } from "./app.js";
 
-function main(): void {
+async function main(): Promise<void> {
   let config: AppConfig;
   try {
     config = loadConfig();
@@ -40,6 +42,22 @@ function main(): void {
     );
   }
   const database = createDatabase(config);
+  // Boot guard: the compiled permission catalogue must exactly
+  // match the database `permissions` table before we serve anything.
+  // A stale shared build once silently hid a permission from every
+  // admin (2026-11-20); this turns that class of drift into a loud,
+  // actionable startup failure instead. Fails closed if the table
+  // cannot be read.
+  try {
+    const catalogue = await assertPermissionCatalogueMatchesDb(database.db);
+    logger.info(
+      { permissions: catalogue.count, catalogueHash: catalogue.hash },
+      "Permission catalogue verified against the database",
+    );
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
+    process.exit(1);
+  }
   const app = createApp({
     config,
     database,
@@ -69,4 +87,4 @@ function main(): void {
   process.on("SIGINT", () => shutdown("SIGINT"));
 }
 
-main();
+void main();

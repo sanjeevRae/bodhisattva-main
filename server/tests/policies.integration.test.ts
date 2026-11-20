@@ -31,6 +31,7 @@ import { createApp } from "../src/app.js";
 import { loadConfig, type AppConfig } from "../src/config/env.js";
 import { createDatabase, type DatabaseHandle } from "../src/database/client.js";
 import { roles as rolesTable, userRoles, users } from "../src/database/schema/index.js";
+import { assertPermissionCatalogueMatchesDb } from "../src/services/permissions.js";
 import { hashPassword } from "../src/utils/password.js";
 import { testEnv } from "./helpers.js";
 
@@ -465,5 +466,36 @@ describe.runIf(RUN)("policy pages (integration)", () => {
     expect(superRole?.permissions).toContain("store.settings.manage");
     const storeRole = roleViews.find((r) => r.code === "STORE_ADMIN");
     expect(storeRole?.permissions).not.toContain("policy.manage");
+  });
+
+  it("boot catalogue parity check passes here, and names drift in both directions", async () => {
+    // This suite's database was migrated + seeded from the compiled
+    // catalogue, so parity holds (server.ts runs this before listen).
+    const ok = await assertPermissionCatalogueMatchesDb(handle.db);
+    expect(ok.count).toBeGreaterThan(0);
+    expect(ok.hash).toHaveLength(12);
+    const p = pool();
+    // Direction 1: a permission row the compiled catalogue lacks —
+    // the stale-build incident shape (2026-11-20). The boot must
+    // refuse and name the code.
+    await p.query(
+      `INSERT INTO permissions (code, module, description) VALUES ('rogue.test', 'rogue', 'rogue')`,
+    );
+    await expect(
+      assertPermissionCatalogueMatchesDb(handle.db),
+    ).rejects.toThrow(/rogue\.test/);
+    await p.query(`DELETE FROM permissions WHERE code = 'rogue.test'`);
+    // Direction 2: a catalogue permission missing from the database —
+    // the unmigrated-database shape. (Last test in the suite: the
+    // row is not restored; the suite database is disposable.)
+    await p.query(
+      `DELETE rp FROM role_permissions rp
+       JOIN permissions perm ON perm.id = rp.permission_id
+       WHERE perm.code = 'policy.manage'`,
+    );
+    await p.query(`DELETE FROM permissions WHERE code = 'policy.manage'`);
+    await expect(
+      assertPermissionCatalogueMatchesDb(handle.db),
+    ).rejects.toThrow(/policy\.manage/);
   });
 });

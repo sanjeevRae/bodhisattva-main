@@ -9,6 +9,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { PERMISSIONS, isPermission } from "@bodhisattva/shared/permissions";
+import { diffPermissionCatalogue } from "../src/services/permissions.js";
 
 describe("permission catalogue", () => {
   it("contains exactly the 50 grantable permissions from PERMISSIONS.md", () => {
@@ -29,5 +30,26 @@ describe("permission catalogue", () => {
   it("does not contain the deliberately non-existent audit mutations", () => {
     expect(isPermission("audit.update")).toBe(false);
     expect(isPermission("audit.delete")).toBe(false);
+  });
+});
+
+describe("permission catalogue diff (boot parity check)", () => {
+  it("reports no difference for identical sets, in any order", () => {
+    expect(diffPermissionCatalogue(["a.b", "c.d"], ["c.d", "a.b"])).toEqual({
+      missingFromDb: [],
+      missingFromCompiled: [],
+    });
+  });
+
+  it("names a permission that is only in the database (stale build direction)", () => {
+    const diff = diffPermissionCatalogue(["a.b"], ["a.b", "policy.manage"]);
+    expect(diff.missingFromCompiled).toEqual(["policy.manage"]);
+    expect(diff.missingFromDb).toEqual([]);
+  });
+
+  it("names a permission that is only in the compiled catalogue (unmigrated database direction)", () => {
+    const diff = diffPermissionCatalogue(["a.b", "policy.manage"], ["a.b"]);
+    expect(diff.missingFromDb).toEqual(["policy.manage"]);
+    expect(diff.missingFromCompiled).toEqual([]);
   });
 });

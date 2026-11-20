@@ -62,6 +62,17 @@ rows WERE the only mechanism, and permissions added by migrations
 0018–0020, granted to ADMIN alone, silently locked Super Admins on
 previously-seeded databases out of those features.)
 
+**Boot parity check (2026-11-20):** the server refuses to start unless
+the compiled catalogue EXACTLY equals the database `permissions` table
+(`assertPermissionCatalogueMatchesDb`, run in `server.ts` before
+listen; the boot log records the count and a catalogue hash). The
+compiled catalogue is the single source of truth; the table is its
+persisted mirror. This exists because a stale `shared/dist` build once
+made a current server authorize against a 49-permission catalogue —
+silently dropping a granted permission from every role. Drift now
+fails the boot with the differing codes named and the remedy printed.
+Keep it that way: never bypass the check to "get the server up".
+
 There is deliberately **no** public administrator registration endpoint, and no permission that
 allows creating a Super Admin through the ordinary user-management API — role assignment is itself
 permission-gated (`roles.manage`, Super Admin only) and audited.
