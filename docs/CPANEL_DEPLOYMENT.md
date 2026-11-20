@@ -10,6 +10,14 @@ Suggested order: deploy to a **staging subdomain first** (e.g.
 the main domain at the app. Pointing the app at the main domain
 replaces whatever the domain serves today.
 
+Current state (2026-11-20): the main domain's document root is the
+folder `/bodhisattvainternational`, which holds the OLD live site.
+Assigning the Node.js App to the domain makes Passenger serve the
+new platform instead — the old folder is bypassed, NOT deleted, and
+removing the app from the domain restores the old site. Keep the
+repo clone OUTSIDE that folder (e.g. `~/bodhisattva-app`): the
+server `.env` must never sit inside a web-served folder.
+
 ## 1. Get the code onto the server
 
 - [ ] cPanel → **Git™ Version Control** → Create → clone
