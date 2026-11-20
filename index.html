@@ -31,6 +31,43 @@
       <meta name="twitter:image" content="https://bodhisattvainternational.com/og-share.jpg" />
       <!--OG_END-->
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
+      <!-- First-visit entrance ("Museum Signature Reveal"): this
+           script runs before the app bundle. On a genuine first
+           visit (public pages only, motion allowed) it CLAIMS the
+           visit immediately — writing the flag up front means a
+           refresh mid-intro or a second tab can never replay it —
+           paints the theme background so there is no white flash,
+           preloads the emblem, and removes its own class after
+           2 s if the app never mounts (fail open). Any storage
+           error is treated as "already seen": the entrance must
+           never block the website. The overlay itself is the
+           EntranceIntro React component. -->
+      <script>
+        (function () {
+          try {
+            if (window.location.pathname.indexOf("/admin") === 0) return;
+            if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+            if (window.localStorage.getItem("bi-entrance-seen")) return;
+            window.localStorage.setItem("bi-entrance-seen", "1");
+            var root = document.documentElement;
+            root.classList.add("bi-intro");
+            var link = document.createElement("link");
+            link.rel = "preload";
+            link.as = "image";
+            link.href = "/logo-emblem.png";
+            document.head.appendChild(link);
+            window.setTimeout(function () {
+              root.classList.remove("bi-intro");
+            }, 2000);
+          } catch (e) {
+            /* storage unavailable — no entrance, never a block */
+          }
+        })();
+      </script>
+      <style>
+        html.bi-intro, html.bi-intro body { background: #F7F3EC; }
+        html.bi-intro-lock { overflow: hidden; scrollbar-gutter: stable; }
+      </style>
       
     </head>
 

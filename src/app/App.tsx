@@ -2,6 +2,7 @@ import { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router";
 import { motion, MotionConfig } from "motion/react";
 import Nav from "./components/Nav";
+import EntranceIntro from "./components/EntranceIntro";
 import Footer from "./components/Footer";
 import CartDrawer from "./components/CartDrawer";
 import { CustomerProvider } from "./lib/customer";
@@ -118,6 +119,7 @@ export default function App() {
   return (
     <MotionConfig reducedMotion="user">
     <BrowserRouter>
+      <EntranceIntro />
       <ScrollToTop />
       <RouteMeta />
       <Routes>

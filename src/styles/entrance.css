@@ -1,0 +1,64 @@
+/* First-visit entrance ("Museum Signature Reveal") — see
+   src/app/components/EntranceIntro.tsx. Opacity-only motion by
+   design: no gradients, no glow, no masks, no spinning. The
+   pre-app paint (background colour, scroll lock) lives in the
+   inline <style> in index.html so there is no white flash before
+   the bundle arrives; this file styles the overlay itself. */
+
+.bi-intro-overlay {
+  position: fixed;
+  inset: 0;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  background: var(--background, #f7f3ec);
+  opacity: 1;
+  transition: opacity 350ms ease-out;
+  /* Pure-CSS backstop: even if every JS timer failed after mount,
+     the overlay removes itself visually by ~2 s. The delay phase
+     has no fill, so it cannot interfere with the normal fade. */
+  animation: bi-intro-backstop 100ms linear 1950ms forwards;
+}
+
+.bi-intro-overlay.is-leaving {
+  opacity: 0;
+}
+
+@keyframes bi-intro-backstop {
+  to {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+.bi-intro-emblem {
+  width: clamp(112px, 12vw, 152px);
+  height: auto;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  /* The whole movement of the piece: a fade with a 3 px settle so
+     slight it is felt rather than seen. */
+  animation: bi-emblem-in 450ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes bi-emblem-in {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bi-intro-overlay,
+  .bi-intro-emblem {
+    animation: none;
+    transition: none;
+  }
+}
