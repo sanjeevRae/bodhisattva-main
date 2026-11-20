@@ -251,7 +251,7 @@ function Shell() {
       >
         {collapsed ? (
           <div className="border-b border-border px-2 py-4" title="Bodhisattva — Museum Admin">
-            <p className="text-center font-display text-xl tracking-wide" aria-hidden="true">B</p>
+            <p className="text-center font-display text-2xl tracking-wide" aria-hidden="true">B</p>
             <span className="sr-only">Bodhisattva — Museum Admin</span>
           </div>
         ) : (
@@ -262,7 +262,7 @@ function Shell() {
             </p>
           </div>
         )}
-        <nav className={cx("flex-1 space-y-1 overflow-y-auto py-4", collapsed ? "px-2" : "px-3")} aria-label="Admin">
+        <nav className={cx("flex-1 space-y-1 overflow-y-auto py-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden", collapsed ? "px-2" : "px-3")} aria-label="Admin">
           {NAV_ITEMS.filter((item) => !item.permission || hasPermission(item.permission)).map((item) => (
             <NavLink
               key={item.to}
@@ -276,12 +276,16 @@ function Shell() {
               className={({ isActive }) =>
                 cx(
                   "flex items-center gap-3 rounded-sm px-3 py-2 text-sm transition-colors",
-                  collapsed && "justify-center px-0",
+                  collapsed && "mx-auto w-11 justify-center px-0 py-2.5",
                   isActive ? "bg-primary text-primary-foreground" : "text-foreground hover:bg-secondary",
                 )
               }
             >
-              {item.icon}
+              {collapsed ? (
+                <span className="flex [&_svg]:h-[22px] [&_svg]:w-[22px]">{item.icon}</span>
+              ) : (
+                item.icon
+              )}
               {!collapsed && item.label}
             </NavLink>
           ))}
@@ -295,10 +299,10 @@ function Shell() {
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             className={cx(
               "flex w-full items-center gap-3 rounded-sm px-3 py-2 text-sm text-muted-foreground hover:bg-secondary hover:text-foreground",
-              collapsed && "justify-center px-0",
+              collapsed && "mx-auto w-11 justify-center px-0 py-2.5",
             )}
           >
-            {collapsed ? <ChevronsRight size={17} /> : <ChevronsLeft size={17} />}
+            {collapsed ? <ChevronsRight size={20} /> : <ChevronsLeft size={17} />}
             {!collapsed && "Collapse"}
           </button>
           <Link
@@ -310,10 +314,10 @@ function Shell() {
             aria-label="View site"
             className={cx(
               "flex items-center gap-3 rounded-sm px-3 py-2 text-sm hover:bg-secondary",
-              collapsed && "justify-center px-0",
+              collapsed && "mx-auto w-11 justify-center px-0 py-2.5",
             )}
           >
-            <ExternalLink size={17} />
+            <ExternalLink size={collapsed ? 20 : 17} />
             {!collapsed && "View site"}
           </Link>
         </div>

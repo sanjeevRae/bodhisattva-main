@@ -41,6 +41,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArrowLeft,
+  ArrowRight,
   Copy,
   Eye,
   EyeOff,
@@ -68,7 +69,7 @@ import {
 import { ApiError, pagePath, pagesApi } from "../api";
 import { DESIGN_FIELDS, SECTION_SPECS, SECTION_TYPES, sectionSummary } from "../field-specs";
 import { FieldRenderer, moveIndex, removeIndex } from "../fields";
-import { setNavigationGuard } from "../guard";
+import { confirmNavigation, setNavigationGuard } from "../guard";
 import type { Draft, PageAdmin, PublicPage, Revision } from "../types";
 import {
   Badge,
@@ -485,6 +486,18 @@ export default function PageEditor() {
   }
 
   const selected = sections.find((s) => s.uid === selectedUid) ?? null;
+
+  // Selecting from the Sections list also brings the section into view
+  // in the canvas preview (owner request) — selection alone left users
+  // hunting for where the section sits on a long page.
+  const selectAndScroll = useCallback((uid: string) => {
+    setSelectedUid(uid);
+    requestAnimationFrame(() => {
+      document
+        .querySelector(`[data-canvas-section="${uid}"]`)
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
   const selectedSpec = selected ? SECTION_SPECS[selected.type] : null;
   const canUndo = undoStack.current.length > 0;
   const canRedo = redoStack.current.length > 0;
@@ -614,7 +627,7 @@ export default function PageEditor() {
                     key={section.uid}
                     section={section}
                     selected={section.uid === selectedUid}
-                    onSelect={() => setSelectedUid(section.uid)}
+                    onSelect={() => selectAndScroll(section.uid)}
                     onToggleVisible={() => updateSection(section.uid, { isVisible: !section.isVisible }, true)}
                     onDuplicate={() => duplicateSection(section.uid)}
                     onDelete={() => {
@@ -642,11 +655,12 @@ export default function PageEditor() {
             {sections.map((section, index) => (
               <div
                 key={section.uid}
+                data-canvas-section={section.uid}
                 role="button"
                 tabIndex={0}
                 aria-label={`Select section ${index + 1}: ${SECTION_SPECS[section.type]?.name ?? section.type}`}
                 className={cx(
-                  "group/canvas relative cursor-pointer",
+                  "group/canvas relative scroll-mt-24 cursor-pointer",
                   section.uid === selectedUid && "outline outline-2 -outline-offset-2 outline-accent",
                 )}
                 onClickCapture={(e) => {
@@ -718,6 +732,18 @@ export default function PageEditor() {
                 />
               </div>
               {selectedSpec.note && <Notice tone="warn">{selectedSpec.note}</Notice>}
+              {selectedSpec.moduleLink && (
+                <Link
+                  to={selectedSpec.moduleLink.to}
+                  onClick={(e) => {
+                    if (!confirmNavigation()) e.preventDefault();
+                  }}
+                  className="flex items-center justify-center gap-2 rounded-sm bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+                >
+                  Edit the records in {selectedSpec.moduleLink.label}
+                  <ArrowRight size={14} />
+                </Link>
+              )}
               {selectedSpec.fields.map((field) => (
                 <FieldRenderer
                   key={field.path}

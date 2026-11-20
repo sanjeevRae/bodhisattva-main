@@ -32,6 +32,8 @@ export interface SectionSpec {
   fields: FieldSpec[];
   /** Shown above the form (module-reference types, site-settings data…). */
   note?: string;
+  /** For module-backed sections: where the records themselves are edited. */
+  moduleLink?: { to: string; label: string };
   defaultConfig: () => Record<string, any>;
 }
 
@@ -219,6 +221,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     description: "Grid of museum collections, selected from the collections module.",
     fields: moduleFields,
     note: moduleNote,
+    moduleLink: { to: "/admin/collections", label: "Collections" },
     defaultConfig: moduleDefault("Collections", "Featured collections"),
   },
 
@@ -228,6 +231,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     description: "Exhibitions from the exhibitions module, featured-split or masonry archive.",
     fields: moduleFields,
     note: moduleNote,
+    moduleLink: { to: "/admin/exhibitions", label: "Exhibitions" },
     defaultConfig: moduleDefault("Exhibitions", "Current exhibitions"),
   },
 
@@ -237,6 +241,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     description: "News articles from the news module, as cards or rows.",
     fields: moduleFields,
     note: moduleNote,
+    moduleLink: { to: "/admin/news", label: "News Clippings" },
     defaultConfig: moduleDefault("News", "Latest news"),
   },
 
@@ -246,6 +251,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     description: "Foundation programs from the foundation module.",
     fields: moduleFields,
     note: moduleNote,
+    moduleLink: { to: "/admin/foundation", label: "Foundation" },
     defaultConfig: moduleDefault("Foundation", "Programs & initiatives"),
   },
 
@@ -261,6 +267,7 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
       { kind: "link", path: "viewAllLink", label: "View-all link" },
     ],
     note: moduleNote,
+    moduleLink: { to: "/admin/products", label: "Products" },
     defaultConfig: () => ({ sectionLabel: "Shop", heading: "Featured products" }),
   },
 
