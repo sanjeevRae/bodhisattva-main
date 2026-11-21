@@ -3,39 +3,46 @@ import { createPortal } from "react-dom";
 import "../../styles/entrance.css";
 
 /**
- * First-visit entrance — "The Seal Releases the Ink".
+ * First-visit entrance — "The Quiet Presence".
  *
- * Designed with the owner from his reference video (a phone
- * splash whose mark comes alive, forms its lockup, then floods
- * the screen), planned by ChatGPT (Thinking) and Gemini, and
- * cross-reviewed to approval: ChatGPT 9.4/10, Gemini 9.6/10,
- * both "APPROVED TO BUILD" (2026-11-21). The logo itself is the
- * animation:
+ * The owner rejected the previous version ("The Seal Releases
+ * the Ink", eight animated beats in under three seconds) as
+ * "not premium — too fast and too big", and asked for "a premium
+ * smooth fade in type". This version was researched and planned
+ * with ChatGPT (Thinking) and Gemini, cross-checked against an
+ * independent research pass (NN/g guidance; the Met, Rijksmuseum
+ * and Apple run no splash at all), and approved as a build gate:
+ * ChatGPT 9.3/10, Gemini 9.2/10, both "APPROVED TO BUILD"
+ * (2026-11-21). The principle both reviewers converged on: the
+ * museum is not performing an entrance — it is quietly opening
+ * its doors. Almost nothing happens, slowly:
  *
- *  - 0.00–0.25 s — a 6px muted-gold point awakens at centre; one
- *    hairline gold ring expands from it and fades.
- *  - 0.18–0.58 s — the white disc blooms (scale 0.08 → 1.035 →
- *    1) with a 1px gold keyline and a whisper of shadow.
- *  - 0.42–1.02 s — the ORIGINAL figure artwork is unveiled by a
- *    circular clip-path expanding from the figure's chest.
- *  - 0.95–1.29 s — the eleven ORIGINAL letters of BODHISATTVA
- *    assemble one by one along their arc. The artwork was split
- *    by connected-component analysis of the owner's PNG: the
- *    figure layer lost ONLY the letters' own pixels, and each
- *    letter is an alpha-transparent tile at its exact original
- *    coordinates — figure + tiles recombine to the original
- *    emblem with zero differing pixels (verified).
- *  - 1.40–1.76 s — the complete seal breathes once
- *    (1 → 1.025 → 1); a gold halo expands behind it and fades.
- *  - 1.76–2.26 s — the seal releases the ink: an SVG circle
- *    (fill #1C1A16, stroke #B89758 at a constant 2px) expands
- *    from behind the seal to cover the screen, its radius eased
- *    with the same cubic-bezier(0.16,1,0.3,1); the seal eases to
- *    0.88 as the flood passes.
- *  - 2.26–2.55 s — the end card: the complete white emblem on
- *    the full ink field. Nothing else.
- *  - 2.55–2.98 s — the overlay dissolves onto the dark homepage
- *    hero and is removed from the DOM.
+ *  - 0.00–0.30 s — warm ivory #F7F3EC. Nothing moves.
+ *  - 0.30–1.50 s — the white disc fades in (opacity, balanced
+ *    ease cubic-bezier(0.4,0,0.6,1)) while settling from scale
+ *    0.99 to 1 (the settle alone uses the expo-out curve). The
+ *    disc carries a STATIC 1px gold keyline and a soft shadow.
+ *  - 0.50–1.85 s — the ORIGINAL figure artwork fades in.
+ *    Opacity only: no clip, no blur, no movement.
+ *  - 0.85–1.95 s — the eleven ORIGINAL letters of BODHISATTVA
+ *    become legible: each alpha-transparent tile (split from the
+ *    owner's PNG by connected-component analysis; figure + tiles
+ *    recombine to the original with zero differing pixels) fades
+ *    in over ~900 ms with a 16 ms stagger, read by the eye as
+ *    one soft wave, never as eleven events.
+ *  - 1.95–3.00 s — stillness. The complete emblem, absolutely
+ *    still. No breath, no glow, no ring.
+ *  - 3.00–4.35 s — the dissolve: the ivory field crossfades onto
+ *    the dark homepage hero while the seal fades out inside it
+ *    (3.20–4.20 s), gone before the field fully clears — no
+ *    ghost over the artwork. The overlay leaves the DOM at
+ *    4.35 s.
+ *
+ * The seal is small — clamp(148px, 17vw, 190px) — with generous
+ * ivory around it. Opacity is the only animated property except
+ * the disc's settle. All opacity fades use the balanced ease:
+ * an ease-out curve delivers most opacity early and would feel
+ * quick in disguise (ChatGPT's amendment, adopted).
  *
  * Behaviour contract:
  *  - Shown ONCE per visitor. The inline script in index.html
@@ -44,31 +51,35 @@ import "../../styles/entrance.css";
  *    component renders only when that class is present, so a
  *    refresh mid-intro or a second tab can never replay it.
  *  - The clock runs from PAGE ENTRY: CSS delays are shifted by
- *    --bi-shift (minus the mount time), and this component's
- *    timers and the flood's rAF read performance.now() — the
- *    time since navigation — so a slow mount can never stretch
- *    the visitor's wait.
+ *    --bi-shift (minus the mount time) and this component's
+ *    timers read performance.now(), so a slow mount or the
+ *    asset preflight can never stretch the visitor's wait.
+ *  - Asset preflight (ChatGPT's amendment): the figure and all
+ *    eleven letter tiles must load AND decode before the layered
+ *    animation starts. If any layer fails, the intro falls back
+ *    to the complete emblem asset as a single fade on the same
+ *    timings — if that is ready; otherwise the intro is bypassed
+ *    entirely. A partial or damaged wordmark is never shown.
+ *  - Non-blocking dismissal (ChatGPT's amendment): the overlay
+ *    is pointer-events: none, aria-hidden, with no focusable
+ *    descendants. The first pointer, keyboard, wheel or touch
+ *    interaction dismisses it instantly via document-level
+ *    listeners — without preventDefault or stopPropagation, so
+ *    a click both dismisses AND activates what was clicked. The
+ *    page beneath is live the whole time.
  *  - Reduced motion: the inline script never claims the visit,
  *    so this renders nothing; if the preference switches on
  *    while the splash is visible, it removes itself instantly.
  *  - Failsafes, layered honestly: the component unmounts at
- *    2.98 s (3.3 s hard timer); a pure-CSS backstop makes the
- *    overlay transparent, invisible and non-interactive by
- *    ~3.5 s even if no script runs after mount (CSS cannot
- *    remove a node — JavaScript removes it when it can); the
- *    inline script drops its own class at 3.6 s if the app never
- *    mounts. A figure image that fails to load removes the
- *    entrance at once.
- *  - The whole overlay is decorative (aria-hidden): it must
- *    never delay screen-reader or keyboard access to the real
- *    website.
+ *    4.35 s (4.9 s hard timer); a pure-CSS backstop makes the
+ *    overlay transparent and invisible by ~5.2 s even if no
+ *    script runs after mount (CSS cannot remove a node —
+ *    JavaScript removes it when it can); the inline script
+ *    drops its own class at 5.4 s if the app never mounts.
  */
 
-const FLOOD_START_MS = 1760;
-const FLOOD_MS = 500;
-const LEAVE_MS = 2550; // the end card begins its fade-out
-const FADE_MS = 430; // fade-out duration (unmount at 2,980 ms)
-const FAILSAFE_MS = 3300; // hard removal, whatever happened
+const UNMOUNT_MS = 4350; // the dissolve completes; remove the node
+const FAILSAFE_MS = 4900; // hard removal, whatever happened
 
 /** The eleven original letters, at their exact coordinates in
  * the emblem's 512×512 space (percentages of the seal). */
@@ -85,112 +96,137 @@ const LETTERS: { left: string; top: string; width: string }[] = [
   { left: "72.27%", top: "59.38%", width: "10.94%" }, // V
   { left: "76.76%", top: "51.56%", width: "9.96%" }, // A
 ];
-const LETTER_START_MS = 950;
-const LETTER_STEP_MS = 20;
+const LETTER_START_MS = 850;
+const LETTER_STEP_MS = 16;
 
-/** cubic-bezier(0.16, 1, 0.3, 1) evaluated in JS, so the flood's
- * radius follows the exact easing of the CSS beats. */
-function easeExpoOut(t: number): number {
-  const x1 = 0.16;
-  const y1 = 1;
-  const x2 = 0.3;
-  const y2 = 1;
-  const cx = (u: number) =>
-    3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u;
-  const cy = (u: number) =>
-    3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
-  let lo = 0;
-  let hi = 1;
-  for (let i = 0; i < 24; i++) {
-    const mid = (lo + hi) / 2;
-    if (cx(mid) < t) lo = mid;
-    else hi = mid;
-  }
-  return cy((lo + hi) / 2);
+const FIGURE_SRC = "/seal/figure.png";
+const EMBLEM_SRC = "/icon-512.png";
+const LAYER_SRCS: string[] = [
+  FIGURE_SRC,
+  ...LETTERS.map((_, i) => `/seal/letter-${i}.png`),
+];
+
+/** True only when the image has loaded AND decoded — a broken
+ * or undecodable asset must never reach the screen. */
+function imageReady(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      if (typeof img.decode === "function") {
+        img.decode().then(
+          () => resolve(true),
+          () => resolve(false),
+        );
+      } else {
+        resolve(img.naturalWidth > 0);
+      }
+    };
+    img.onerror = () => resolve(false);
+    img.src = src;
+  });
 }
 
+type Mode = "checking" | "layers" | "fallback";
+
 export default function EntranceIntro() {
-  const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(
     () =>
       typeof document === "undefined" ||
       !document.documentElement.classList.contains("bi-intro"),
   );
+  const [mode, setMode] = useState<Mode>("checking");
   // Minus the time already spent reaching this mount, so every
   // CSS delay lands on the page-entry timeline.
   const [shift] = useState(() =>
     typeof performance === "undefined" ? 0 : -Math.round(performance.now()),
   );
-  const finishRef = useRef<((instant?: boolean) => void) | null>(null);
-  const overlayRef = useRef<HTMLDivElement | null>(null);
-  const floodRef = useRef<SVGCircleElement | null>(null);
+  const finishRef = useRef<(() => void) | null>(null);
+  const emblemReadyRef = useRef<boolean | null>(null);
 
+  // Preflight: verify every layered asset before the seal is
+  // revealed. The overlay itself renders from the first mount
+  // (below), so a slow check can never flash the bare page —
+  // the visitor just sees the plan's quiet ivory opening for a
+  // beat longer, and the seal's CSS animations (entry-shifted)
+  // are already on the clock when it is revealed. A check that
+  // hangs past 2 s on the entry clock is decided from whatever
+  // has resolved by then: fallback if the emblem is ready,
+  // otherwise bypass. Never partial, never blocked.
+  useEffect(() => {
+    if (gone) return;
+    let alive = true;
+    let decided = false;
+    const decide = (layersOk: boolean, emblem: boolean) => {
+      if (!alive || decided) return;
+      decided = true;
+      emblemReadyRef.current = emblem;
+      if (layersOk) {
+        setMode("layers");
+      } else if (emblem) {
+        setMode("fallback");
+      } else {
+        finishRef.current?.();
+      }
+    };
+    let layersResult: boolean | null = null;
+    let emblemResult: boolean | null = null;
+    Promise.all(LAYER_SRCS.map(imageReady)).then((layers) => {
+      layersResult = layers.every(Boolean);
+      if (emblemResult !== null) decide(layersResult, emblemResult);
+    });
+    imageReady(EMBLEM_SRC).then((emblem) => {
+      emblemResult = emblem;
+      emblemReadyRef.current = emblem;
+      if (layersResult !== null) decide(layersResult, emblem);
+    });
+    const deadline = window.setTimeout(
+      () => decide(layersResult === true, emblemResult === true),
+      Math.max(0, 2000 - performance.now()),
+    );
+    return () => {
+      alive = false;
+      window.clearTimeout(deadline);
+    };
+  }, [gone]);
+
+  // Lifecycle: scroll lock, entry-relative timers, dismissal and
+  // reduced-motion listeners. Runs from the first mount, so the
+  // intro can be dismissed even while the preflight is pending.
   useEffect(() => {
     if (gone) return;
     const root = document.documentElement;
     root.classList.add("bi-intro-lock");
 
     let done = false;
-    let raf = 0;
     const timers: number[] = [];
     const later = (fn: () => void, absMs: number) => {
       timers.push(
         window.setTimeout(fn, Math.max(0, absMs - performance.now())),
       );
     };
-    const finish = (instant = false) => {
+    const finish = () => {
       if (done) return;
       done = true;
       timers.forEach((t) => window.clearTimeout(t));
-      if (raf) cancelAnimationFrame(raf);
       root.classList.remove("bi-intro-lock");
       root.classList.remove("bi-intro");
       setGone(true);
     };
-    const leave = () => {
-      if (done) return;
-      setLeaving(true);
-      later(() => finish(), LEAVE_MS + FADE_MS);
-    };
-    finishRef.current = (instant?: boolean) =>
-      instant ? finish() : leave();
+    finishRef.current = finish;
 
-    // A figure image that already failed before this effect ran
-    // must still remove the entrance at once.
-    const img = overlayRef.current?.querySelector(".bi-figure");
-    if (
-      img instanceof HTMLImageElement &&
-      img.complete &&
-      img.naturalWidth === 0
-    ) {
-      finish();
-      return;
-    }
+    later(finish, UNMOUNT_MS);
+    later(finish, FAILSAFE_MS);
 
-    later(leave, LEAVE_MS);
-    later(() => finish(), FAILSAFE_MS);
-
-    // The ink flood: one SVG circle, fill ink, stroke gold at a
-    // constant 2px, radius eased on the page-entry clock. If the
-    // tab is backgrounded, rAF pauses — the timers above still
-    // end the entrance gracefully, flood or no flood.
-    const cover =
-      Math.hypot(window.innerWidth, window.innerHeight) / 2 + 6;
-    const tick = () => {
-      if (done) return;
-      const t = performance.now();
-      const p = (t - FLOOD_START_MS) / FLOOD_MS;
-      const circle = floodRef.current;
-      if (circle) {
-        if (p >= 1) {
-          circle.setAttribute("r", String(cover));
-        } else if (p > 0) {
-          circle.setAttribute("r", String(cover * easeExpoOut(p)));
-        }
-      }
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
+    // First contact dismisses instantly — and is NEVER swallowed:
+    // no preventDefault, no stopPropagation, and the overlay
+    // itself is pointer-events: none, so the visitor's click,
+    // keypress or scroll reaches the real page untouched.
+    const dismiss = () => finish();
+    const opts: AddEventListenerOptions = { passive: true };
+    document.addEventListener("pointerdown", dismiss, opts);
+    document.addEventListener("keydown", dismiss);
+    document.addEventListener("wheel", dismiss, opts);
+    document.addEventListener("touchmove", dismiss, opts);
 
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onMqChange = () => {
@@ -200,7 +236,10 @@ export default function EntranceIntro() {
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
-      if (raf) cancelAnimationFrame(raf);
+      document.removeEventListener("pointerdown", dismiss);
+      document.removeEventListener("keydown", dismiss);
+      document.removeEventListener("wheel", dismiss);
+      document.removeEventListener("touchmove", dismiss);
       mq.removeEventListener("change", onMqChange);
       root.classList.remove("bi-intro-lock");
       finishRef.current = null;
@@ -211,37 +250,41 @@ export default function EntranceIntro() {
 
   return createPortal(
     <div
-      ref={overlayRef}
-      className={`bi-intro-overlay${leaving ? " is-leaving" : ""}`}
+      className="bi-intro-overlay"
       aria-hidden="true"
       style={{ "--bi-shift": `${shift}ms` } as React.CSSProperties}
     >
-      <svg className="bi-flood" aria-hidden="true">
-        <circle
-          ref={floodRef}
-          cx="50%"
-          cy="50%"
-          r="0"
-          fill="#1C1A16"
-          stroke="#B89758"
-          strokeWidth="2"
-        />
-      </svg>
       <div className="bi-stage">
-        <div className="bi-point" />
-        <div className="bi-ring1" />
-        <div className="bi-halo" />
-        <div className="bi-seal-scale">
-          <div className="bi-seal-breath">
+        <div
+          className="bi-seal-fade"
+          style={
+            mode === "checking" ? { visibility: "hidden" } : undefined
+          }
+        >
+          {mode === "fallback" ? (
+            <img
+              className="bi-emblem-full"
+              src={EMBLEM_SRC}
+              alt=""
+              width={512}
+              height={512}
+              draggable={false}
+              onError={() => finishRef.current?.()}
+            />
+          ) : (
             <div className="bi-disc">
               <img
                 className="bi-figure"
-                src="/seal/figure.png"
+                src={FIGURE_SRC}
                 alt=""
                 width={512}
                 height={512}
                 draggable={false}
-                onError={() => finishRef.current?.(true)}
+                onError={() =>
+                  emblemReadyRef.current
+                    ? setMode("fallback")
+                    : finishRef.current?.()
+                }
               />
               {LETTERS.map((pos, i) => (
                 <img
@@ -250,6 +293,11 @@ export default function EntranceIntro() {
                   src={`/seal/letter-${i}.png`}
                   alt=""
                   draggable={false}
+                  onError={() =>
+                    emblemReadyRef.current
+                      ? setMode("fallback")
+                      : finishRef.current?.()
+                  }
                   style={
                     {
                       left: pos.left,
@@ -261,7 +309,7 @@ export default function EntranceIntro() {
                 />
               ))}
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>,

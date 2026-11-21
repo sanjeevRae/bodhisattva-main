@@ -1,19 +1,21 @@
-/* First-visit entrance — "The Seal Releases the Ink".
+/* First-visit entrance — "The Quiet Presence".
    See src/app/components/EntranceIntro.tsx for the full contract.
-   Choreography (approved plan, ChatGPT 9.4/10, Gemini 9.6/10):
-   a gold point awakens, the white seal blooms, the original
-   figure is unveiled by an expanding circular clip, the eleven
-   ORIGINAL letters assemble along their arc one by one, the
-   complete seal breathes once, then it releases an ink flood —
-   an SVG circle with a constant 2px gold rim, driven from the
-   component — and the emblem rests on ink as the end card before
-   the overlay dissolves onto the dark hero.
+   Choreography (final plan approved 2026-11-21: ChatGPT 9.3/10,
+   Gemini 9.2/10, both "APPROVED TO BUILD"): a small seal fades
+   quietly into being on warm ivory — disc, then figure, then the
+   eleven ORIGINAL letters as one soft wave — rests in complete
+   stillness, then dissolves into the dark hero, the emblem
+   fading away inside the field's fade so nothing lingers over
+   the artwork. Opacity is the only animated property except the
+   disc's 0.99 → 1 settle. All opacity fades use the balanced
+   cubic-bezier(0.4, 0, 0.6, 1): an ease-out curve would deliver
+   most of the opacity early and feel quick in disguise.
    Every CSS delay is shifted by --bi-shift (minus the time the
    bundle took to mount) so the sequence runs on the page-entry
    clock. The pre-app paint lives in index.html. */
 
 .bi-intro-overlay {
-  --seal: min(80vw, 64vh, 380px);
+  --seal: clamp(148px, 17vw, 190px);
   position: fixed;
   inset: 0;
   height: 100vh;
@@ -22,18 +24,32 @@
   display: grid;
   place-items: center;
   background: var(--background, #f7f3ec);
-  opacity: 1;
-  transition: opacity 430ms ease-out;
-  /* Pure-CSS backstop: whatever happens, by ~3.5 s the overlay
-     is transparent, invisible and non-interactive. (CSS cannot
-     remove the node; JavaScript does that when it runs.) */
-  animation: bi-intro-backstop 100ms linear 3500ms forwards;
+  /* Decorative and non-blocking: every pointer event passes
+     straight through to the live page beneath; the component
+     listens at document level and dismisses on first contact. */
+  pointer-events: none;
+  /* The dissolve: the ivory field fades onto the hero over
+     3.00–4.35 s. */
+  animation:
+    bi-dissolve 1350ms cubic-bezier(0.4, 0, 0.6, 1) both,
+    bi-intro-backstop 100ms linear 5200ms forwards;
+  animation-delay:
+    calc(3000ms + var(--bi-shift, 0ms)),
+    5200ms;
 }
 
-.bi-intro-overlay.is-leaving {
-  opacity: 0;
+@keyframes bi-dissolve {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
 }
 
+/* Pure-CSS backstop: whatever happens, by ~5.2 s the overlay is
+   transparent, invisible and non-interactive. (CSS cannot
+   remove the node; JavaScript does that when it runs.) */
 @keyframes bi-intro-backstop {
   to {
     opacity: 0;
@@ -41,174 +57,49 @@
   }
 }
 
-/* The ink flood: an SVG circle (fill ink, stroke gold) whose
-   radius the component animates; it sits behind the seal, so the
-   ink appears to be released from behind the emblem. */
-.bi-flood {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  width: 100%;
-  height: 100%;
-  pointer-events: none;
-}
-
 /* The centred stage, exactly the seal's size. */
 .bi-stage {
   position: relative;
-  z-index: 3;
   width: var(--seal);
   height: var(--seal);
 }
 
-/* Phase 1 — the awakening: a 6px gold point… */
-.bi-point {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 9999px;
-  background: #b89758;
-  opacity: 0;
-  animation: bi-point 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--bi-shift, 0ms);
-}
-
-@keyframes bi-point {
-  0% {
-    opacity: 0;
-    transform: translateY(4px) scale(0.6);
-  }
-  50% {
-    opacity: 0.8;
-    transform: translateY(0) scale(1.2);
-  }
-  100% {
-    opacity: 0;
-    transform: translateY(0) scale(0.6);
-  }
-}
-
-/* …and one hairline gold ring expanding from it. */
-.bi-ring1 {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 90px;
-  height: 90px;
-  margin: -45px 0 0 -45px;
-  border-radius: 9999px;
-  border: 1px solid rgba(184, 151, 88, 0.7);
-  opacity: 0;
-  animation: bi-ring1 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: var(--bi-shift, 0ms);
-}
-
-@keyframes bi-ring1 {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  30% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.8);
-  }
-}
-
-/* Phase 5's halo: a gold ring that expands behind the seal and
-   fades as the complete emblem breathes. */
-.bi-halo {
-  position: absolute;
-  inset: -10px;
-  border-radius: 9999px;
-  border: 1px solid rgba(184, 151, 88, 0.55);
-  opacity: 0;
-  animation: bi-halo 500ms ease-out both;
-  animation-delay: calc(1400ms + var(--bi-shift, 0ms));
-}
-
-@keyframes bi-halo {
-  0% {
-    opacity: 0;
-    transform: scale(1);
-  }
-  35% {
-    opacity: 0.55;
-  }
-  100% {
-    opacity: 0;
-    transform: scale(1.08);
-  }
-}
-
-/* Phases 2 + 6 on one wrapper, via the standalone `scale`
-   property: the bloom (grow with a single 1.035 overshoot) and,
-   much later, the release (ease to 0.88 as the ink floods). The
-   release is listed second so it wins while it runs and fills. */
-.bi-seal-scale {
+/* The seal's exit: it fades away INSIDE the field's dissolve
+   (3.20–4.20 s), so the emblem is gone before the ivory fully
+   clears — no ghost over the artwork, no white disc lingering
+   on the dark hero. Opacity only; the mark never shrinks. */
+.bi-seal-fade {
   position: absolute;
   inset: 0;
-  will-change: scale;
-  animation:
-    bi-bloom 400ms cubic-bezier(0.16, 1, 0.3, 1) both,
-    bi-release 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  animation-delay:
-    calc(180ms + var(--bi-shift, 0ms)),
-    calc(1760ms + var(--bi-shift, 0ms));
+  animation: bi-seal-out 1000ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation-delay: calc(3200ms + var(--bi-shift, 0ms));
 }
 
-@keyframes bi-bloom {
-  0% {
-    scale: 0.08;
-    opacity: 0;
-  }
-  75% {
-    scale: 1.035;
-    opacity: 1;
-  }
-  100% {
-    scale: 1;
-    opacity: 1;
-  }
-}
-
-@keyframes bi-release {
+@keyframes bi-seal-out {
   from {
-    scale: 1;
+    opacity: 1;
   }
   to {
-    scale: 0.88;
+    opacity: 0;
   }
 }
 
-/* Phase 5 — the breath: one controlled pulse of the whole seal. */
-.bi-seal-breath {
-  position: absolute;
-  inset: 0;
-  animation: bi-breath 360ms ease-in-out both;
-  animation-delay: calc(1400ms + var(--bi-shift, 0ms));
-}
-
-@keyframes bi-breath {
-  0% {
-    scale: 1;
+/* The shared fade-in for disc, figure, letters and the fallback
+   emblem: a balanced ease so the opacity arrives evenly across
+   the whole duration — a slow materialising, never a pop. */
+@keyframes bi-fade-in {
+  from {
+    opacity: 0;
   }
-  50% {
-    scale: 1.025;
-  }
-  100% {
-    scale: 1;
+  to {
+    opacity: 1;
   }
 }
 
-/* The disc itself: white, gold-keylined, softly shadowed, and
-   clipped to a perfect circle. The rendering hints keep the edge
-   clean when the seal sits on the ink field at 0.88. */
+/* The disc: white, statically gold-keylined, softly shadowed,
+   clipped to a perfect circle. It fades in over 0.30–1.50 s
+   while settling from scale 0.99 to 1 — the settle uses the
+   expo-out curve, the ONLY place that curve appears. */
 .bi-disc {
   position: absolute;
   inset: 0;
@@ -216,14 +107,30 @@
   overflow: hidden;
   background: #ffffff;
   background-clip: padding-box;
-  border: 1px solid rgba(184, 151, 88, 0.65);
-  box-shadow: 0 10px 40px rgba(28, 26, 22, 0.1);
+  border: 1px solid rgba(184, 151, 88, 0.5);
+  box-shadow: 0 10px 40px rgba(28, 26, 22, 0.08);
   transform: translateZ(0);
   backface-visibility: hidden;
+  animation:
+    bi-fade-in 1200ms cubic-bezier(0.4, 0, 0.6, 1) both,
+    bi-settle 1200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay:
+    calc(300ms + var(--bi-shift, 0ms)),
+    calc(300ms + var(--bi-shift, 0ms));
 }
 
-/* Phase 3 — the unveiling: the original figure artwork revealed
-   by a circular clip expanding from the figure's chest. */
+@keyframes bi-settle {
+  from {
+    scale: 0.99;
+  }
+  to {
+    scale: 1;
+  }
+}
+
+/* The figure: the ORIGINAL artwork, fading in over 0.50–1.85 s.
+   Opacity only — no clip, no blur, no movement. It should look
+   like an existing sacred image becoming visible. */
 .bi-figure {
   position: absolute;
   inset: 0;
@@ -232,58 +139,45 @@
   display: block;
   user-select: none;
   -webkit-user-drag: none;
-  animation: bi-unveil 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
-  animation-delay: calc(420ms + var(--bi-shift, 0ms));
+  animation: bi-fade-in 1350ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation-delay: calc(500ms + var(--bi-shift, 0ms));
 }
 
-@keyframes bi-unveil {
-  0% {
-    clip-path: circle(0% at 50% 46%);
-    scale: 0.985;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  100% {
-    clip-path: circle(73% at 50% 46%);
-    scale: 1;
-    opacity: 1;
-  }
-}
-
-/* Phase 4 — the name assembles: each original letter (an
-   alpha-transparent tile at its exact original coordinates)
-   fades in and rises into place, one by one along the arc. */
+/* The letters: each original tile (alpha-transparent, at its
+   exact original coordinates) fades in over ~900 ms with a
+   16 ms stagger — a 160 ms spread the eye reads as one soft
+   wave of legibility, never as eleven separate events. */
 .bi-letter {
   position: absolute;
   display: block;
   user-select: none;
   -webkit-user-drag: none;
-  animation: bi-letter-in 140ms ease-out both;
-  animation-delay: calc(var(--bi-letter-at, 950ms) + var(--bi-shift, 0ms));
+  animation: bi-fade-in 900ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation-delay: calc(var(--bi-letter-at, 850ms) + var(--bi-shift, 0ms));
 }
 
-@keyframes bi-letter-in {
-  from {
-    opacity: 0;
-    translate: 0 10%;
-  }
-  to {
-    opacity: 1;
-    translate: 0 0;
-  }
+/* The fallback: the complete original emblem as a single image
+   (used only when a separated layer failed to load). It fades
+   in on the figure's timing and exits with the seal wrapper. */
+.bi-emblem-full {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  animation: bi-fade-in 1350ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  animation-delay: calc(500ms + var(--bi-shift, 0ms));
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bi-intro-overlay,
-  .bi-point,
-  .bi-ring1,
-  .bi-halo,
-  .bi-seal-scale,
-  .bi-seal-breath,
+  .bi-seal-fade,
+  .bi-disc,
   .bi-figure,
-  .bi-letter {
+  .bi-letter,
+  .bi-emblem-full {
     animation: none;
     transition: none;
   }
