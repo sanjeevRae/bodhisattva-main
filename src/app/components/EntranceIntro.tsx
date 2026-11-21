@@ -3,128 +3,127 @@ import { createPortal } from "react-dom";
 import "../../styles/entrance.css";
 
 /**
- * First-visit entrance — "The Threshold".
+ * First-visit entrance — "The Seal Releases the Ink".
  *
- * The museum opens its doors: on a visitor's first visit, two flat
- * ivory panels fill the screen with the museum's emblem held
- * perfectly still at the centre — the original circular mark
- * (public/logo-emblem.png, resized only, never redrawn or
- * recoloured) presented inside a separate fine gold ring so its
- * white disc reads as an enamelled seal. A single gold hairline
- * draws outward beneath the seal, a beat of stillness, then the
- * panels part from the centre (1,100 ms, heavy architectural
- * easing) and reveal the real page; the seal lifts away as the
- * opening widens past it, and the page's own navigation and
- * headline settle in as the doors finish.
+ * Designed with the owner from his reference video (a phone
+ * splash whose mark comes alive, forms its lockup, then floods
+ * the screen), planned by ChatGPT (Thinking) and Gemini, and
+ * cross-reviewed to approval: ChatGPT 9.4/10, Gemini 9.6/10,
+ * both "APPROVED TO BUILD" (2026-11-21). The logo itself is the
+ * animation:
  *
- * Design provenance (2026-11-20): the owner's verdict on the first
- * version ("no animation at all") sent the concept back out —
- * ChatGPT (Thinking) and Gemini (maximum model) each proposed
- * concepts independently, both chose parting doors, and both
- * scored this final synthesis 9.4/10. Choreography: line 450 ms,
- * stillness 250 ms, doors from 700 ms for 1,100 ms
- * (cubic-bezier(0.76, 0, 0.24, 1)), seal departure triggered by
- * geometry (gap ≈ 1.1× the framed seal diameter, computed below),
- * settle overlapping the doors' final quarter, complete ≈ 2 s.
+ *  - 0.00–0.25 s — a 6px muted-gold point awakens at centre; one
+ *    hairline gold ring expands from it and fades.
+ *  - 0.18–0.58 s — the white disc blooms (scale 0.08 → 1.035 →
+ *    1) with a 1px gold keyline and a whisper of shadow.
+ *  - 0.42–1.02 s — the ORIGINAL figure artwork is unveiled by a
+ *    circular clip-path expanding from the figure's chest.
+ *  - 0.95–1.29 s — the eleven ORIGINAL letters of BODHISATTVA
+ *    assemble one by one along their arc. The artwork was split
+ *    by connected-component analysis of the owner's PNG: the
+ *    figure layer lost ONLY the letters' own pixels, and each
+ *    letter is an alpha-transparent tile at its exact original
+ *    coordinates — figure + tiles recombine to the original
+ *    emblem with zero differing pixels (verified).
+ *  - 1.40–1.76 s — the complete seal breathes once
+ *    (1 → 1.025 → 1); a gold halo expands behind it and fades.
+ *  - 1.76–2.26 s — the seal releases the ink: an SVG circle
+ *    (fill #1C1A16, stroke #B89758 at a constant 2px) expands
+ *    from behind the seal to cover the screen, its radius eased
+ *    with the same cubic-bezier(0.16,1,0.3,1); the seal eases to
+ *    0.88 as the flood passes.
+ *  - 2.26–2.55 s — the end card: the complete white emblem on
+ *    the full ink field. Nothing else.
+ *  - 2.55–2.98 s — the overlay dissolves onto the dark homepage
+ *    hero and is removed from the DOM.
  *
  * Behaviour contract:
  *  - Shown ONCE per visitor. The inline script in index.html
- *    claims the visit (writes localStorage "bi-entrance-seen")
- *    BEFORE the app loads and adds the `bi-intro` class to <html>;
- *    this component renders only when that class is present, so a
+ *    claims the visit (localStorage "bi-entrance-seen") BEFORE
+ *    the app loads and adds the `bi-intro` class to <html>; this
+ *    component renders only when that class is present, so a
  *    refresh mid-intro or a second tab can never replay it.
- *  - The animation clock runs from PAGE ENTRY, independent of app
- *    readiness — the entrance never waits on loading. The CSS
- *    animations receive negative delays for whatever time the
- *    bundle took to mount, so the choreography (and the 2 s
- *    finish) is always measured from navigation, and a slow mount
- *    can never stretch the visitor's wait. (The page paints
- *    beneath the closed doors; the doors open on schedule.)
- *  - Reduced motion: the inline script never claims the visit, so
- *    this renders nothing; if the preference switches on while the
- *    intro is visible, it removes itself instantly.
- *  - Failsafes, layered: the component unmounts at 2,000 ms
- *    (2,400 ms hard timer), a pure-CSS backstop hides the overlay
- *    by ~2.6 s even if every timer failed, and the inline script
- *    removes its own class at 2.6 s if the app never mounts — the
- *    overlay can never trap a visitor. A logo that fails to load
- *    removes the entrance at once.
- *  - The whole overlay is decorative (aria-hidden): it must never
- *    delay screen-reader or keyboard access to the real website,
- *    and it is removed from the DOM when it completes.
+ *  - The clock runs from PAGE ENTRY: CSS delays are shifted by
+ *    --bi-shift (minus the mount time), and this component's
+ *    timers and the flood's rAF read performance.now() — the
+ *    time since navigation — so a slow mount can never stretch
+ *    the visitor's wait.
+ *  - Reduced motion: the inline script never claims the visit,
+ *    so this renders nothing; if the preference switches on
+ *    while the splash is visible, it removes itself instantly.
+ *  - Failsafes, layered honestly: the component unmounts at
+ *    2.98 s (3.3 s hard timer); a pure-CSS backstop makes the
+ *    overlay transparent, invisible and non-interactive by
+ *    ~3.5 s even if no script runs after mount (CSS cannot
+ *    remove a node — JavaScript removes it when it can); the
+ *    inline script drops its own class at 3.6 s if the app never
+ *    mounts. A figure image that fails to load removes the
+ *    entrance at once.
+ *  - The whole overlay is decorative (aria-hidden): it must
+ *    never delay screen-reader or keyboard access to the real
+ *    website.
  */
 
-const SETTLE_MS = 1550; // nav + headline settle begins (doors ~75% open)
-const FINISH_MS = 2000; // overlay unmounts (choreography complete)
-const FAILSAFE_MS = 2400; // hard removal, whatever happened
-const DOORS_START_MS = 700; // line 450 ms + stillness 250 ms
-const DOORS_MS = 1100;
+const FLOOD_START_MS = 1760;
+const FLOOD_MS = 500;
+const LEAVE_MS = 2550; // the end card begins its fade-out
+const FADE_MS = 430; // fade-out duration (unmount at 2,980 ms)
+const FAILSAFE_MS = 3300; // hard removal, whatever happened
 
-/**
- * Invert the doors' easing (cubic-bezier(0.76, 0, 0.24, 1)): given
- * the eased progress p (the revealed gap as a fraction of viewport
- * width), return the fraction of the door duration at which that
- * progress is reached. Used to time the seal's departure to the
- * real opening geometry on any viewport size.
- */
-function doorTimeFraction(p: number): number {
-  // y(t) = 3(1-t)t^2 + t^3 for control points y1=0, y2=1.
+/** The eleven original letters, at their exact coordinates in
+ * the emblem's 512×512 space (percentages of the seal). */
+const LETTERS: { left: string; top: string; width: string }[] = [
+  { left: "13.48%", top: "51.76%", width: "9.77%" }, // B
+  { left: "17.38%", top: "61.52%", width: "9.77%" }, // O
+  { left: "22.46%", top: "68.95%", width: "11.52%" }, // D
+  { left: "30.86%", top: "74.22%", width: "11.91%" }, // H
+  { left: "41.41%", top: "77.34%", width: "4.69%" }, // I
+  { left: "45.31%", top: "77.73%", width: "9.96%" }, // S
+  { left: "54.69%", top: "76.76%", width: "11.33%" }, // A
+  { left: "60.74%", top: "72.46%", width: "9.38%" }, // T
+  { left: "67.38%", top: "67.19%", width: "9.96%" }, // T
+  { left: "72.27%", top: "59.38%", width: "10.94%" }, // V
+  { left: "76.76%", top: "51.56%", width: "9.96%" }, // A
+];
+const LETTER_START_MS = 950;
+const LETTER_STEP_MS = 20;
+
+/** cubic-bezier(0.16, 1, 0.3, 1) evaluated in JS, so the flood's
+ * radius follows the exact easing of the CSS beats. */
+function easeExpoOut(t: number): number {
+  const x1 = 0.16;
+  const y1 = 1;
+  const x2 = 0.3;
+  const y2 = 1;
+  const cx = (u: number) =>
+    3 * (1 - u) * (1 - u) * u * x1 + 3 * (1 - u) * u * u * x2 + u * u * u;
+  const cy = (u: number) =>
+    3 * (1 - u) * (1 - u) * u * y1 + 3 * (1 - u) * u * u * y2 + u * u * u;
   let lo = 0;
   let hi = 1;
-  let t = 0.5;
-  for (let i = 0; i < 32; i++) {
-    t = (lo + hi) / 2;
-    const y = 3 * (1 - t) * t * t + t * t * t;
-    if (y < p) lo = t;
-    else hi = t;
+  for (let i = 0; i < 24; i++) {
+    const mid = (lo + hi) / 2;
+    if (cx(mid) < t) lo = mid;
+    else hi = mid;
   }
-  // x(t) for control points x1=0.76, x2=0.24.
-  const x =
-    3 * (1 - t) * (1 - t) * t * 0.76 + 3 * (1 - t) * t * t * 0.24 + t * t * t;
-  return x;
-}
-
-/**
- * The choreography's CSS delays, measured from page entry. Each
- * panel is 50.5% of the viewport wide and translates by a
- * percentage of its own width, so the revealed gap in pixels is
- * (1.01 × progress − 0.01) × viewport width; the seal's departure
- * is timed for the moment that gap passes 1.1× the framed seal's
- * diameter. Subtracting the time already spent mounting (negative
- * delays start a CSS animation part-way through) keeps every beat
- * on the entry clock.
- */
-function computeDelays(): { line: number; doors: number; depart: number } {
-  try {
-    const entryMs = performance.now();
-    const w = window.innerWidth;
-    const seal = w <= 400 ? 96 : w <= 768 ? 112 : 152;
-    const framed = seal + 10; // 4px gap + 1px ring, both sides
-    const p = Math.min(0.62, ((1.1 * framed) / w + 0.01) / 1.01);
-    const departAbs = DOORS_START_MS + doorTimeFraction(p) * DOORS_MS;
-    return {
-      line: Math.round(-entryMs),
-      doors: Math.round(DOORS_START_MS - entryMs),
-      depart: Math.round(departAbs - entryMs),
-    };
-  } catch {
-    return { line: 0, doors: DOORS_START_MS, depart: 1050 };
-  }
+  return cy((lo + hi) / 2);
 }
 
 export default function EntranceIntro() {
+  const [leaving, setLeaving] = useState(false);
   const [gone, setGone] = useState(
     () =>
       typeof document === "undefined" ||
       !document.documentElement.classList.contains("bi-intro"),
   );
-  const [delays] = useState(() =>
-    typeof window === "undefined"
-      ? { line: 0, doors: DOORS_START_MS, depart: 1050 }
-      : computeDelays(),
+  // Minus the time already spent reaching this mount, so every
+  // CSS delay lands on the page-entry timeline.
+  const [shift] = useState(() =>
+    typeof performance === "undefined" ? 0 : -Math.round(performance.now()),
   );
-  const finishRef = useRef<(() => void) | null>(null);
+  const finishRef = useRef<((instant?: boolean) => void) | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const floodRef = useRef<SVGCircleElement | null>(null);
 
   useEffect(() => {
     if (gone) return;
@@ -132,87 +131,66 @@ export default function EntranceIntro() {
     root.classList.add("bi-intro-lock");
 
     let done = false;
+    let raf = 0;
     const timers: number[] = [];
-    // Timers are scheduled against the page-entry clock, matching
-    // the CSS delays: a slow mount shortens the remaining waits
-    // instead of stretching the whole sequence.
-    const entryElapsed = performance.now();
     const later = (fn: () => void, absMs: number) => {
       timers.push(
-        window.setTimeout(fn, Math.max(0, absMs - entryElapsed)),
+        window.setTimeout(fn, Math.max(0, absMs - performance.now())),
       );
     };
-
-    // The settle: the site navigation and the page headline are
-    // held invisible (the headline also 8px low) while the doors
-    // are closed, then released as the doors finish so the page
-    // composes itself in front of the visitor. Inline styles are
-    // used so nothing in the site's own code needs to know about
-    // the entrance; the headline's hold uses the standalone
-    // `translate` property, which composes with — never fights —
-    // any transform the page's own animation applies.
-    const held: HTMLElement[] = [];
-    const hold = (el: HTMLElement | null, rise: boolean) => {
-      if (!el || held.includes(el)) return;
-      el.style.transition = rise
-        ? "opacity 400ms ease-out, translate 400ms ease-out"
-        : "opacity 250ms ease-out";
-      el.style.opacity = "0";
-      if (rise) el.style.translate = "0px 8px";
-      held.push(el);
-    };
-    const release = () => {
-      held.forEach((el) => {
-        el.style.opacity = "1";
-        el.style.translate = "0px 0px";
-      });
-    };
-    const clearHeld = () => {
-      held.forEach((el) => {
-        el.style.removeProperty("opacity");
-        el.style.removeProperty("translate");
-        el.style.removeProperty("transition");
-      });
-      held.length = 0;
-    };
-
-    const finish = () => {
+    const finish = (instant = false) => {
       if (done) return;
       done = true;
       timers.forEach((t) => window.clearTimeout(t));
-      // If the settle already ran, its transitions have completed
-      // by FINISH_MS, so clearing the inline styles is invisible;
-      // on an early finish it simply snaps the page to its natural
-      // state. Either way nothing of the entrance is left behind.
-      clearHeld();
+      if (raf) cancelAnimationFrame(raf);
       root.classList.remove("bi-intro-lock");
       root.classList.remove("bi-intro");
       setGone(true);
     };
-    finishRef.current = finish;
+    const leave = () => {
+      if (done) return;
+      setLeaving(true);
+      later(() => finish(), LEAVE_MS + FADE_MS);
+    };
+    finishRef.current = (instant?: boolean) =>
+      instant ? finish() : leave();
 
-    // A logo that already failed before this effect ran (a fast
-    // network error can beat React's onError) must still remove
-    // the entrance at once: a complete image with no natural size
-    // is a broken one.
-    const img = overlayRef.current?.querySelector("img");
-    if (img && img.complete && img.naturalWidth === 0) {
+    // A figure image that already failed before this effect ran
+    // must still remove the entrance at once.
+    const img = overlayRef.current?.querySelector(".bi-figure");
+    if (
+      img instanceof HTMLImageElement &&
+      img.complete &&
+      img.naturalWidth === 0
+    ) {
       finish();
       return;
     }
 
-    hold(document.querySelector("header"), false);
-    const findHeadline = () => hold(document.querySelector("main h1"), true);
-    findHeadline();
-    // The headline is CMS-rendered and may arrive just after mount;
-    // look again before the doors open. If it never appears, the
-    // settle simply has one less participant.
-    later(findHeadline, 350);
-    later(findHeadline, 690);
+    later(leave, LEAVE_MS);
+    later(() => finish(), FAILSAFE_MS);
 
-    later(release, SETTLE_MS);
-    later(finish, FINISH_MS);
-    later(finish, FAILSAFE_MS);
+    // The ink flood: one SVG circle, fill ink, stroke gold at a
+    // constant 2px, radius eased on the page-entry clock. If the
+    // tab is backgrounded, rAF pauses — the timers above still
+    // end the entrance gracefully, flood or no flood.
+    const cover =
+      Math.hypot(window.innerWidth, window.innerHeight) / 2 + 6;
+    const tick = () => {
+      if (done) return;
+      const t = performance.now();
+      const p = (t - FLOOD_START_MS) / FLOOD_MS;
+      const circle = floodRef.current;
+      if (circle) {
+        if (p >= 1) {
+          circle.setAttribute("r", String(cover));
+        } else if (p > 0) {
+          circle.setAttribute("r", String(cover * easeExpoOut(p)));
+        }
+      }
+      if (p < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
 
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onMqChange = () => {
@@ -222,8 +200,8 @@ export default function EntranceIntro() {
 
     return () => {
       timers.forEach((t) => window.clearTimeout(t));
+      if (raf) cancelAnimationFrame(raf);
       mq.removeEventListener("change", onMqChange);
-      clearHeld();
       root.classList.remove("bi-intro-lock");
       finishRef.current = null;
     };
@@ -234,32 +212,57 @@ export default function EntranceIntro() {
   return createPortal(
     <div
       ref={overlayRef}
-      className="bi-intro-overlay"
+      className={`bi-intro-overlay${leaving ? " is-leaving" : ""}`}
       aria-hidden="true"
-      style={
-        {
-          "--bi-line-delay": `${delays.line}ms`,
-          "--bi-door-delay": `${delays.doors}ms`,
-          "--bi-depart-delay": `${delays.depart}ms`,
-        } as React.CSSProperties
-      }
+      style={{ "--bi-shift": `${shift}ms` } as React.CSSProperties}
     >
-      <div className="bi-door bi-door-left">
-        <div className="bi-line bi-line-left" />
-      </div>
-      <div className="bi-door bi-door-right">
-        <div className="bi-line bi-line-right" />
-      </div>
-      <div className="bi-intro-seal">
-        <img
-          className="bi-intro-emblem"
-          src="/logo-emblem.png"
-          alt=""
-          width={384}
-          height={384}
-          draggable={false}
-          onError={() => finishRef.current?.()}
+      <svg className="bi-flood" aria-hidden="true">
+        <circle
+          ref={floodRef}
+          cx="50%"
+          cy="50%"
+          r="0"
+          fill="#1C1A16"
+          stroke="#B89758"
+          strokeWidth="2"
         />
+      </svg>
+      <div className="bi-stage">
+        <div className="bi-point" />
+        <div className="bi-ring1" />
+        <div className="bi-halo" />
+        <div className="bi-seal-scale">
+          <div className="bi-seal-breath">
+            <div className="bi-disc">
+              <img
+                className="bi-figure"
+                src="/seal/figure.png"
+                alt=""
+                width={512}
+                height={512}
+                draggable={false}
+                onError={() => finishRef.current?.(true)}
+              />
+              {LETTERS.map((pos, i) => (
+                <img
+                  key={i}
+                  className="bi-letter"
+                  src={`/seal/letter-${i}.png`}
+                  alt=""
+                  draggable={false}
+                  style={
+                    {
+                      left: pos.left,
+                      top: pos.top,
+                      width: pos.width,
+                      "--bi-letter-at": `${LETTER_START_MS + i * LETTER_STEP_MS}ms`,
+                    } as React.CSSProperties
+                  }
+                />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     </div>,
     document.body,

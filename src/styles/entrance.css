@@ -1,17 +1,19 @@
-/* First-visit entrance ("The Threshold") — see
-   src/app/components/EntranceIntro.tsx. Two flat ivory door panels
-   part from the centre to reveal the page, carrying a gold hairline
-   with them; the museum's emblem sits perfectly still inside a fine
-   gold ring while the architecture moves around it, then lifts away
-   as the opening widens past it. Transform/opacity only — no
-   shadows, gradients, glow or textures on the moving surfaces.
-   The pre-app paint (background colour, scroll lock) lives in the
-   inline <style> in index.html so there is no white flash before
-   the bundle arrives; this file styles the overlay itself. */
+/* First-visit entrance — "The Seal Releases the Ink".
+   See src/app/components/EntranceIntro.tsx for the full contract.
+   Choreography (approved plan, ChatGPT 9.4/10, Gemini 9.6/10):
+   a gold point awakens, the white seal blooms, the original
+   figure is unveiled by an expanding circular clip, the eleven
+   ORIGINAL letters assemble along their arc one by one, the
+   complete seal breathes once, then it releases an ink flood —
+   an SVG circle with a constant 2px gold rim, driven from the
+   component — and the emblem rests on ink as the end card before
+   the overlay dissolves onto the dark hero.
+   Every CSS delay is shifted by --bi-shift (minus the time the
+   bundle took to mount) so the sequence runs on the page-entry
+   clock. The pre-app paint lives in index.html. */
 
 .bi-intro-overlay {
-  --seal-size: 152px;
-  --line-w: 180px;
+  --seal: min(80vw, 64vh, 380px);
   position: fixed;
   inset: 0;
   height: 100vh;
@@ -19,9 +21,17 @@
   z-index: 200;
   display: grid;
   place-items: center;
-  /* Pure-CSS backstop: even if every JS timer failed after mount,
-     the overlay removes itself visually by ~2.6 s. */
-  animation: bi-intro-backstop 100ms linear 2550ms forwards;
+  background: var(--background, #f7f3ec);
+  opacity: 1;
+  transition: opacity 430ms ease-out;
+  /* Pure-CSS backstop: whatever happens, by ~3.5 s the overlay
+     is transparent, invisible and non-interactive. (CSS cannot
+     remove the node; JavaScript does that when it runs.) */
+  animation: bi-intro-backstop 100ms linear 3500ms forwards;
+}
+
+.bi-intro-overlay.is-leaving {
+  opacity: 0;
 }
 
 @keyframes bi-intro-backstop {
@@ -31,141 +41,249 @@
   }
 }
 
-@media (max-width: 768px) {
-  .bi-intro-overlay {
-    --seal-size: 112px;
-    --line-w: 140px;
-  }
-}
-
-@media (max-width: 400px) {
-  .bi-intro-overlay {
-    --seal-size: 96px;
-    --line-w: 128px;
-  }
-}
-
-/* The doors: two flat ivory panels, each 50.5% wide so their inner
-   edges overlap by 1% at the centre and no sliver of the page can
-   show through the seam before they part. */
-.bi-door {
+/* The ink flood: an SVG circle (fill ink, stroke gold) whose
+   radius the component animates; it sits behind the seal, so the
+   ink appears to be released from behind the emblem. */
+.bi-flood {
   position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 50.5%;
-  background: var(--background, #f7f3ec);
-  will-change: transform;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
 }
 
-.bi-door-left {
-  left: 0;
-  animation: bi-door-left 1100ms cubic-bezier(0.76, 0, 0.24, 1) both;
-  animation-delay: var(--bi-door-delay, 700ms);
-}
-
-.bi-door-right {
-  right: 0;
-  animation: bi-door-right 1100ms cubic-bezier(0.76, 0, 0.24, 1) both;
-  animation-delay: var(--bi-door-delay, 700ms);
-}
-
-@keyframes bi-door-left {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-102%);
-  }
-}
-
-@keyframes bi-door-right {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(102%);
-  }
-}
-
-/* The gold hairline: one line beneath the seal, drawn outward from
-   the centre. Each half belongs to its door panel (inset 0.5vw puts
-   the half's inner end exactly on the viewport centre line), so
-   when the doors part the line travels away with them and is never
-   left suspended over the artwork. */
-.bi-line {
-  position: absolute;
-  top: calc(50% + (var(--seal-size) + 10px) / 2 + 24px);
-  width: calc(var(--line-w) / 2);
-  height: 2px;
-  background: rgba(184, 151, 88, 0.85);
-  animation: bi-line-draw 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
-  animation-delay: var(--bi-line-delay, 0ms);
-}
-
-.bi-line-left {
-  right: 0.5vw;
-  transform-origin: right center;
-}
-
-.bi-line-right {
-  left: 0.5vw;
-  transform-origin: left center;
-}
-
-@keyframes bi-line-draw {
-  from {
-    transform: scaleX(0);
-  }
-  to {
-    transform: scaleX(1);
-  }
-}
-
-/* The seal: the original emblem, completely still, presented inside
-   a separate fine gold ring (1px, with a 4px ivory gap) so its white
-   disc reads as an enamelled museum seal on the ivory rather than
-   an un-blended asset. The PNG itself is untouched. Departure is a
-   CSS animation whose delay the component sets from the actual
-   opening geometry (the moment the parting gap passes ~1.1x the
-   framed seal's diameter); the default below is the fallback. */
-.bi-intro-seal {
+/* The centred stage, exactly the seal's size. */
+.bi-stage {
   position: relative;
-  z-index: 2;
-  display: grid;
-  place-items: center;
-  padding: 4px;
-  border: 1px solid rgba(184, 151, 88, 0.55);
-  border-radius: 9999px;
-  will-change: transform, opacity;
-  animation: bi-seal-depart 450ms ease-out both;
-  animation-delay: var(--bi-depart-delay, 1050ms);
+  z-index: 3;
+  width: var(--seal);
+  height: var(--seal);
 }
 
-@keyframes bi-seal-depart {
-  from {
+/* Phase 1 — the awakening: a 6px gold point… */
+.bi-point {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 9999px;
+  background: #b89758;
+  opacity: 0;
+  animation: bi-point 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--bi-shift, 0ms);
+}
+
+@keyframes bi-point {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.6);
+  }
+  50% {
+    opacity: 0.8;
+    transform: translateY(0) scale(1.2);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(0) scale(0.6);
+  }
+}
+
+/* …and one hairline gold ring expanding from it. */
+.bi-ring1 {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 90px;
+  height: 90px;
+  margin: -45px 0 0 -45px;
+  border-radius: 9999px;
+  border: 1px solid rgba(184, 151, 88, 0.7);
+  opacity: 0;
+  animation: bi-ring1 250ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--bi-shift, 0ms);
+}
+
+@keyframes bi-ring1 {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  30% {
+    opacity: 0.7;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.8);
+  }
+}
+
+/* Phase 5's halo: a gold ring that expands behind the seal and
+   fades as the complete emblem breathes. */
+.bi-halo {
+  position: absolute;
+  inset: -10px;
+  border-radius: 9999px;
+  border: 1px solid rgba(184, 151, 88, 0.55);
+  opacity: 0;
+  animation: bi-halo 500ms ease-out both;
+  animation-delay: calc(1400ms + var(--bi-shift, 0ms));
+}
+
+@keyframes bi-halo {
+  0% {
+    opacity: 0;
+    transform: scale(1);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+/* Phases 2 + 6 on one wrapper, via the standalone `scale`
+   property: the bloom (grow with a single 1.035 overshoot) and,
+   much later, the release (ease to 0.88 as the ink floods). The
+   release is listed second so it wins while it runs and fills. */
+.bi-seal-scale {
+  position: absolute;
+  inset: 0;
+  will-change: scale;
+  animation:
+    bi-bloom 400ms cubic-bezier(0.16, 1, 0.3, 1) both,
+    bi-release 500ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay:
+    calc(180ms + var(--bi-shift, 0ms)),
+    calc(1760ms + var(--bi-shift, 0ms));
+}
+
+@keyframes bi-bloom {
+  0% {
+    scale: 0.08;
+    opacity: 0;
+  }
+  75% {
+    scale: 1.035;
     opacity: 1;
-    transform: translateY(0);
+  }
+  100% {
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+@keyframes bi-release {
+  from {
+    scale: 1;
   }
   to {
-    opacity: 0;
-    transform: translateY(-12px);
+    scale: 0.88;
   }
 }
 
-.bi-intro-emblem {
-  width: var(--seal-size);
-  height: auto;
-  display: block;
+/* Phase 5 — the breath: one controlled pulse of the whole seal. */
+.bi-seal-breath {
+  position: absolute;
+  inset: 0;
+  animation: bi-breath 360ms ease-in-out both;
+  animation-delay: calc(1400ms + var(--bi-shift, 0ms));
+}
+
+@keyframes bi-breath {
+  0% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.025;
+  }
+  100% {
+    scale: 1;
+  }
+}
+
+/* The disc itself: white, gold-keylined, softly shadowed, and
+   clipped to a perfect circle. The rendering hints keep the edge
+   clean when the seal sits on the ink field at 0.88. */
+.bi-disc {
+  position: absolute;
+  inset: 0;
   border-radius: 9999px;
+  overflow: hidden;
+  background: #ffffff;
+  background-clip: padding-box;
+  border: 1px solid rgba(184, 151, 88, 0.65);
+  box-shadow: 0 10px 40px rgba(28, 26, 22, 0.1);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* Phase 3 — the unveiling: the original figure artwork revealed
+   by a circular clip expanding from the figure's chest. */
+.bi-figure {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
   user-select: none;
   -webkit-user-drag: none;
+  animation: bi-unveil 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: calc(420ms + var(--bi-shift, 0ms));
+}
+
+@keyframes bi-unveil {
+  0% {
+    clip-path: circle(0% at 50% 46%);
+    scale: 0.985;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  100% {
+    clip-path: circle(73% at 50% 46%);
+    scale: 1;
+    opacity: 1;
+  }
+}
+
+/* Phase 4 — the name assembles: each original letter (an
+   alpha-transparent tile at its exact original coordinates)
+   fades in and rises into place, one by one along the arc. */
+.bi-letter {
+  position: absolute;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+  animation: bi-letter-in 140ms ease-out both;
+  animation-delay: calc(var(--bi-letter-at, 950ms) + var(--bi-shift, 0ms));
+}
+
+@keyframes bi-letter-in {
+  from {
+    opacity: 0;
+    translate: 0 10%;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .bi-intro-overlay,
-  .bi-door,
-  .bi-line,
-  .bi-intro-seal {
+  .bi-point,
+  .bi-ring1,
+  .bi-halo,
+  .bi-seal-scale,
+  .bi-seal-breath,
+  .bi-figure,
+  .bi-letter {
     animation: none;
     transition: none;
   }

@@ -31,17 +31,18 @@
       <meta name="twitter:image" content="https://bodhisattvainternational.com/og-share.jpg" />
       <!--OG_END-->
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      <!-- First-visit entrance ("The Threshold"): this
-           script runs before the app bundle. On a genuine first
-           visit (public pages only, motion allowed) it CLAIMS the
-           visit immediately — writing the flag up front means a
-           refresh mid-intro or a second tab can never replay it —
-           paints the theme background so there is no white flash,
-           preloads the emblem, and removes its own class after
-           2.6 s if the app never mounts (fail open). Any storage
-           error is treated as "already seen": the entrance must
-           never block the website. The overlay itself is the
-           EntranceIntro React component. -->
+      <!-- First-visit entrance ("The Seal Releases the Ink"):
+           this script runs before the app bundle. On a genuine
+           first visit (public pages only, motion allowed) it
+           CLAIMS the visit immediately — writing the flag up
+           front means a refresh mid-intro or a second tab can
+           never replay it — paints the theme background so there
+           is no white flash, preloads the separated seal artwork
+           (figure + the eleven letter tiles), and removes its own
+           class after 3.6 s if the app never mounts (fail open).
+           Any storage error is treated as "already seen": the
+           entrance must never block the website. The overlay
+           itself is the EntranceIntro React component. -->
       <script>
         (function () {
           try {
@@ -51,14 +52,18 @@
             window.localStorage.setItem("bi-entrance-seen", "1");
             var root = document.documentElement;
             root.classList.add("bi-intro");
-            var link = document.createElement("link");
-            link.rel = "preload";
-            link.as = "image";
-            link.href = "/logo-emblem.png";
-            document.head.appendChild(link);
+            var assets = ["/seal/figure.png"];
+            for (var i = 0; i < 11; i++) assets.push("/seal/letter-" + i + ".png");
+            assets.forEach(function (href) {
+              var link = document.createElement("link");
+              link.rel = "preload";
+              link.as = "image";
+              link.href = href;
+              document.head.appendChild(link);
+            });
             window.setTimeout(function () {
               root.classList.remove("bi-intro");
-            }, 2600);
+            }, 3600);
           } catch (e) {
             /* storage unavailable — no entrance, never a block */
           }
