@@ -310,10 +310,23 @@ async function resolveMeta(
  * (index.html boot style + component style attributes are attributes,
  * not style elements — the boot <style> is the inline case) and
  * blob: workers/frames for the PDF viewer.
+ *
+ * script-src additionally allows the ONE inline script in
+ * index.html — the first-visit entrance claim, which must run
+ * before the bundle to mark the visit and preload the seal
+ * artwork — by its exact SHA-256 hash, never 'unsafe-inline'.
+ * MAINTENANCE: if that script's text changes by even one
+ * character, recompute the hash (SHA-256 of the exact bytes
+ * between the script tags in the BUILT dist/index.html,
+ * base64-encoded) and update it below. A stale hash fails
+ * closed and silently: the entrance never runs in production
+ * while still working in local dev, where no CSP applies —
+ * that is exactly the bug found live on 2026-11-22, when the
+ * entrance had never once played on the production site.
  */
 const SPA_CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  "script-src 'self' 'sha256-ZODCb/OYeCefX/y0735otAUzXctKlyWg9hzKsc/p4Qk='",
   "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data: https://fonts.gstatic.com",
