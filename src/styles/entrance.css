@@ -7,9 +7,10 @@
    wordmark resolve inside it; a beat of stillness; then a long
    dissolve into the dark hero. One signature motion, executed
    with restraint. Every CSS delay is shifted by --bi-shift
-   (minus the time the bundle took to mount) so the sequence
-   runs on the page-entry clock. The pre-app paint lives in
-   index.html. */
+   (minus the time the bundle took to mount, clamped to
+   800 ms) so the sequence runs on the entry clock without a
+   late mount silently consuming it. The pre-app paint lives
+   in index.html. */
 
 .bi-intro-overlay {
   --seal: clamp(96px, 10vw, 120px);

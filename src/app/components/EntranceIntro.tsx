@@ -52,10 +52,21 @@ import "../../styles/entrance.css";
  *    the app loads and adds the `bi-intro` class to <html>; this
  *    component renders only when that class is present, so a
  *    refresh mid-intro or a second tab can never replay it.
- *  - The clock runs from PAGE ENTRY: CSS delays are shifted by
- *    --bi-shift (minus the mount time) and this component's
- *    timers read performance.now(), so a slow mount or the
- *    asset preflight can never stretch the visitor's wait.
+ *  - The clock runs from page entry, CLAMPED: CSS delays are
+ *    shifted by --bi-shift and this component's timers read
+ *    the same effective clock, but the entry time is capped at
+ *    SHIFT_CAP_MS. The pure entry clock broke in production:
+ *    the bundle's trip from the server took long enough that
+ *    by the time the component mounted, most of the sequence
+ *    had already "played" invisibly and the owner saw only a
+ *    quick flash of the finished seal dissolving ("it kinda
+ *    show but it was too quick", 2026-11-22). With the clamp,
+ *    a late mount replays the sequence from at most
+ *    SHIFT_CAP_MS in — the visitor always sees the inscription
+ *    draw — while a fast mount is completely unaffected. The
+ *    overlay never blocks the page (pointer-events: none,
+ *    first contact dismisses), so the extra presence on slow
+ *    connections costs the visitor nothing.
  *  - Asset preflight, decoupled (fixed 2026-11-22): the disc
  *    and the inscription are drawn in code and are NEVER gated
  *    on images — they run on the entry timeline from the first
@@ -97,6 +108,7 @@ import "../../styles/entrance.css";
 
 const UNMOUNT_MS = 3950; // the dissolve completes; remove the node
 const FAILSAFE_MS = 4500; // hard removal, whatever happened
+const SHIFT_CAP_MS = 800; // max entry time the clock may start at
 
 /** The eleven original letters, at their exact coordinates in
  * the emblem's 512×512 space (percentages of the seal). */
@@ -152,11 +164,21 @@ export default function EntranceIntro() {
   // The figure + letters are revealed only once every layer
   // has loaded AND decoded (see the contract comment above).
   const [layersReady, setLayersReady] = useState(false);
-  // Minus the time already spent reaching this mount, so every
-  // CSS delay lands on the page-entry timeline.
-  const [shift] = useState(() =>
-    typeof performance === "undefined" ? 0 : -Math.round(performance.now()),
-  );
+  // The effective entry clock: the real time spent reaching
+  // this mount, clamped to SHIFT_CAP_MS. CSS delays shift by
+  // -clock.eff and every timer reads effNow(), so the whole
+  // sequence runs on this one clock (see the contract comment).
+  const [clock] = useState(() => {
+    const raw =
+      typeof performance === "undefined" ? 0 : performance.now();
+    return { raw, eff: Math.min(raw, SHIFT_CAP_MS) };
+  });
+  const shift = -Math.round(clock.eff);
+  const effNow = () =>
+    clock.eff +
+    (typeof performance === "undefined"
+      ? 0
+      : performance.now() - clock.raw);
   const finishRef = useRef<(() => void) | null>(null);
   const emblemReadyRef = useRef<boolean | null>(null);
 
@@ -194,7 +216,7 @@ export default function EntranceIntro() {
     );
     Promise.all(tracked).then((layers) => {
       if (!alive) return;
-      if (layers.every(Boolean) && performance.now() < 2900) {
+      if (layers.every(Boolean) && effNow() < 2900) {
         setLayersReady(true);
       }
     });
@@ -224,7 +246,7 @@ export default function EntranceIntro() {
     const timers: number[] = [];
     const later = (fn: () => void, absMs: number) => {
       timers.push(
-        window.setTimeout(fn, Math.max(0, absMs - performance.now())),
+        window.setTimeout(fn, Math.max(0, absMs - effNow())),
       );
     };
     const finish = () => {
