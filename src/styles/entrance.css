@@ -109,6 +109,29 @@
   animation-delay: calc(200ms + var(--bi-shift, 0ms));
 }
 
+/* The artwork group (figure + letters) inside the disc. It is
+   revealed only when every layer has loaded AND decoded: the
+   wrapper starts transparent and flips to .is-ready with a
+   short transition. On a fast connection the flip lands
+   before the figure's own 0.45 s fade, so the choreographed
+   fades below run exactly as designed; on a slow one the
+   artwork fades in late through this transition, joining the
+   timeline wherever it has reached. The disc and the
+   inscription are NOT in this group — they are code-drawn and
+   never wait for images (the pre-2026-11-22 design gated the
+   whole seal on the images and silently skipped itself on
+   ordinary connections). */
+.bi-layers {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 300ms cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+.bi-layers.is-ready {
+  opacity: 1;
+}
+
 /* THE INSCRIPTION — the one signature motion. A fine gold line
    (2 units — 2px at the desktop seal, 1.6px at 96px mobile;
    set by the owner, who found the approved 1 unit too thin:
@@ -197,6 +220,7 @@
   .bi-intro-overlay,
   .bi-seal-fade,
   .bi-disc,
+  .bi-layers,
   .bi-inscribe path,
   .bi-figure,
   .bi-letter,

@@ -56,17 +56,27 @@ import "../../styles/entrance.css";
  *    --bi-shift (minus the mount time) and this component's
  *    timers read performance.now(), so a slow mount or the
  *    asset preflight can never stretch the visitor's wait.
- *  - Asset preflight: the figure and all eleven letter tiles
- *    must load AND decode before the seal is revealed. If any
- *    layer fails, the intro falls back to the complete emblem
- *    asset as a single fade on the same timings, WITHOUT the
- *    inscription (it already carries its own perimeter) — if
- *    that is ready; otherwise the intro is bypassed entirely.
- *    A partial or damaged wordmark is never shown. The overlay
- *    itself renders from first mount with the seal hidden until
- *    verification passes, so a slow check never flashes the
- *    bare page; a check hanging past 2 s is decided from
- *    whatever has resolved by then.
+ *  - Asset preflight, decoupled (fixed 2026-11-22): the disc
+ *    and the inscription are drawn in code and are NEVER gated
+ *    on images — they run on the entry timeline from the first
+ *    mount. The figure and letter tiles join the moment they
+ *    have loaded AND decoded: on a fast connection that is
+ *    before their choreographed fades, so the original
+ *    sequence is untouched; on a slow one they fade in late
+ *    through a short wrapper transition, joining the timeline
+ *    wherever it has reached, up to a 2.9 s cutoff (after the
+ *    stillness, a pop-in inside the dissolve would read as a
+ *    glitch). The earlier design hid the whole seal until
+ *    every layer verified, with a 2 s deadline on the ENTRY
+ *    clock — the bundle's own load ate the budget and the
+ *    entrance silently bypassed itself on ordinary
+ *    connections, the owner's included (verified live
+ *    2026-11-22). If any layer FAILS (an error, not slowness),
+ *    the intro falls back to the complete emblem asset as a
+ *    single fade on the same timings, WITHOUT the inscription
+ *    (it already carries its own perimeter) — if that is
+ *    ready; otherwise the intro finishes early. A partial or
+ *    damaged wordmark is never shown.
  *  - Non-blocking dismissal: the overlay is pointer-events:
  *    none, aria-hidden, with no focusable descendants. The
  *    first pointer, keyboard, wheel or touch interaction
@@ -130,7 +140,7 @@ function imageReady(src: string): Promise<boolean> {
   });
 }
 
-type Mode = "checking" | "layers" | "fallback";
+type Mode = "layers" | "fallback";
 
 export default function EntranceIntro() {
   const [gone, setGone] = useState(
@@ -138,7 +148,10 @@ export default function EntranceIntro() {
       typeof document === "undefined" ||
       !document.documentElement.classList.contains("bi-intro"),
   );
-  const [mode, setMode] = useState<Mode>("checking");
+  const [mode, setMode] = useState<Mode>("layers");
+  // The figure + letters are revealed only once every layer
+  // has loaded AND decoded (see the contract comment above).
+  const [layersReady, setLayersReady] = useState(false);
   // Minus the time already spent reaching this mount, so every
   // CSS delay lands on the page-entry timeline.
   const [shift] = useState(() =>
@@ -147,49 +160,55 @@ export default function EntranceIntro() {
   const finishRef = useRef<(() => void) | null>(null);
   const emblemReadyRef = useRef<boolean | null>(null);
 
-  // Preflight: verify every layered asset before the seal is
-  // revealed. The overlay itself renders from the first mount
-  // (below), so a slow check can never flash the bare page —
-  // the visitor just sees the plan's quiet ivory opening for a
-  // beat longer, and the seal's CSS animations (entry-shifted)
-  // are already on the clock when it is revealed. A check that
-  // hangs past 2 s on the entry clock is decided from whatever
-  // has resolved by then: fallback if the emblem is ready,
-  // otherwise bypass. Never partial, never blocked.
+  // Preflight, decoupled: the disc and the inscription run on
+  // the entry timeline regardless (they are code-drawn). This
+  // tracker only governs the artwork. Layers that all load AND
+  // decode reveal the figure + wordmark — immediately, whenever
+  // that lands, subject to the late-join cutoff. A layer that
+  // FAILS swaps in the complete emblem if it is ready, or
+  // finishes the intro early if it is not; if the emblem is
+  // still in flight when the failure lands, its own tracker
+  // below makes the call when it settles. Slowness alone never
+  // bypasses anything: the lifecycle timers dissolve the
+  // overlay on schedule whatever happens here.
   useEffect(() => {
     if (gone) return;
     let alive = true;
-    let decided = false;
-    const decide = (layersOk: boolean, emblem: boolean) => {
-      if (!alive || decided) return;
-      decided = true;
+    let layersFailed = false;
+    const onLayerFailure = () => {
+      if (!alive) return;
+      if (emblemReadyRef.current === true) {
+        setMode("fallback");
+      } else if (emblemReadyRef.current === false) {
+        finishRef.current?.();
+      }
+    };
+    const tracked = LAYER_SRCS.map((src) =>
+      imageReady(src).then((ok) => {
+        if (!ok) {
+          layersFailed = true;
+          onLayerFailure();
+        }
+        return ok;
+      }),
+    );
+    Promise.all(tracked).then((layers) => {
+      if (!alive) return;
+      if (layers.every(Boolean) && performance.now() < 2900) {
+        setLayersReady(true);
+      }
+    });
+    imageReady(EMBLEM_SRC).then((emblem) => {
       emblemReadyRef.current = emblem;
-      if (layersOk) {
-        setMode("layers");
-      } else if (emblem) {
+      if (!alive || !layersFailed) return;
+      if (emblem) {
         setMode("fallback");
       } else {
         finishRef.current?.();
       }
-    };
-    let layersResult: boolean | null = null;
-    let emblemResult: boolean | null = null;
-    Promise.all(LAYER_SRCS.map(imageReady)).then((layers) => {
-      layersResult = layers.every(Boolean);
-      if (emblemResult !== null) decide(layersResult, emblemResult);
     });
-    imageReady(EMBLEM_SRC).then((emblem) => {
-      emblemResult = emblem;
-      emblemReadyRef.current = emblem;
-      if (layersResult !== null) decide(layersResult, emblem);
-    });
-    const deadline = window.setTimeout(
-      () => decide(layersResult === true, emblemResult === true),
-      Math.max(0, 2000 - performance.now()),
-    );
     return () => {
       alive = false;
-      window.clearTimeout(deadline);
     };
   }, [gone]);
 
@@ -259,12 +278,7 @@ export default function EntranceIntro() {
       style={{ "--bi-shift": `${shift}ms` } as React.CSSProperties}
     >
       <div className="bi-stage">
-        <div
-          className="bi-seal-fade"
-          style={
-            mode === "checking" ? { visibility: "hidden" } : undefined
-          }
-        >
+        <div className="bi-seal-fade">
           {mode === "fallback" ? (
             <img
               className="bi-emblem-full"
@@ -278,6 +292,11 @@ export default function EntranceIntro() {
           ) : (
             <>
               <div className="bi-disc">
+                <div
+                  className={
+                    layersReady ? "bi-layers is-ready" : "bi-layers"
+                  }
+                >
                 <img
                   className="bi-figure"
                   src={FIGURE_SRC}
@@ -310,6 +329,7 @@ export default function EntranceIntro() {
                     }}
                   />
                 ))}
+                </div>
               </div>
               {/* The inscription: two half-arcs forming the disc's
                   exact perimeter, starting at 12 o'clock and drawn
