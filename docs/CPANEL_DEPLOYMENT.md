@@ -71,6 +71,27 @@ Two related traps from the same day:
   91bf9901 they also accept the discrete DB_* set. On this host
   the .env carries BOTH (DATABASE_URL with localhost) — harmless.
 
+## 1c. Post-live fixes (2026-11-22, both verified live)
+
+- **UPLOAD_DIRECTORY must be ABSOLUTE in production.** The
+  relative `../private-storage` resolves against the Passenger
+  process's working directory, which is NOT the app root on this
+  host — every uploaded image 404'd while the files sat in the
+  correct folder. Production value:
+  `UPLOAD_DIRECTORY=/home/yalawears/www.bodhisattvainternational.com/private-storage`.
+  (Uploads made earlier through a local dev server against the
+  same database live only on that machine's disk — copy the local
+  storage contents into private-storage preserving the 2-char
+  shard folders.)
+- **www origin must be allowed or redirected.** The site serves
+  on both apex and www, but the Origin allowlist held only the
+  apex, so every form post from www (login included) failed with
+  "Request origin is not allowed." Production CORS_ORIGINS now
+  lists BOTH `https://bodhisattvainternational.com` and
+  `https://www.bodhisattvainternational.com`. Preferred tidy-up:
+  a 301 www→apex RewriteRule at the top of the webroot
+  `.htaccess`, above the Passenger block.
+
 ## 2. Install + build (cPanel → Terminal) — VERIFIED 2026-11-22
 
 Host quirks learned live on this server (all confirmed by terminal
