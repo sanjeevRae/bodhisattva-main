@@ -35,6 +35,42 @@ app and move the backup files back.
 - [ ] Future updates: Git → Manage → Update/Pull, then rebuild
       (step 2) and restart the app (step 6).
 
+## 1b. Document root — MUST be a clean folder (learned live 2026-11-22)
+
+The domain's document root must NOT be the repo folder. Apache
+serves any file that exists in the document root directly, before
+Passenger sees the request — with the repo as docroot, `/` served
+the Vite SOURCE index.html (blank page; browsers cannot run
+/src/main.tsx) and the source tree was web-readable. The working
+layout:
+
+- Document root: `~/bodhisattvainternational-web/` — an otherwise
+  EMPTY folder containing only `.htaccess` with the CloudLinux
+  Passenger block (PassengerAppRoot …/server, PassengerBaseURI /,
+  PassengerNodejs …/nodevenv/…/22/bin/node, PassengerAppType
+  node, PassengerStartupFile dist/server.js).
+- The repo lives in `~/www.bodhisattvainternational.com/` (app
+  root `…/server`); the old pre-platform site remains untouched in
+  `~/bodhisattvainternational/` as the backup.
+- With no static files to serve, every request falls through to
+  the app, which serves the built SPA from dist/ (SERVE_SPA) plus
+  the API. Verified 2026-11-22: `/` → built bundle
+  /assets/index-*.js 200; /src/main.tsx → app 404; /api/health →
+  401 JSON; /server/.env → 403; /shop, /admin → 200.
+
+Two related traps from the same day:
+
+- When the Node app is first registered, cPanel writes a
+  PLACEHOLDER dist/server.js (`var http = require('http');` …)
+  if the startup file does not exist yet. It crashes instantly
+  under "type": "module" (require is not defined). After any
+  fresh app registration: stop the app, `npm run build`, verify
+  `head -3 dist/server.js` shows the "API entry point" comment,
+  then start.
+- The db:* scripts historically required DATABASE_URL; since
+  91bf9901 they also accept the discrete DB_* set. On this host
+  the .env carries BOTH (DATABASE_URL with localhost) — harmless.
+
 ## 2. Install + build (cPanel → Terminal) — VERIFIED 2026-11-22
 
 Host quirks learned live on this server (all confirmed by terminal
