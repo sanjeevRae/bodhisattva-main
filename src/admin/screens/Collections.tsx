@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import type { ImagePlacement } from "../../app/lib/image-placement";
 import { ApiError, collectionsApi } from "../api";
 import type { CollectionAdmin } from "../types";
 import { Badge, Btn, ConfirmDialog, ErrorBox, Field, Modal, Spinner, Switch, inputCls } from "../ui";
@@ -195,6 +196,7 @@ function CollectionForm({
   const [description, setDescription] = useState(initial?.description ?? "");
   const [history, setHistory] = useState(initial?.history ?? "");
   const [coverMediaId, setCoverMediaId] = useState<number | null>(initial?.coverMediaId ?? null);
+  const [coverPlacement, setCoverPlacement] = useState<ImagePlacement | null>(initial?.coverPlacement ?? null);
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? "");
   const [imageAlt, setImageAlt] = useState(initial?.imageAlt ?? "");
   const [isFeatured, setIsFeatured] = useState(initial?.isFeatured ?? false);
@@ -221,6 +223,7 @@ function CollectionForm({
       description: orNull(description),
       history: orNull(history),
       coverMediaId,
+      coverPlacement,
       imageUrl: orNull(imageUrl),
       imageAlt: orNull(imageAlt),
       isFeatured,
@@ -300,10 +303,13 @@ function CollectionForm({
           mediaId={coverMediaId}
           imageUrl={imageUrl}
           imageAlt={imageAlt}
+          placement={coverPlacement}
+          frame={{ label: "Collection card", desktop: [4, 3], tablet: [4, 3], mobile: [4, 3] }}
           onPatch={(patch) => {
             if (patch.mediaId !== undefined) setCoverMediaId(patch.mediaId);
             if (patch.imageUrl !== undefined) setImageUrl(patch.imageUrl);
             if (patch.imageAlt !== undefined) setImageAlt(patch.imageAlt);
+            if (patch.placement !== undefined) setCoverPlacement(patch.placement);
           }}
         />
         <div className="flex justify-end gap-2">

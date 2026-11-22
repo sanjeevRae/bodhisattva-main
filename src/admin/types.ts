@@ -10,6 +10,8 @@
  *  - server/src/modules/roles/roles.service.ts RoleView, UserListItem
  */
 
+import type { ImagePlacement } from "../app/lib/image-placement";
+
 export interface MeUser {
   id: number;
   name: string;
@@ -199,6 +201,8 @@ export interface CollectionAdmin {
   coverMediaId: number | null;
   imageUrl: string | null;
   imageAlt: string | null;
+  /** Cover placement (migration 0024); null = centred default. */
+  coverPlacement: ImagePlacement | null;
   itemCount: number | null;
   isFeatured: boolean;
   isPublished: boolean;
@@ -215,6 +219,8 @@ export interface ExhibitionAdmin {
   coverMediaId: number | null;
   imageUrl: string | null;
   imageAlt: string | null;
+  /** Cover placement (migration 0024); null = centred default. */
+  coverPlacement: ImagePlacement | null;
   location: string | null;
   curator: string | null;
   category: string | null;

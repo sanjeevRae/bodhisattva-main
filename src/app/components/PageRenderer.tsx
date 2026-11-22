@@ -711,7 +711,7 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
           {visible.map((col, i) => (
             <motion.div key={col.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }} className="group cursor-pointer">
               <div className="aspect-[4/3] overflow-hidden bg-muted mb-3">
-                {col.image && <img src={col.image.url} alt={col.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
+                {col.image && <PlacedImage src={col.image.url} alt={col.image.alt} placement={col.image.placement} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
               </div>
               <div className="flex items-center justify-between">
                 <h3 className="font-display text-base font-medium group-hover:text-accent transition-colors">{col.name}</h3>
@@ -742,7 +742,7 @@ function CollectionGridSection({ section, pageSlug, moduleData }: { section: Cms
           {featured.map((col, i) => (
             <motion.div key={col.id} initial={{ opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6, delay: i * 0.1 }} className="group cursor-pointer" onClick={() => goToPage(config.viewAllLink?.pageId)}>
               <div className="aspect-[3/4] overflow-hidden bg-muted mb-4">
-                {col.image && <img src={col.image.url} alt={col.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
+                {col.image && <PlacedImage src={col.image.url} alt={col.image.alt} placement={col.image.placement} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
               </div>
               <div className="flex items-start justify-between">
                 <div>
@@ -818,7 +818,7 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
               {filtered.map((ex, i) => (
                 <motion.div key={ex.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: i * 0.06 }} className="break-inside-avoid mb-6 group cursor-pointer">
                   <div className={`overflow-hidden bg-muted ${ex.coverAspect === "tall" ? "aspect-[3/4]" : "aspect-[4/3]"}`}>
-                    {ex.image && <img src={ex.image.url} alt={ex.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
+                    {ex.image && <PlacedImage src={ex.image.url} alt={ex.image.alt} placement={ex.image.placement} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />}
                   </div>
                   <div className="pt-4 pb-6 border-b border-border">
                     <div className="flex items-center justify-between mb-2">
@@ -859,7 +859,7 @@ function ExhibitionGridSection({ section, moduleData }: { section: CmsSection; m
       <SectionLabel>{config.sectionLabel}</SectionLabel>
       <div className="grid lg:grid-cols-5 border border-border">
         <div className={`lg:col-span-3 relative overflow-hidden bg-muted ${list.length === 0 ? "min-h-[320px] lg:min-h-full" : "aspect-[16/10]"}`}>
-          {featured.image && <img src={featured.image.url} alt={featured.image.alt} className={`w-full object-cover hover:scale-105 transition-transform duration-700 ${list.length === 0 ? "absolute inset-0 h-full" : "h-full"}`} />}
+          {featured.image && <PlacedImage src={featured.image.url} alt={featured.image.alt} placement={featured.image.placement} className={`w-full object-cover hover:scale-105 transition-transform duration-700 ${list.length === 0 ? "absolute inset-0 h-full" : "h-full"}`} />}
           <div className="absolute inset-0 bg-gradient-to-t from-[#1C1A16]/70 via-transparent to-transparent" />
           {list.length > 0 && (
             <div className="absolute bottom-8 left-8 right-8">

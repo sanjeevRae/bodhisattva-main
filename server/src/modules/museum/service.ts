@@ -68,7 +68,7 @@ import {
   users,
 } from "../../database/schema/index.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
-import { sanitizeRichText } from "../cms/registry.js";
+import { placementSchema, sanitizeRichText } from "../cms/registry.js";
 import {
   mediaFileUrl,
   purgeStoredDocument,
@@ -77,6 +77,7 @@ import {
 } from "../media/media.service.js";
 import { generateToken, hashToken } from "../../utils/tokens.js";
 import type {
+  CoverPlacement,
   CreateCollectionInput,
   CreateExhibitionInput,
   CreateFoundationProgramInput,
@@ -124,6 +125,10 @@ type MediaAssetRow = typeof mediaAssets.$inferSelect;
 export interface ResolvedImage {
   url: string;
   alt: string;
+  /** Cover placement (migration 0024), present only when one is set —
+   * the key is omitted entirely for unset placements so existing
+   * responses keep their exact shape. */
+  placement?: CoverPlacement;
 }
 
 export interface CollectionPublicView {
@@ -300,6 +305,42 @@ function definedPatch<T extends object>(input: T): Partial<T> {
   return out as Partial<T>;
 }
 
+interface CoverFields {
+  coverMediaId?: number | null;
+  imageUrl?: string | null;
+  coverPlacement?: CoverPlacement | null;
+}
+
+/**
+ * Cover-placement update invariant (migration 0024; reviewed plan
+ * 2026-11-22): a placement belongs to the cover it was composed for,
+ * and the service — not just the admin UI — enforces that. An object
+ * in the patch sets/replaces the placement and explicit null clears
+ * it (both via definedPatch); this adds the two rules a client cannot
+ * be trusted to apply itself:
+ *  - the cover source changed (media id or legacy URL) and no new
+ *    placement was supplied → the old placement is cleared;
+ *  - no cover remains after the patch → the placement is cleared.
+ * Alt-text-only and unrelated changes preserve the placement.
+ */
+function enforceCoverPlacement(
+  patch: CoverFields,
+  existing: { coverMediaId: number | null; imageUrl: string | null },
+  input: CoverFields,
+): void {
+  const sourceChanged =
+    (input.coverMediaId !== undefined && input.coverMediaId !== existing.coverMediaId) ||
+    (input.imageUrl !== undefined && input.imageUrl !== existing.imageUrl);
+  if (input.coverPlacement === undefined && sourceChanged) {
+    patch.coverPlacement = null;
+  }
+  const nextMediaId = input.coverMediaId !== undefined ? input.coverMediaId : existing.coverMediaId;
+  const nextImageUrl = input.imageUrl !== undefined ? input.imageUrl : existing.imageUrl;
+  if (nextMediaId == null && !nextImageUrl) {
+    patch.coverPlacement = null;
+  }
+}
+
 /** True when the error (or a wrapped cause) is a MySQL duplicate-key. */
 function isDuplicateKeyError(err: unknown): boolean {
   let current: unknown = err;
@@ -344,29 +385,59 @@ async function loadAssetMap(
 }
 
 /**
+ * Validate a stored cover placement (migration 0024) on the way out.
+ * Writes are gated by the zod schema at the API boundary, but a value
+ * written outside it (seed, direct DB write) must degrade to "no
+ * placement", never break the response. MariaDB returns JSON columns
+ * as parsed values through the driver; a raw string is parsed
+ * defensively for the same reason.
+ */
+function parseCoverPlacement(raw: unknown): CoverPlacement | undefined {
+  if (raw == null) return undefined;
+  let value: unknown = raw;
+  if (typeof raw === "string") {
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      return undefined;
+    }
+  }
+  const parsed = placementSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
+/**
  * Resolve a record's image to one { url, alt } (see the module header):
  * media asset first, legacy URL pair second, null when neither exists.
+ * A stored cover placement rides along (key omitted when unset).
  */
 function resolveImage(
   source: {
     mediaId: number | null;
     imageUrl: string | null;
     imageAlt: string | null;
+    placement?: unknown;
   },
   assets: Map<number, MediaAssetRow>,
   fallbackAlt: string,
 ): ResolvedImage | null {
+  const placement = parseCoverPlacement(source.placement);
   if (source.mediaId != null) {
     const asset = assets.get(source.mediaId);
     if (asset) {
       return {
         url: mediaFileUrl(asset.id, "master"),
         alt: source.imageAlt ?? asset.altText ?? fallbackAlt,
+        ...(placement ? { placement } : {}),
       };
     }
   }
   if (source.imageUrl) {
-    return { url: source.imageUrl, alt: source.imageAlt ?? fallbackAlt };
+    return {
+      url: source.imageUrl,
+      alt: source.imageAlt ?? fallbackAlt,
+      ...(placement ? { placement } : {}),
+    };
   }
   return null;
 }
@@ -446,7 +517,7 @@ export async function listPublicCollections(
     isFeatured: row.isFeatured,
     sortOrder: row.sortOrder,
     image: resolveImage(
-      { mediaId: row.coverMediaId, imageUrl: row.imageUrl, imageAlt: row.imageAlt },
+      { mediaId: row.coverMediaId, imageUrl: row.imageUrl, imageAlt: row.imageAlt, placement: row.coverPlacement },
       assets,
       row.name,
     ),
@@ -479,7 +550,7 @@ export async function listPublicExhibitions(
     isFeatured: row.isFeatured,
     sortOrder: row.sortOrder,
     image: resolveImage(
-      { mediaId: row.coverMediaId, imageUrl: row.imageUrl, imageAlt: row.imageAlt },
+      { mediaId: row.coverMediaId, imageUrl: row.imageUrl, imageAlt: row.imageAlt, placement: row.coverPlacement },
       assets,
       row.title,
     ),
@@ -1238,11 +1309,14 @@ export async function createCollection(
   const { db } = deps;
   await assertCollectionSlugFree(db, input.slug);
   if (input.coverMediaId != null) await assertMediaExists(db, input.coverMediaId, "coverMediaId");
+  const values = { ...input, createdBy: actor.userId, updatedBy: actor.userId };
+  // A placement without a cover is meaningless (migration 0024).
+  if (values.coverMediaId == null && !values.imageUrl) values.coverPlacement = null;
   let id = 0;
   try {
     const [inserted] = await db
       .insert(collections)
-      .values({ ...input, createdBy: actor.userId, updatedBy: actor.userId })
+      .values(values)
       .$returningId();
     id = inserted.id;
   } catch (err) {
@@ -1264,13 +1338,15 @@ export async function updateCollection(
   meta: RequestMeta,
 ): Promise<CollectionAdminView> {
   const { db } = deps;
-  await getCollectionOrThrow(db, id);
+  const existing = await getCollectionOrThrow(db, id);
   if (input.slug !== undefined) await assertCollectionSlugFree(db, input.slug, id);
   if (input.coverMediaId != null) await assertMediaExists(db, input.coverMediaId, "coverMediaId");
+  const patch = definedPatch(input);
+  enforceCoverPlacement(patch, existing, input);
   try {
     await db
       .update(collections)
-      .set({ ...definedPatch(input), updatedBy: actor.userId })
+      .set({ ...patch, updatedBy: actor.userId })
       .where(eq(collections.id, id));
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -1280,7 +1356,7 @@ export async function updateCollection(
   }
   const row = await getCollectionOrThrow(db, id);
   await audit(deps, actor, AUDIT_ACTIONS.museumCollectionsUpdate, "collection", id, meta, {
-    fields: Object.keys(definedPatch(input)),
+    fields: Object.keys(patch),
   });
   return row;
 }
@@ -1384,11 +1460,14 @@ export async function createExhibition(
   const { db } = deps;
   await assertExhibitionSlugFree(db, input.slug);
   if (input.coverMediaId != null) await assertMediaExists(db, input.coverMediaId, "coverMediaId");
+  const values = { ...input, createdBy: actor.userId, updatedBy: actor.userId };
+  // A placement without a cover is meaningless (migration 0024).
+  if (values.coverMediaId == null && !values.imageUrl) values.coverPlacement = null;
   let id = 0;
   try {
     const [inserted] = await db
       .insert(exhibitions)
-      .values({ ...input, createdBy: actor.userId, updatedBy: actor.userId })
+      .values(values)
       .$returningId();
     id = inserted.id;
   } catch (err) {
@@ -1410,13 +1489,15 @@ export async function updateExhibition(
   meta: RequestMeta,
 ): Promise<ExhibitionAdminView> {
   const { db } = deps;
-  await getExhibitionOrThrow(db, id);
+  const existing = await getExhibitionOrThrow(db, id);
   if (input.slug !== undefined) await assertExhibitionSlugFree(db, input.slug, id);
   if (input.coverMediaId != null) await assertMediaExists(db, input.coverMediaId, "coverMediaId");
+  const patch = definedPatch(input);
+  enforceCoverPlacement(patch, existing, input);
   try {
     await db
       .update(exhibitions)
-      .set({ ...definedPatch(input), updatedBy: actor.userId })
+      .set({ ...patch, updatedBy: actor.userId })
       .where(eq(exhibitions.id, id));
   } catch (err) {
     if (isDuplicateKeyError(err)) {
@@ -1426,7 +1507,7 @@ export async function updateExhibition(
   }
   const row = await getExhibitionOrThrow(db, id);
   await audit(deps, actor, AUDIT_ACTIONS.museumExhibitionsUpdate, "exhibition", id, meta, {
-    fields: Object.keys(definedPatch(input)),
+    fields: Object.keys(patch),
   });
   return row;
 }

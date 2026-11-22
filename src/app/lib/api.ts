@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ImagePlacement } from "./image-placement";
 import { getShopProducts, type ShopProduct } from "./shop";
 
 /**
@@ -189,6 +190,8 @@ export function settingString(settings: SiteSettings | null, key: string, fallba
 export interface MuseumImageRef {
   url: string;
   alt: string;
+  /** Cover placement (migration 0024); absent when none is set. */
+  placement?: ImagePlacement;
 }
 
 export interface CollectionRecord {

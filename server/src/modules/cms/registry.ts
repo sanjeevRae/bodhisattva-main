@@ -55,7 +55,7 @@ const devicePlacementSchema = z.object({
   zoom: z.number().min(0.5).max(3),
 });
 
-const placementSchema = z.object({
+export const placementSchema = z.object({
   fit: z.enum(["cover", "contain"]).optional(),
   desktop: devicePlacementSchema,
   tablet: devicePlacementSchema.optional(),

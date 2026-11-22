@@ -8,6 +8,7 @@ import {
   foreignKey,
   index,
   int,
+  json,
   longtext,
   mediumtext,
   mysqlTable,
@@ -81,6 +82,10 @@ export const collections = mysqlTable(
     // Legacy remote imagery (see module header deviation).
     imageUrl: varchar('image_url', { length: 1000 }),
     imageAlt: varchar('image_alt', { length: 500 }),
+    // Per-usage cover placement (focal point/zoom/fit), set via the admin
+    // placement editor; NULL = centred default. Shape is validated by the
+    // shared placement zod schema at the API boundary (migration 0024).
+    coverPlacement: json('cover_placement'),
     // Curatorial figure shown publicly (e.g. 487 works); display data, not stock.
     itemCount: int('item_count', { unsigned: true }),
     isFeatured: boolean('is_featured').notNull().default(false),
@@ -135,6 +140,8 @@ export const exhibitions = mysqlTable(
     // Legacy remote imagery (see module header deviation).
     imageUrl: varchar('image_url', { length: 1000 }),
     imageAlt: varchar('image_alt', { length: 500 }),
+    // Per-usage cover placement (see collections.cover_placement, 0024).
+    coverPlacement: json('cover_placement'),
     // 'Main Hall', 'East Wing'…
     location: varchar('location', { length: 160 }),
     // Display fields §8.2 omits (see module header, migration 0006):

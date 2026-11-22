@@ -6,6 +6,18 @@
  */
 import { slugSchema } from "@bodhisattva/shared/ids";
 import { z } from "zod";
+import { placementSchema } from "../cms/registry.js";
+
+/** The placement shape itself (focal point / zoom / fit, per device). */
+export type CoverPlacement = z.infer<typeof placementSchema>;
+
+/**
+ * Cover placement on create/update (migration 0024): an object sets or
+ * replaces it, explicit null clears it, and omitting the field leaves
+ * the stored value alone — except that the service clears it whenever
+ * the cover source itself changes or disappears.
+ */
+const coverPlacementField = placementSchema.nullable().optional();
 
 const nullableText = (max: number) =>
   z.string().max(max).nullable().optional();
@@ -43,6 +55,7 @@ const collectionFields = {
   coverMediaId: mediaRef,
   imageUrl: nullableText(1000),
   imageAlt: nullableText(500),
+  coverPlacement: coverPlacementField,
   itemCount: z.number().int().min(0).nullable().optional(),
   isFeatured: z.boolean().optional(),
   isPublished: z.boolean().optional(),
@@ -62,6 +75,7 @@ export const updateCollectionSchema = z
     coverMediaId: collectionFields.coverMediaId,
     imageUrl: collectionFields.imageUrl,
     imageAlt: collectionFields.imageAlt,
+    coverPlacement: collectionFields.coverPlacement,
     itemCount: collectionFields.itemCount,
     isFeatured: collectionFields.isFeatured,
     isPublished: collectionFields.isPublished,
@@ -83,6 +97,7 @@ const exhibitionFields = {
   coverMediaId: mediaRef,
   imageUrl: nullableText(1000),
   imageAlt: nullableText(500),
+  coverPlacement: coverPlacementField,
   location: nullableText(160),
   curator: nullableText(160),
   category: nullableText(80),
@@ -105,6 +120,7 @@ export const updateExhibitionSchema = z
     coverMediaId: exhibitionFields.coverMediaId,
     imageUrl: exhibitionFields.imageUrl,
     imageAlt: exhibitionFields.imageAlt,
+    coverPlacement: exhibitionFields.coverPlacement,
     location: exhibitionFields.location,
     curator: exhibitionFields.curator,
     category: exhibitionFields.category,

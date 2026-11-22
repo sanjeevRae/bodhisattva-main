@@ -6,6 +6,7 @@
  */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
+import type { ImagePlacement } from "../../app/lib/image-placement";
 import { ApiError, exhibitionsApi, mediaApi } from "../api";
 import MediaPicker from "../MediaPicker";
 import type { ExhibitionAdmin, GalleryItemAdmin, MediaAsset } from "../types";
@@ -205,12 +206,18 @@ function ExhibitionForm({
   const [category, setCategory] = useState(initial?.category ?? "");
   const [coverAspect, setCoverAspect] = useState(initial?.coverAspect ?? "");
   const [coverMediaId, setCoverMediaId] = useState<number | null>(initial?.coverMediaId ?? null);
+  const [coverPlacement, setCoverPlacement] = useState<ImagePlacement | null>(initial?.coverPlacement ?? null);
   const [imageUrl, setImageUrl] = useState(initial?.imageUrl ?? "");
   const [imageAlt, setImageAlt] = useState(initial?.imageAlt ?? "");
   const [isFeatured, setIsFeatured] = useState(initial?.isFeatured ?? false);
   const [isPublished, setIsPublished] = useState(initial?.isPublished ?? false);
   const [error, setError] = useState<unknown>(null);
   const [busy, setBusy] = useState(false);
+
+  // The placement editor previews the cover in its Gallery card frame,
+  // which follows the Cover aspect select (placement itself is kept
+  // when the aspect changes — the focal point is frame-independent).
+  const coverPair: [number, number] = coverAspect === "tall" ? [3, 4] : [4, 3];
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -228,6 +235,7 @@ function ExhibitionForm({
       category: orNull(category),
       coverAspect: orNull(coverAspect),
       coverMediaId,
+      coverPlacement,
       imageUrl: orNull(imageUrl),
       imageAlt: orNull(imageAlt),
       isFeatured,
@@ -326,10 +334,13 @@ function ExhibitionForm({
           mediaId={coverMediaId}
           imageUrl={imageUrl}
           imageAlt={imageAlt}
+          placement={coverPlacement}
+          frame={{ label: "Gallery card", desktop: coverPair, tablet: coverPair, mobile: coverPair }}
           onPatch={(patch) => {
             if (patch.mediaId !== undefined) setCoverMediaId(patch.mediaId);
             if (patch.imageUrl !== undefined) setImageUrl(patch.imageUrl);
             if (patch.imageAlt !== undefined) setImageAlt(patch.imageAlt);
+            if (patch.placement !== undefined) setCoverPlacement(patch.placement);
           }}
         />
         <div className="flex justify-end gap-2">

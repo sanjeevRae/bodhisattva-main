@@ -5,7 +5,10 @@
  * and the list order buttons used with the modules' reorder endpoints.
  */
 import { useState } from "react";
-import { ArrowDown, ArrowUp, ImagePlus, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Crop, ImagePlus, X } from "lucide-react";
+import { isDefaultPlacement, type ImagePlacement } from "../../app/lib/image-placement";
+import ImagePlacementEditor from "../ImagePlacementEditor";
+import type { FrameSpec } from "../image-frames";
 import MediaPicker from "../MediaPicker";
 import type { MediaAsset } from "../types";
 import { Btn, Field, inputCls } from "../ui";
@@ -102,6 +105,14 @@ export function OrderButtons({
  * legacy URL in the public payload) plus the legacy remote image URL +
  * alt text kept for records whose imagery has not been migrated into
  * the media library yet.
+ *
+ * Cover placement (migration 0024): screens that pass BOTH `placement`
+ * and `frame` additionally offer the Page Editor's "Edit position"
+ * control (the ImagePlacementEditor modal, reused unchanged). Screens
+ * that pass neither (Foundation, News) render exactly as before.
+ * Changing the image source — picking or clearing the media asset, or
+ * editing the legacy URL — clears the placement in the same patch,
+ * mirroring the server-side invariant; alt-text edits keep it.
  */
 export function ImageFields({
   mediaId,
@@ -109,17 +120,34 @@ export function ImageFields({
   imageUrl,
   imageAlt,
   onPatch,
+  placement,
+  frame,
 }: {
   mediaId: number | null;
   mediaLabel?: string;
   imageUrl: string;
   imageAlt: string;
-  onPatch: (patch: { mediaId?: number | null; imageUrl?: string; imageAlt?: string }) => void;
+  onPatch: (patch: { mediaId?: number | null; imageUrl?: string; imageAlt?: string; placement?: ImagePlacement | null }) => void;
+  placement?: ImagePlacement | null;
+  frame?: FrameSpec;
 }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [picked, setPicked] = useState<MediaAsset | null>(null);
+  const [placementOpen, setPlacementOpen] = useState(false);
 
   const thumb = picked && picked.id === mediaId ? (picked.urls.thumb ?? picked.urls.master) : mediaId != null ? `/api/media/${mediaId}/file/thumb` : null;
+
+  const placementEnabled = placement !== undefined && frame !== undefined;
+  // The image the editor positions: the media asset wins, exactly as
+  // the public payload resolves it; the legacy URL is the fallback.
+  const editorUrl =
+    mediaId != null
+      ? picked && picked.id === mediaId
+        ? picked.urls.master
+        : `/api/media/${mediaId}/file/master`
+      : imageUrl.trim() !== ""
+        ? imageUrl
+        : null;
 
   return (
     <div className="space-y-3 rounded-sm border border-border p-3">
@@ -143,7 +171,7 @@ export function ImageFields({
               variant="ghost"
               onClick={() => {
                 setPicked(null);
-                onPatch({ mediaId: null });
+                onPatch(placementEnabled ? { mediaId: null, placement: null } : { mediaId: null });
               }}
             >
               <X size={13} /> Clear
@@ -153,21 +181,48 @@ export function ImageFields({
       </Field>
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Legacy image URL">
-          <input className={inputCls} value={imageUrl} onChange={(e) => onPatch({ imageUrl: e.target.value })} placeholder="https://…" />
+          <input
+            className={inputCls}
+            value={imageUrl}
+            onChange={(e) => onPatch(placementEnabled ? { imageUrl: e.target.value, placement: null } : { imageUrl: e.target.value })}
+            placeholder="https://…"
+          />
         </Field>
         <Field label="Image alt text">
           <input className={inputCls} value={imageAlt} onChange={(e) => onPatch({ imageAlt: e.target.value })} />
         </Field>
       </div>
+      {placementEnabled && editorUrl && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Btn type="button" size="sm" onClick={() => setPlacementOpen(true)}>
+            <Crop size={14} /> Edit position
+          </Btn>
+          {placement && !isDefaultPlacement(placement) && (
+            <span className="text-xs text-muted-foreground">Custom position set for this cover — the original image is unchanged.</span>
+          )}
+        </div>
+      )}
       <MediaPicker
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
         onPick={(asset) => {
           setPicked(asset);
-          onPatch({ mediaId: asset.id });
+          onPatch(placementEnabled ? { mediaId: asset.id, placement: null } : { mediaId: asset.id });
           setPickerOpen(false);
         }}
       />
+      {placementEnabled && frame && (
+        <ImagePlacementEditor
+          open={placementOpen}
+          image={{ url: editorUrl ?? "", alt: imageAlt, placement: placement ?? undefined }}
+          frame={frame}
+          onClose={() => setPlacementOpen(false)}
+          onSave={(next) => {
+            onPatch({ placement: next ?? null });
+            setPlacementOpen(false);
+          }}
+        />
+      )}
     </div>
   );
 }

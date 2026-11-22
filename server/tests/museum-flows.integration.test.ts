@@ -406,4 +406,186 @@ describe.skipIf(!RUN)("Phase 5 museum flows (integration)", () => {
       .set("X-CSRF-Token", csrf);
     expect(removed.status).toBe(200);
   }, 120000);
+
+  it("cover placement (0024): persists, validates, and clears with the cover source", async () => {
+    const admin = state.admin!;
+    const csrf = state.csrf!;
+    const placement = {
+      fit: "cover",
+      desktop: { x: 20, y: 30, zoom: 1.5 },
+      mobile: { x: 25, y: 35, zoom: 2 },
+    };
+    const slug = `placement-show-${runId}`;
+
+    // Create WITH a placement on a legacy-URL cover → stored verbatim
+    // (JSON round trip returns an object, not a string).
+    const created = await admin
+      .post("/api/admin/exhibitions")
+      .set("X-CSRF-Token", csrf)
+      .send({
+        slug,
+        title: "Placement Show",
+        imageUrl: "https://example.com/covers/placement-a.jpg",
+        imageAlt: "Placement A",
+        coverPlacement: placement,
+        isPublished: true,
+      });
+    expect(created.status).toBe(201);
+    const showId = created.body.data.id as number;
+    expect(created.body.data.coverPlacement).toEqual(placement);
+
+    // Public payload carries it on the resolved image.
+    const pubOf = async () => {
+      const res = await request(app).get("/api/exhibitions");
+      const items = res.body.data.items as {
+        id: number;
+        image: { url: string; alt: string; placement?: unknown } | null;
+      }[];
+      return items.find((i) => i.id === showId);
+    };
+    expect((await pubOf())?.image?.placement).toEqual(placement);
+
+    // Alt-text-only and aspect-only updates preserve the placement.
+    const altOnly = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ imageAlt: "Placement A (revised)" });
+    expect(altOnly.status).toBe(200);
+    expect(altOnly.body.data.coverPlacement).toEqual(placement);
+    const aspectOnly = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ coverAspect: "tall" });
+    expect(aspectOnly.status).toBe(200);
+    expect(aspectOnly.body.data.coverPlacement).toEqual(placement);
+
+    // Changing the cover source WITHOUT a placement clears it server-side.
+    const swapped = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ imageUrl: "https://example.com/covers/placement-b.jpg" });
+    expect(swapped.status).toBe(200);
+    expect(swapped.body.data.coverPlacement).toBeNull();
+    expect((await pubOf())?.image).not.toHaveProperty("placement");
+
+    // Setting a new placement works; explicit null clears it.
+    const replacement = { desktop: { x: 80, y: 10, zoom: 1.2 } };
+    const setAgain = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ coverPlacement: replacement });
+    expect(setAgain.status).toBe(200);
+    expect(setAgain.body.data.coverPlacement).toEqual(replacement);
+    const cleared = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ coverPlacement: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data.coverPlacement).toBeNull();
+
+    // Changing the source WITH a new placement keeps the new one.
+    const swapWith = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({
+        imageUrl: "https://example.com/covers/placement-c.jpg",
+        coverPlacement: placement,
+      });
+    expect(swapWith.status).toBe(200);
+    expect(swapWith.body.data.coverPlacement).toEqual(placement);
+
+    // Removing the cover entirely forces the placement out, even when
+    // the payload (wrongly) carries one.
+    const removedCover = await admin
+      .patch(`/api/admin/exhibitions/${showId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ imageUrl: null, coverPlacement: placement });
+    expect(removedCover.status).toBe(200);
+    expect(removedCover.body.data.coverPlacement).toBeNull();
+    expect((await pubOf())?.image).toBeNull();
+
+    // Invalid placements are rejected at the schema boundary.
+    const invalid = await admin
+      .post("/api/admin/exhibitions")
+      .set("X-CSRF-Token", csrf)
+      .send({
+        slug: `placement-bad-${runId}`,
+        title: "Bad Placement",
+        imageUrl: "https://example.com/covers/bad.jpg",
+        coverPlacement: { desktop: { x: 120, y: 0, zoom: 1 } },
+      });
+    expect(invalid.status).toBe(400);
+    const invalidZoom = await admin
+      .post("/api/admin/collections")
+      .set("X-CSRF-Token", csrf)
+      .send({
+        slug: `placement-bad-zoom-${runId}`,
+        name: "Bad Zoom",
+        imageUrl: "https://example.com/covers/bad.jpg",
+        coverPlacement: { desktop: { x: 50, y: 50, zoom: 4 } },
+      });
+    expect(invalidZoom.status).toBe(400);
+
+    // A record created without a placement: stored NULL, and the public
+    // image object has NO placement key (response shape unchanged).
+    const plain = await admin
+      .post("/api/admin/collections")
+      .set("X-CSRF-Token", csrf)
+      .send({
+        slug: `placement-plain-${runId}`,
+        name: "Plain Collection",
+        imageUrl: "https://example.com/covers/plain.jpg",
+        isPublished: true,
+      });
+    expect(plain.status).toBe(201);
+    expect(plain.body.data.coverPlacement).toBeNull();
+    const plainId = plain.body.data.id as number;
+    const pubCols = await request(app).get("/api/collections");
+    const plainPub = (
+      pubCols.body.data.items as { id: number; image: Record<string, unknown> | null }[]
+    ).find((i) => i.id === plainId);
+    expect(plainPub?.image).not.toHaveProperty("placement");
+
+    // Media-library covers: placement rides along, and swapping the
+    // asset without a placement clears it (collection flavour).
+    const pngA = await sharp({
+      create: { width: 800, height: 600, channels: 3, background: "#775533" },
+    })
+      .png()
+      .toBuffer();
+    const pngB = await sharp({
+      create: { width: 800, height: 600, channels: 3, background: "#335577" },
+    })
+      .png()
+      .toBuffer();
+    const upA = await admin
+      .post("/api/admin/media")
+      .set("X-CSRF-Token", csrf)
+      .attach("file", pngA, "placement-a.png");
+    expect(upA.status).toBe(201);
+    const upB = await admin
+      .post("/api/admin/media")
+      .set("X-CSRF-Token", csrf)
+      .attach("file", pngB, "placement-b.png");
+    expect(upB.status).toBe(201);
+    const mediaCol = await admin
+      .post("/api/admin/collections")
+      .set("X-CSRF-Token", csrf)
+      .send({
+        slug: `placement-media-${runId}`,
+        name: "Media Placement",
+        coverMediaId: upA.body.id,
+        coverPlacement: placement,
+        isPublished: true,
+      });
+    expect(mediaCol.status).toBe(201);
+    expect(mediaCol.body.data.coverPlacement).toEqual(placement);
+    const mediaColId = mediaCol.body.data.id as number;
+    const swapAsset = await admin
+      .patch(`/api/admin/collections/${mediaColId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ coverMediaId: upB.body.id });
+    expect(swapAsset.status).toBe(200);
+    expect(swapAsset.body.data.coverPlacement).toBeNull();
+  }, 120000);
 });
