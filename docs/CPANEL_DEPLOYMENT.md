@@ -176,15 +176,18 @@ match the data. Required keys:
 
 Do NOT set `PORT` — cPanel/Passenger assigns it and the app reads it.
 
-## 4. Database migrations 0012–0023
+## 4. Database migrations
 
-The cPanel DB already has 0001–0011 + seed (done 2026-11-18). The
-newer migrations (contact form, partner links, store settings,
-policy texts) must be applied or those features will error:
+The cPanel DB was seeded with 0001–0011 (done 2026-11-18); every
+later migration must be applied or the features behind it will
+error. Current head: **0024** (cover placement for Exhibitions and
+Collections, 2026-11-22). For any update: pull, build, then migrate
+BEFORE restarting the app — new server code selects new columns
+immediately.
 
 ```bash
 cd ~/www.bodhisattvainternational.com/server
-npm run db:migrate        # loads server/.env itself; applies 0012–0023
+npm run db:migrate        # loads server/.env itself; applies all pending
 npm run db:status         # verify: nothing pending
 ```
 
