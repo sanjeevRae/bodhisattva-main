@@ -35,25 +35,58 @@ app and move the backup files back.
 - [ ] Future updates: Git → Manage → Update/Pull, then rebuild
       (step 2) and restart the app (step 6).
 
-## 2. Install + build (cPanel → Terminal)
+## 2. Install + build (cPanel → Terminal) — VERIFIED 2026-11-22
+
+Host quirks learned live on this server (all confirmed by terminal
+output, 2026-11-22):
+
+- Plain `npm install` IGNORES the current folder and always acts on
+  the Node app's root (server). Always use `npm install --prefix
+  <dir>` for the frontend and shared folders.
+- The app venv exports NODE_ENV=production, so installs need
+  `--include=dev` or the build tools (vite, tsc) are skipped.
+- npm resolves the server's `file:../shared` dependency relative to
+  the nodevenv tree (`~/nodevenv/.../server/22/shared`) — a path
+  that does not exist. Symlink mode silently produces a broken
+  link; `--install-links` fails with ENOENT on that path. The
+  durable fix on this host: after installing, COPY the built
+  shared package into `server/node_modules/@bodhisattva/shared`
+  (package.json + dist). Redo the copy after any later server
+  `npm install` (installs recreate the broken link).
+- The cPanel web terminal garbles long pastes — a wrapped `cp`
+  command once split silently in half. Run ONE short command at a
+  time and verify with `ls`.
+
+Sequence (activate the venv first; all commands from `server/`):
 
 ```bash
-cd ~/www.bodhisattvainternational.com
-npm install --include=dev   # frontend tooling (Vite) — the app env is
-                            # NODE_ENV=production, which skips devDeps
-npm run build               # builds the website into dist/
-cd shared
-npm install                 # shared's own deps (zod) — REQUIRED: the
-                            # server build compiles shared in place and
-                            # Node resolves zod from shared/node_modules
-cd ../server
-npm install --include=dev   # server deps (argon2/sharp fetch prebuilt binaries)
-npm run build               # builds shared + compiles server into server/dist/
+source ~/nodevenv/www.bodhisattvainternational.com/server/*/bin/activate
+
+# frontend (root folder)
+npm install --prefix .. --include=dev
+# if vite build then fails on a missing *.linux-x64-gnu.node binary
+# (Windows-made lockfile), restore the four native packages once:
+npm install --prefix .. --no-save --include=dev lightningcss-linux-x64-gnu@1.30.1 @tailwindcss/oxide-linux-x64-gnu@4.1.12 @rollup/rollup-linux-x64-gnu@4.62.4 @esbuild/linux-x64@0.25.12
+npm --prefix .. run build            # -> dist/  ✓ verified
+
+# shared
+npm install --prefix ../shared --include=dev
+npm --prefix ../shared run build
+
+# server
+npm install --include=dev
+rm -rf node_modules/@bodhisattva/shared
+mkdir -p node_modules/@bodhisattva/shared
+cp ../shared/package.json node_modules/@bodhisattva/shared/
+cp -r ../shared/dist node_modules/@bodhisattva/shared/
+npm run build                        # -> server/dist/  ✓ verified
 ```
 
-Run these ONE command at a time — the cPanel web terminal garbles
-multi-line pastes (commands land in the wrong folder). Check `pwd`
-before each install.
+Runtime resolution check (must print ALL MODULES LOADED OK):
+
+```bash
+node --input-type=module -e "for (const m of ['@bodhisattva/shared','@bodhisattva/shared/errors','@bodhisattva/shared/permissions','@bodhisattva/shared/pagination','@bodhisattva/shared/money','@bodhisattva/shared/ids']) { console.log(m,'->',import.meta.resolve(m)); await import(m); } console.log('ALL MODULES LOADED OK')"
+```
 
 - [ ] Both builds finish without errors. If `npm install` fails on
       argon2/sharp, note the exact error — there is a fallback
