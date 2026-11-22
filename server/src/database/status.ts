@@ -33,8 +33,16 @@ const migrationsDir = fileURLToPath(new URL('../../drizzle/migrations', import.m
 
 async function appliedCount(): Promise<number | null> {
   const url = process.env.DATABASE_URL;
-  if (!url) return null;
-  const pool = createPool(url);
+  if (!url && !process.env.DB_PASSWORD) return null;
+  const pool = url
+    ? createPool(url)
+    : createPool({
+        host: process.env.DB_HOST ?? '127.0.0.1',
+        port: Number(process.env.DB_PORT ?? 3306),
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      });
   try {
     const [rows] = await pool.query<CountRow[]>(
       'SELECT COUNT(*) AS count FROM `__drizzle_migrations`',

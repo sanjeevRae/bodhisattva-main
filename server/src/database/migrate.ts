@@ -24,12 +24,22 @@ const migrationsFolder = fileURLToPath(new URL('../../drizzle/migrations', impor
 
 async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;
-  if (!url) {
-    console.error('db:migrate: DATABASE_URL is not set. See server/.env.example.');
+  if (!url && !process.env.DB_PASSWORD) {
+    console.error(
+      'db:migrate: set DATABASE_URL or the DB_* variables. See server/.env.example.',
+    );
     process.exit(1);
   }
 
-  const pool = createPool(url);
+  const pool = url
+    ? createPool(url)
+    : createPool({
+        host: process.env.DB_HOST ?? '127.0.0.1',
+        port: Number(process.env.DB_PORT ?? 3306),
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME,
+      });
   try {
     // Design §2.3: every connection works in UTC so DATETIME(3) defaults are UTC.
     const connection = await pool.getConnection();
