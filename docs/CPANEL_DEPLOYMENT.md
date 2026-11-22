@@ -39,12 +39,21 @@ app and move the backup files back.
 
 ```bash
 cd ~/www.bodhisattvainternational.com
-npm install                 # frontend tooling (Vite)
+npm install --include=dev   # frontend tooling (Vite) — the app env is
+                            # NODE_ENV=production, which skips devDeps
 npm run build               # builds the website into dist/
-cd server
-npm install                 # server deps (argon2/sharp fetch prebuilt binaries)
+cd shared
+npm install                 # shared's own deps (zod) — REQUIRED: the
+                            # server build compiles shared in place and
+                            # Node resolves zod from shared/node_modules
+cd ../server
+npm install --include=dev   # server deps (argon2/sharp fetch prebuilt binaries)
 npm run build               # builds shared + compiles server into server/dist/
 ```
+
+Run these ONE command at a time — the cPanel web terminal garbles
+multi-line pastes (commands land in the wrong folder). Check `pwd`
+before each install.
 
 - [ ] Both builds finish without errors. If `npm install` fails on
       argon2/sharp, note the exact error — there is a fallback
