@@ -11,15 +11,15 @@ the main domain at the app. Pointing the app at the main domain
 replaces whatever the domain serves today.
 
 Current state (2026-11-20): the main domain's document root is the
-folder `/bodhisattvainternational`, which holds the OLD live site.
+folder `/home/yalawears/www.bodhisattvainternational.com`, which holds the OLD live site.
 Owner decision (2026-11-20): deploy INTO that folder. Sequence:
 first move the old site's files out to a sibling backup folder
 (`bodhisattvainternational-oldsite`, File Manager → Show Hidden
 Files → select all → move) — the domain serves nothing from the
 moment it's emptied until the Node app starts, so move through the
 following steps promptly. Then clone the repo into the emptied
-`bodhisattvainternational` folder; application root is
-`bodhisattvainternational/server`. Safeguard for the in-docroot
+`www.bodhisattvainternational.com` folder; application root is
+`www.bodhisattvainternational.com/server`. Safeguard for the in-docroot
 layout: after the app is up, verify
 `https://bodhisattvainternational.com/server/.env` returns 404 (the
 app must never serve it); restoring the old site = remove the Node
@@ -29,7 +29,7 @@ app and move the backup files back.
 
 - [ ] cPanel → **Git™ Version Control** → Create → clone
       `git@github.com:sanjeevRae/bodhisattva-main.git` (or the HTTPS
-      URL) into the (emptied) `bodhisattvainternational` folder — see the owner-decision note above
+      URL) into the (emptied) `www.bodhisattvainternational.com` folder — see the owner-decision note above
       in the home directory. (Alternative: upload a zip via File
       Manager and extract it there.)
 - [ ] Future updates: Git → Manage → Update/Pull, then rebuild
@@ -38,7 +38,7 @@ app and move the backup files back.
 ## 2. Install + build (cPanel → Terminal)
 
 ```bash
-cd ~/bodhisattvainternational
+cd ~/www.bodhisattvainternational.com
 npm install                 # frontend tooling (Vite)
 npm run build               # builds the website into dist/
 cd server
@@ -54,7 +54,7 @@ npm run build               # builds shared + compiles server into server/dist/
 
 ## 3. Production env (server/.env on the server — never commit it)
 
-Create `~/bodhisattvainternational/server/.env` (permissions 600) with the
+Create `~/www.bodhisattvainternational.com/server/.env` (permissions 600) with the
 production values. Copy `SESSION_SECRET`, `OTP_HMAC_SECRET` and
 `TOTP_ENCRYPTION_KEY` **unchanged from the existing local .env** — the
 cPanel database was seeded with them, and the MFA encryption key must
@@ -69,7 +69,7 @@ match the data. Required keys:
   `SMTP_FROM=Bodhisattva Museum <alerts@bodhisattvainternational.com>`
 - `APP_URL=https://bodhisattvainternational.com` (the real domain —
   password-reset and invitation links are built from it)
-- `SERVE_SPA=true`, `SPA_DIST_DIR=/home/yalawears/bodhisattvainternational/dist`
+- `SERVE_SPA=true`, `SPA_DIST_DIR=/home/yalawears/www.bodhisattvainternational.com/dist`
 - `API_DOCS_ENABLED` — leave unset (Swagger stays off in production)
 - `TURNSTILE_SECRET_KEY` + site key — optional; without them the
   contact form runs on rate limits + honeypot only (server logs a
@@ -84,7 +84,7 @@ newer migrations (contact form, partner links, store settings,
 policy texts) must be applied or those features will error:
 
 ```bash
-cd ~/bodhisattvainternational/server
+cd ~/www.bodhisattvainternational.com/server
 npm run db:migrate        # loads server/.env itself; applies 0012–0023
 npm run db:status         # verify: nothing pending
 ```
@@ -95,14 +95,14 @@ cPanel → **Setup Node.js App** → Create Application:
 
 - Node.js version: highest available ≥ 20
 - Application mode: **Production**
-- Application root: `bodhisattvainternational/server`
+- Application root: `www.bodhisattvainternational.com/server`
 - Application URL: the (sub)domain chosen for launch
 - Application startup file: `dist/server.js`
 - Environment variables: the same values as the .env in step 3
   (cPanel vars take precedence; the .env file is what the CLI tools
   in steps 4 and 7 read).
 
-- [ ] Create the folder `~/bodhisattvainternational/private-storage` (the
+- [ ] Create the folder `~/www.bodhisattvainternational.com/private-storage` (the
       default UPLOAD_DIRECTORY, `../private-storage` relative to the
       server folder) — uploaded media lives there, outside the web
       root.
@@ -123,7 +123,7 @@ was down. cPanel → **Cron Jobs**, every 5 minutes — take the
 page and append the drain:
 
 ```bash
-source /home/yalawears/nodevenv/bodhisattvainternational/server/<version>/bin/activate && cd /home/yalawears/bodhisattvainternational/server && node dist/cli/drain-outbox.js
+source /home/yalawears/nodevenv/www.bodhisattvainternational.com/server/<version>/bin/activate && cd /home/yalawears/www.bodhisattvainternational.com/server && node dist/cli/drain-outbox.js
 ```
 
 (exact venv path is shown on the app page — copy it from there.)
