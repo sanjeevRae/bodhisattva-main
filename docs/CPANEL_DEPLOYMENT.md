@@ -77,15 +77,15 @@ match the data. Required keys:
 
 Do NOT set `PORT` — cPanel/Passenger assigns it and the app reads it.
 
-## 4. Database migrations 0012–0022
+## 4. Database migrations 0012–0023
 
 The cPanel DB already has 0001–0011 + seed (done 2026-11-18). The
-newer migrations (contact form, partner links, store settings) must
-be applied or those features will error:
+newer migrations (contact form, partner links, store settings,
+policy texts) must be applied or those features will error:
 
 ```bash
 cd ~/bodhisattvainternational/server
-npm run db:migrate        # loads server/.env itself; applies 0012–0022
+npm run db:migrate        # loads server/.env itself; applies 0012–0023
 npm run db:status         # verify: nothing pending
 ```
 
