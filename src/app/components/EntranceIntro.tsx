@@ -26,9 +26,9 @@ import "../../styles/entrance.css";
  *    pass from 12 o'clock (stroke-dashoffset), then stays as
  *    the seal's gold edge. Fixed radius, no track beneath, no
  *    glow — the undrawn perimeter is simply absent, so it reads
- *    as inscription, never as a progress ring. Stroke 1.5 units
- *    (the owner found the approved 1 unit too thin on his
- *    screen and asked for "just a little" more, 2026-11-22).
+ *    as inscription, never as a progress ring. Stroke 2 units,
+ *    set by the owner (1 unit was too thin on his screen;
+ *    1.5 first, then "make it 2px", 2026-11-22).
  *  - 0.45–1.60 s — the ORIGINAL figure artwork fades in while
  *    the line draws — an alive interior is what keeps the
  *    gesture from reading as a spinner.
@@ -313,9 +313,9 @@ export default function EntranceIntro() {
               </div>
               {/* The inscription: two half-arcs forming the disc's
                   exact perimeter, starting at 12 o'clock and drawn
-                  counterclockwise (sweep 0). Radius 59.25 centres
-                  the 1.5-unit stroke on the perimeter so its outer
-                  edge lands flush with the disc's edge at 60.
+                  counterclockwise (sweep 0). Radius 59 centres the
+                  2-unit stroke on the perimeter so its outer edge
+                  lands flush with the disc's edge at 60.
                   pathLength normalises the dash to 100 units. */}
               <svg
                 className="bi-inscribe"
@@ -323,7 +323,7 @@ export default function EntranceIntro() {
                 aria-hidden="true"
               >
                 <path
-                  d="M 60 0.75 A 59.25 59.25 0 1 0 60 119.25 A 59.25 59.25 0 1 0 60 0.75"
+                  d="M 60 1 A 59 59 0 1 0 60 119 A 59 59 0 1 0 60 1"
                   pathLength={100}
                 />
               </svg>

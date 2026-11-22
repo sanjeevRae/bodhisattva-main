@@ -110,15 +110,15 @@
 }
 
 /* THE INSCRIPTION — the one signature motion. A fine gold line
-   (1.5 units — 1.5px at the desktop seal, 1.2px at 96px mobile;
-   the owner found the original 1 unit too thin and asked for
-   "just a little" more) draws the disc's EXACT perimeter in one
-   continuous counterclockwise pass from 12 o'clock, 0.35–1.85 s,
-   then stays as the seal's edge. Fixed radius: it never expands
-   or contracts, there is no track beneath it, no glow, butt
-   cap — the undrawn part of the perimeter is simply absent, so
-   the line reads as the seal's own edge being inscribed, never
-   as a progress ring. */
+   (2 units — 2px at the desktop seal, 1.6px at 96px mobile;
+   set by the owner, who found the approved 1 unit too thin:
+   1.5 first, then "make it 2px", 2026-11-22) draws the disc's
+   EXACT perimeter in one continuous counterclockwise pass from
+   12 o'clock, 0.35–1.85 s, then stays as the seal's edge.
+   Fixed radius: it never expands or contracts, there is no
+   track beneath it, no glow, butt cap — the undrawn part of
+   the perimeter is simply absent, so the line reads as the
+   seal's own edge being inscribed, never as a progress ring. */
 .bi-inscribe {
   position: absolute;
   inset: 0;
@@ -131,7 +131,7 @@
 .bi-inscribe path {
   fill: none;
   stroke: rgba(184, 151, 88, 0.65);
-  stroke-width: 1.5;
+  stroke-width: 2;
   stroke-linecap: butt;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
