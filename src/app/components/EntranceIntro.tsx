@@ -3,46 +3,47 @@ import { createPortal } from "react-dom";
 import "../../styles/entrance.css";
 
 /**
- * First-visit entrance — "The Quiet Presence".
+ * First-visit entrance — "The Inscribed Seal".
  *
- * The owner rejected the previous version ("The Seal Releases
- * the Ink", eight animated beats in under three seconds) as
- * "not premium — too fast and too big", and asked for "a premium
- * smooth fade in type". This version was researched and planned
- * with ChatGPT (Thinking) and Gemini, cross-checked against an
- * independent research pass (NN/g guidance; the Met, Rijksmuseum
- * and Apple run no splash at all), and approved as a build gate:
- * ChatGPT 9.3/10, Gemini 9.2/10, both "APPROVED TO BUILD"
- * (2026-11-21). The principle both reviewers converged on: the
- * museum is not performing an entrance — it is quietly opening
- * its doors. Almost nothing happens, slowly:
+ * The owner's rejection history shaped this version. v1 (a
+ * plain fade) and v5 "The Quiet Presence" (pure fades, 190px)
+ * both died as lifeless — "no animation at all", "the logo is
+ * still too big, the animation is not good". v4 (eight beats,
+ * 380px) died as theatrical. His words for this round: "make it
+ * small — put a good animation, with the premium look and
+ * animation." Planned with ChatGPT (Thinking) and Gemini and
+ * approved as a build gate — ChatGPT 9.2/10, Gemini 9.1/10,
+ * both "APPROVED TO BUILD" (2026-11-22). The principle: ONE
+ * visible signature gesture, executed with restraint — a
+ * goldsmith inscribing the museum's seal:
  *
- *  - 0.00–0.30 s — warm ivory #F7F3EC. Nothing moves.
- *  - 0.30–1.50 s — the white disc fades in (opacity, balanced
- *    ease cubic-bezier(0.4,0,0.6,1)) while settling from scale
- *    0.99 to 1 (the settle alone uses the expo-out curve). The
- *    disc carries a STATIC 1px gold keyline and a soft shadow.
- *  - 0.50–1.85 s — the ORIGINAL figure artwork fades in.
- *    Opacity only: no clip, no blur, no movement.
- *  - 0.85–1.95 s — the eleven ORIGINAL letters of BODHISATTVA
- *    become legible: each alpha-transparent tile (split from the
- *    owner's PNG by connected-component analysis; figure + tiles
- *    recombine to the original with zero differing pixels) fades
- *    in over ~900 ms with a 16 ms stagger, read by the eye as
- *    one soft wave, never as eleven events.
- *  - 1.95–3.00 s — stillness. The complete emblem, absolutely
- *    still. No breath, no glow, no ring.
- *  - 3.00–4.35 s — the dissolve: the ivory field crossfades onto
- *    the dark homepage hero while the seal fades out inside it
- *    (3.20–4.20 s), gone before the field fully clears — no
- *    ghost over the artwork. The overlay leaves the DOM at
- *    4.35 s.
+ *  - 0.00–0.20 s — warm ivory #F7F3EC. Nothing moves.
+ *  - 0.20–0.78 s — the small white disc fades in (balanced ease
+ *    cubic-bezier(0.4,0,0.6,1)). No border, no scale — only a
+ *    soft static shadow.
+ *  - 0.35–1.85 s — THE INSCRIPTION: a 1px gold line draws the
+ *    disc's EXACT perimeter in one continuous counterclockwise
+ *    pass from 12 o'clock (stroke-dashoffset), then stays as
+ *    the seal's gold edge. Fixed radius, no track beneath, no
+ *    glow — the undrawn perimeter is simply absent, so it reads
+ *    as inscription, never as a progress ring. The stroke is
+ *    protected at 1 unit: never thickened (ChatGPT's watchout).
+ *  - 0.45–1.60 s — the ORIGINAL figure artwork fades in while
+ *    the line draws — an alive interior is what keeps the
+ *    gesture from reading as a spinner.
+ *  - 0.80–1.60 s — the eleven ORIGINAL letters (alpha-
+ *    transparent tiles split from the owner's PNG by connected-
+ *    component analysis; figure + tiles recombine to the
+ *    original with zero differing pixels) fade in COLLECTIVELY
+ *    as one wordmark — no per-letter performance.
+ *  - 1.85–2.55 s — stillness: the completed, inscribed seal.
+ *  - 2.55–3.95 s — the dissolve: the ivory field crossfades
+ *    onto the dark homepage hero while the seal fades out
+ *    inside it (2.75–3.70 s). No exit scale. The overlay
+ *    leaves the DOM at 3.95 s.
  *
- * The seal is small — clamp(148px, 17vw, 190px) — with generous
- * ivory around it. Opacity is the only animated property except
- * the disc's settle. All opacity fades use the balanced ease:
- * an ease-out curve delivers most opacity early and would feel
- * quick in disguise (ChatGPT's amendment, adopted).
+ * The seal is small — clamp(96px, 10vw, 120px) — with generous
+ * ivory around it: an institutional seal, not a centrepiece.
  *
  * Behaviour contract:
  *  - Shown ONCE per visitor. The inline script in index.html
@@ -54,32 +55,37 @@ import "../../styles/entrance.css";
  *    --bi-shift (minus the mount time) and this component's
  *    timers read performance.now(), so a slow mount or the
  *    asset preflight can never stretch the visitor's wait.
- *  - Asset preflight (ChatGPT's amendment): the figure and all
- *    eleven letter tiles must load AND decode before the layered
- *    animation starts. If any layer fails, the intro falls back
- *    to the complete emblem asset as a single fade on the same
- *    timings — if that is ready; otherwise the intro is bypassed
- *    entirely. A partial or damaged wordmark is never shown.
- *  - Non-blocking dismissal (ChatGPT's amendment): the overlay
- *    is pointer-events: none, aria-hidden, with no focusable
- *    descendants. The first pointer, keyboard, wheel or touch
- *    interaction dismisses it instantly via document-level
- *    listeners — without preventDefault or stopPropagation, so
- *    a click both dismisses AND activates what was clicked. The
- *    page beneath is live the whole time.
+ *  - Asset preflight: the figure and all eleven letter tiles
+ *    must load AND decode before the seal is revealed. If any
+ *    layer fails, the intro falls back to the complete emblem
+ *    asset as a single fade on the same timings, WITHOUT the
+ *    inscription (it already carries its own perimeter) — if
+ *    that is ready; otherwise the intro is bypassed entirely.
+ *    A partial or damaged wordmark is never shown. The overlay
+ *    itself renders from first mount with the seal hidden until
+ *    verification passes, so a slow check never flashes the
+ *    bare page; a check hanging past 2 s is decided from
+ *    whatever has resolved by then.
+ *  - Non-blocking dismissal: the overlay is pointer-events:
+ *    none, aria-hidden, with no focusable descendants. The
+ *    first pointer, keyboard, wheel or touch interaction
+ *    dismisses it instantly via document-level listeners —
+ *    without preventDefault or stopPropagation, so a click
+ *    both dismisses AND activates what was clicked. The page
+ *    beneath is live the whole time.
  *  - Reduced motion: the inline script never claims the visit,
  *    so this renders nothing; if the preference switches on
  *    while the splash is visible, it removes itself instantly.
  *  - Failsafes, layered honestly: the component unmounts at
- *    4.35 s (4.9 s hard timer); a pure-CSS backstop makes the
- *    overlay transparent and invisible by ~5.2 s even if no
+ *    3.95 s (4.5 s hard timer); a pure-CSS backstop makes the
+ *    overlay transparent and invisible by ~4.8 s even if no
  *    script runs after mount (CSS cannot remove a node —
  *    JavaScript removes it when it can); the inline script
- *    drops its own class at 5.4 s if the app never mounts.
+ *    drops its own class at 5.0 s if the app never mounts.
  */
 
-const UNMOUNT_MS = 4350; // the dissolve completes; remove the node
-const FAILSAFE_MS = 4900; // hard removal, whatever happened
+const UNMOUNT_MS = 3950; // the dissolve completes; remove the node
+const FAILSAFE_MS = 4500; // hard removal, whatever happened
 
 /** The eleven original letters, at their exact coordinates in
  * the emblem's 512×512 space (percentages of the seal). */
@@ -96,9 +102,6 @@ const LETTERS: { left: string; top: string; width: string }[] = [
   { left: "72.27%", top: "59.38%", width: "10.94%" }, // V
   { left: "76.76%", top: "51.56%", width: "9.96%" }, // A
 ];
-const LETTER_START_MS = 850;
-const LETTER_STEP_MS = 16;
-
 const FIGURE_SRC = "/seal/figure.png";
 const EMBLEM_SRC = "/icon-512.png";
 const LAYER_SRCS: string[] = [
@@ -272,43 +275,56 @@ export default function EntranceIntro() {
               onError={() => finishRef.current?.()}
             />
           ) : (
-            <div className="bi-disc">
-              <img
-                className="bi-figure"
-                src={FIGURE_SRC}
-                alt=""
-                width={512}
-                height={512}
-                draggable={false}
-                onError={() =>
-                  emblemReadyRef.current
-                    ? setMode("fallback")
-                    : finishRef.current?.()
-                }
-              />
-              {LETTERS.map((pos, i) => (
+            <>
+              <div className="bi-disc">
                 <img
-                  key={i}
-                  className="bi-letter"
-                  src={`/seal/letter-${i}.png`}
+                  className="bi-figure"
+                  src={FIGURE_SRC}
                   alt=""
+                  width={512}
+                  height={512}
                   draggable={false}
                   onError={() =>
                     emblemReadyRef.current
                       ? setMode("fallback")
                       : finishRef.current?.()
                   }
-                  style={
-                    {
+                />
+                {LETTERS.map((pos, i) => (
+                  <img
+                    key={i}
+                    className="bi-letter"
+                    src={`/seal/letter-${i}.png`}
+                    alt=""
+                    draggable={false}
+                    onError={() =>
+                      emblemReadyRef.current
+                        ? setMode("fallback")
+                        : finishRef.current?.()
+                    }
+                    style={{
                       left: pos.left,
                       top: pos.top,
                       width: pos.width,
-                      "--bi-letter-at": `${LETTER_START_MS + i * LETTER_STEP_MS}ms`,
-                    } as React.CSSProperties
-                  }
+                    }}
+                  />
+                ))}
+              </div>
+              {/* The inscription: two half-arcs forming the disc's
+                  exact perimeter, starting at 12 o'clock and drawn
+                  counterclockwise (sweep 0). pathLength normalises
+                  the dash to 100 units. */}
+              <svg
+                className="bi-inscribe"
+                viewBox="0 0 120 120"
+                aria-hidden="true"
+              >
+                <path
+                  d="M 60 0.5 A 59.5 59.5 0 1 0 60 119.5 A 59.5 59.5 0 1 0 60 0.5"
+                  pathLength={100}
                 />
-              ))}
-            </div>
+              </svg>
+            </>
           )}
         </div>
       </div>

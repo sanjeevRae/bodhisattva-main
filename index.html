@@ -31,7 +31,7 @@
       <meta name="twitter:image" content="https://bodhisattvainternational.com/og-share.jpg" />
       <!--OG_END-->
       <style>html, body { height: 100%; margin: 0; } #root { height: 100%; }</style>
-      <!-- First-visit entrance ("The Quiet Presence"):
+      <!-- First-visit entrance ("The Inscribed Seal"):
            this script runs before the app bundle. On a genuine
            first visit (public pages only, motion allowed) it
            CLAIMS the visit immediately — writing the flag up
@@ -40,7 +40,7 @@
            is no white flash, preloads the separated seal artwork
            (figure + the eleven letter tiles) and the complete
            emblem (the component's fallback if any layer fails),
-           and removes its own class after 5.4 s if the app never
+           and removes its own class after 5.0 s if the app never
            mounts (fail open). Any storage error is treated as
            "already seen": the entrance must never block the
            website. The overlay itself is the EntranceIntro
@@ -65,7 +65,7 @@
             });
             window.setTimeout(function () {
               root.classList.remove("bi-intro");
-            }, 5400);
+            }, 5000);
           } catch (e) {
             /* storage unavailable — no entrance, never a block */
           }
