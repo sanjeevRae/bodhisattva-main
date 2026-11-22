@@ -21,13 +21,14 @@ import "../../styles/entrance.css";
  *  - 0.20–0.78 s — the small white disc fades in (balanced ease
  *    cubic-bezier(0.4,0,0.6,1)). No border, no scale — only a
  *    soft static shadow.
- *  - 0.35–1.85 s — THE INSCRIPTION: a 1px gold line draws the
+ *  - 0.35–1.85 s — THE INSCRIPTION: a fine gold line draws the
  *    disc's EXACT perimeter in one continuous counterclockwise
  *    pass from 12 o'clock (stroke-dashoffset), then stays as
  *    the seal's gold edge. Fixed radius, no track beneath, no
  *    glow — the undrawn perimeter is simply absent, so it reads
- *    as inscription, never as a progress ring. The stroke is
- *    protected at 1 unit: never thickened (ChatGPT's watchout).
+ *    as inscription, never as a progress ring. Stroke 1.5 units
+ *    (the owner found the approved 1 unit too thin on his
+ *    screen and asked for "just a little" more, 2026-11-22).
  *  - 0.45–1.60 s — the ORIGINAL figure artwork fades in while
  *    the line draws — an alive interior is what keeps the
  *    gesture from reading as a spinner.
@@ -312,15 +313,17 @@ export default function EntranceIntro() {
               </div>
               {/* The inscription: two half-arcs forming the disc's
                   exact perimeter, starting at 12 o'clock and drawn
-                  counterclockwise (sweep 0). pathLength normalises
-                  the dash to 100 units. */}
+                  counterclockwise (sweep 0). Radius 59.25 centres
+                  the 1.5-unit stroke on the perimeter so its outer
+                  edge lands flush with the disc's edge at 60.
+                  pathLength normalises the dash to 100 units. */}
               <svg
                 className="bi-inscribe"
                 viewBox="0 0 120 120"
                 aria-hidden="true"
               >
                 <path
-                  d="M 60 0.5 A 59.5 59.5 0 1 0 60 119.5 A 59.5 59.5 0 1 0 60 0.5"
+                  d="M 60 0.75 A 59.25 59.25 0 1 0 60 119.25 A 59.25 59.25 0 1 0 60 0.75"
                   pathLength={100}
                 />
               </svg>
