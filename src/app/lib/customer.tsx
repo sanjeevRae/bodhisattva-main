@@ -53,6 +53,22 @@ export interface CartIntent {
   variantId: number | null;
   quantity: number;
   returnTo: string;
+  /**
+   * Buy Now intent: after the add (immediately, or replayed after
+   * sign-in) the shopper is heading to checkout — the cart drawer
+   * must NOT open on top of that journey. Add to Cart leaves this
+   * unset and keeps the drawer behaviour.
+   */
+  checkout?: boolean;
+}
+
+/** Local paths only — the same rule the login page applies to its
+ * ?return= parameter, so a stored intent can never become an
+ * open redirect. */
+function localPath(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.startsWith("/") && !value.startsWith("//")
+    ? value
+    : fallback;
 }
 
 const INTENT_KEY = "bodhi.cartIntent";
@@ -76,7 +92,8 @@ export function readCartIntent(): CartIntent | null {
       productId: parsed.productId,
       variantId: parsed.variantId ?? null,
       quantity: typeof parsed.quantity === "number" ? parsed.quantity : 1,
-      returnTo: typeof parsed.returnTo === "string" ? parsed.returnTo : "/shop",
+      returnTo: localPath(parsed.returnTo, "/shop"),
+      checkout: parsed.checkout === true,
     };
   } catch {
     return null;
@@ -122,15 +139,18 @@ export interface CustomerContextValue {
   cartOpen: boolean;
   setCartOpen: (open: boolean) => void;
   /**
-   * The spec §10.3 add-to-cart gate. Signed in: posts the add, opens the
-   * drawer, returns true. Signed out: stashes the intent and navigates
+   * The spec §10.3 add-to-cart gate — the ONE cart-mutation path for
+   * both Add to Cart and Buy Now. Signed in: posts the add and returns
+   * true (opening the drawer unless the intent is a Buy Now /
+   * `checkout` intent). Signed out: stashes the intent and navigates
    * to the login page, returns false.
    */
   addToCartGated: (intent: CartIntent) => Promise<boolean>;
   /**
-   * After a successful login: if a stashed intent exists, post it to the
-   * cart, clear it and open the drawer. Returns the path to land on
-   * (the intent's returnTo), or null when there was no intent.
+   * After a successful login: if a stashed intent exists, post it to
+   * the cart exactly once and clear it (opening the drawer unless it
+   * was a Buy Now intent). Returns the path to land on (the intent's
+   * returnTo), or null when there was no intent.
    */
   completePendingIntent: () => Promise<string | null>;
 }
@@ -263,7 +283,10 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     async (intent: CartIntent): Promise<boolean> => {
       if (statusRef.current === "full") {
         await addToCart(intent.productId, intent.variantId, intent.quantity);
-        setCartOpen(true);
+        // Buy Now (checkout intent) suppresses the drawer: the caller
+        // is navigating to /checkout next, and the drawer would open
+        // on top of it. The mutation path is identical either way.
+        if (!intent.checkout) setCartOpen(true);
         return true;
       }
       stashCartIntent(intent);
@@ -279,7 +302,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     clearCartIntent();
     try {
       await addToCart(intent.productId, intent.variantId, intent.quantity);
-      setCartOpen(true);
+      if (!intent.checkout) setCartOpen(true);
     } catch {
       // The product sold out / was archived while signing in — land on
       // the return path anyway; the shop page shows its live state.

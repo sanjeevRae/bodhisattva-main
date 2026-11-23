@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { motion } from "motion/react";
 import { X, Search, ShoppingBag, Heart, Minus, Plus } from "lucide-react";
 import { usePage } from "../lib/api";
 import PageRenderer, { PageStatus } from "../components/PageRenderer";
 import { useCustomer } from "../lib/customer";
+import { useProductPurchase } from "../lib/use-product-purchase";
 import {
   formatRs,
   getShopCategories,
@@ -269,30 +271,36 @@ export default function GiftShopPage() {
             {search ? `No pieces match “${search}”.` : "No pieces here yet."}
           </p>
         ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-8">
             {products.map((product) => {
               const inCart = status === "full" && inCartQty.has(`${product.id}:0`);
               return (
                 <motion.div key={product.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="group">
                   <div className="relative aspect-[3/4] overflow-hidden bg-muted mb-4">
                     {product.image && (
-                      <img src={product.image.url} alt={product.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      <Link to={`/shop/${product.slug}`} className="block w-full h-full" aria-label={product.name}>
+                        <img src={product.image.url} alt={product.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                      </Link>
                     )}
-                    <div className="absolute inset-0 bg-foreground/0 group-hover:bg-foreground/8 transition-colors" />
+                    <div className="pointer-events-none absolute inset-0 bg-foreground/0 group-hover:bg-foreground/8 transition-colors" />
                     {!product.inStock && (
                       <span className="absolute left-3 top-3 bg-background/85 backdrop-blur-sm px-2.5 py-1 font-mono text-[0.58rem] tracking-[0.18em] uppercase text-foreground">
                         Out of Stock
                       </span>
                     )}
-                    <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => toggleWishlist(product.id)} className={`w-8 h-8 flex items-center justify-center rounded-full backdrop-blur-sm transition-colors ${wishlist.includes(product.id) ? "bg-accent text-accent-foreground" : "bg-background/80 text-foreground hover:bg-accent hover:text-accent-foreground"}`} aria-label="Wishlist">
+                    {/* Wishlist stays tappable on touch (always visible on
+                        small screens, hover-revealed on larger ones);
+                        quick preview is a pointer-device shortcut only,
+                        so touch never hits sticky-hover traps. */}
+                    <div className="absolute top-3 right-3 flex flex-col gap-2">
+                      <button onClick={() => toggleWishlist(product.id)} className={`w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center rounded-full backdrop-blur-sm transition-all ${wishlist.includes(product.id) ? "bg-accent text-accent-foreground" : "bg-background/80 text-foreground hover:bg-accent hover:text-accent-foreground sm:opacity-0 sm:group-hover:opacity-100"}`} aria-label="Wishlist">
                         <Heart size={12} fill={wishlist.includes(product.id) ? "currentColor" : "none"} />
                       </button>
-                      <button onClick={() => setPreviewSlug(product.slug)} className="w-8 h-8 flex items-center justify-center rounded-full bg-background/80 text-foreground hover:bg-foreground hover:text-background backdrop-blur-sm transition-colors" aria-label="Quick preview">
+                      <button onClick={() => setPreviewSlug(product.slug)} className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full bg-background/80 text-foreground hover:bg-foreground hover:text-background backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100" aria-label="Quick preview">
                         <Search size={12} />
                       </button>
                     </div>
-                    <div className="absolute bottom-0 inset-x-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                    <div className="absolute bottom-0 inset-x-0 translate-y-full group-hover:translate-y-0 transition-transform duration-300 max-sm:hidden">
                       <button
                         onClick={() => void handleAdd(product)}
                         disabled={!product.inStock || addingId === product.id}
@@ -302,8 +310,10 @@ export default function GiftShopPage() {
                       </button>
                     </div>
                   </div>
-                  <h3 className="font-display text-sm font-medium leading-snug mb-1">{product.name}</h3>
-                  <p className="font-mono text-[0.58rem] tracking-wider text-muted-foreground mb-2">{product.detail}</p>
+                  <h3 className="font-display text-sm font-medium leading-snug mb-1">
+                    <Link to={`/shop/${product.slug}`} className="transition-colors hover:text-accent">{product.name}</Link>
+                  </h3>
+                  <p className="font-mono text-[0.58rem] tracking-wider text-muted-foreground mb-2 line-clamp-1">{product.detail}</p>
                   <span className="font-display text-base font-medium text-accent">{formatRs(product.effectivePricePaisa)}</span>
                   {product.salePricePaisa != null && (
                     <span className="ml-2 font-display text-sm text-muted-foreground line-through">{formatRs(product.pricePaisa)}</span>
@@ -331,13 +341,15 @@ export default function GiftShopPage() {
 }
 
 function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig | null; onClose: () => void }) {
-  const { status, cart, addToCartGated, setCartOpen } = useCustomer();
+  const { status, addToCartGated, setCartOpen } = useCustomer();
   const [detail, setDetail] = useState<ShopProductDetail | null>(null);
   const [failed, setFailed] = useState(false);
   const [imageIdx, setImageIdx] = useState(0);
-  const [variantId, setVariantId] = useState<number | null>(null);
-  const [qty, setQty] = useState(1);
   const [adding, setAdding] = useState(false);
+  // Variant / quantity / price / stock rules live in the shared hook —
+  // the product page uses the same hook, so the surfaces cannot drift.
+  const { variant, variantId, setVariant, qty, setQty, pricePaisa, available, inStock, inCartQty } =
+    useProductPurchase(detail);
 
   useEffect(() => {
     let alive = true;
@@ -345,7 +357,6 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
       .then((data) => {
         if (!alive) return;
         setDetail(data);
-        setVariantId(data.variants.find((v) => v.inStock)?.id ?? data.variants[0]?.id ?? null);
       })
       .catch(() => alive && setFailed(true));
     return () => {
@@ -353,15 +364,6 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
     };
   }, [slug]);
 
-  const variant = detail?.variants.find((v) => v.id === variantId) ?? null;
-  const pricePaisa = variant ? variant.effectivePricePaisa : detail?.effectivePricePaisa ?? 0;
-  const available = variant ? variant.availableQty : detail?.availableQty ?? 0;
-  const inStock = variant ? variant.inStock : detail?.inStock ?? false;
-  const inCartQty = detail
-    ? (cart?.items ?? [])
-        .filter((i) => i.productId === detail.id && i.variantId === (variant?.id ?? null))
-        .reduce((sum, i) => sum + i.quantity, 0)
-    : 0;
   const mainImage = detail?.images[imageIdx] ?? detail?.image ?? null;
 
   const handleAdd = async () => {
@@ -426,7 +428,7 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
                       {detail.variants.map((v) => (
                         <button
                           key={v.id}
-                          onClick={() => setVariantId(v.id)}
+                          onClick={() => setVariant(v.id)}
                           disabled={!v.inStock}
                           className={`border px-3 py-2 font-mono text-[0.63rem] tracking-wider uppercase transition-colors disabled:opacity-40 ${v.id === variantId ? "border-accent text-accent" : "border-border text-muted-foreground hover:text-foreground"}`}
                         >
@@ -466,11 +468,11 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
             <div className="mt-8">
               <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center border border-border">
-                  <button onClick={() => setQty((q) => Math.max(1, q - 1))} className="flex h-10 w-10 items-center justify-center hover:bg-secondary transition-colors" aria-label="Decrease quantity">
+                  <button onClick={() => setQty(qty - 1)} className="flex h-10 w-10 items-center justify-center hover:bg-secondary transition-colors" aria-label="Decrease quantity">
                     <Minus size={13} />
                   </button>
                   <span className="w-10 text-center font-mono text-sm">{qty}</span>
-                  <button onClick={() => setQty((q) => Math.min(Math.max(available, 1), q + 1))} className="flex h-10 w-10 items-center justify-center hover:bg-secondary transition-colors" aria-label="Increase quantity">
+                  <button onClick={() => setQty(qty + 1)} className="flex h-10 w-10 items-center justify-center hover:bg-secondary transition-colors" aria-label="Increase quantity">
                     <Plus size={13} />
                   </button>
                 </div>

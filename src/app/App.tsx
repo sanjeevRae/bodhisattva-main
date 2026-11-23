@@ -12,6 +12,7 @@ import HomePage from "./pages/HomePage";
 import MuseumPage from "./pages/MuseumPage";
 import GalleryPage from "./pages/GalleryPage";
 import GiftShopPage from "./pages/GiftShopPage";
+import ProductPage from "./pages/ProductPage";
 import NewsPage from "./pages/NewsPage";
 import NewsArticlePage from "./pages/NewsArticlePage";
 import FoundationPage from "./pages/FoundationPage";
@@ -69,6 +70,7 @@ function Shell() {
                 <Route path="/museum" element={<MuseumPage />} />
                 <Route path="/gallery" element={<GalleryPage />} />
                 <Route path="/shop" element={<GiftShopPage />} />
+                <Route path="/shop/:slug" element={<ProductPage />} />
                 <Route path="/news" element={<NewsPage />} />
                 {/* News Clippings article reader + draft preview (the
                     preview route must precede :slug is unnecessary —

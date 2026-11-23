@@ -41,7 +41,7 @@ import express, { type Express, type RequestHandler } from "express";
 import { and, eq, isNull } from "drizzle-orm";
 import type { AppConfig } from "./config/env.js";
 import type { Database } from "./database/client.js";
-import { mediaAssets, newsArticles } from "./database/schema/index.js";
+import { mediaAssets, newsArticles, products } from "./database/schema/index.js";
 import { mediaFileUrl } from "./modules/media/media.service.js";
 import type { Logger } from "pino";
 
@@ -370,7 +370,9 @@ export function mountSpa(app: Express, opts: SpaOptions): boolean {
   const origin = opts.config.appUrl;
 
   // Dynamic sitemap (registered before static so it wins over any
-  // static sitemap.xml in the build): main routes + published articles.
+  // static sitemap.xml in the build): main routes + published articles
+  // + live shop products (the same ACTIVE / non-deleted predicate the
+  // public shop endpoints use, so every listed URL resolves).
   app.get("/sitemap.xml", async (_req, res) => {
     const urls = Object.keys(ROUTE_META);
     if (opts.db) {
@@ -385,8 +387,14 @@ export function mountSpa(app: Express, opts: SpaOptions): boolean {
             ),
           );
         for (const row of rows) urls.push(`/news/${row.slug}`);
+        const productRows = await opts.db
+          .select({ slug: products.slug })
+          .from(products)
+          .where(and(eq(products.status, "ACTIVE"), isNull(products.deletedAt)));
+        for (const row of productRows) urls.push(`/shop/${row.slug}`);
       } catch {
-        // Serve the static routes alone rather than failing.
+        // Serve whatever was gathered (at worst the static routes
+        // alone) rather than failing.
       }
     }
     const body =
