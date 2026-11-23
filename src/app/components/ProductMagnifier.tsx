@@ -22,7 +22,7 @@ import { magnifierGeometry } from "../lib/magnifier-geometry";
  * dialog at 2.5×, centred on the tapped point, with drag panning.
  */
 
-const HOVER_ZOOM = 2;
+const HOVER_ZOOM = 2.5;
 const TAP_ZOOM = 2.5;
 const ARM_QUERY = "(min-width: 1024px) and (hover: hover) and (pointer: fine)";
 
