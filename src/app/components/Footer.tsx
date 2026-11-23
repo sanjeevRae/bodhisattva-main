@@ -102,7 +102,7 @@ export default function Footer() {
           <div className="col-span-3 md:col-span-1">
             <div className="font-display text-base font-semibold tracking-[0.1em] uppercase mb-0.5">{siteName}</div>
             <div className="font-mono text-[0.54rem] tracking-[0.28em] uppercase text-accent mb-5">{siteTagline}</div>
-            <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{address}</p>
+            <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light max-w-[70%] md:max-w-full">{address}</p>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{hoursSummary}</p>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{phone}</p>
             {socials.length > 0 && (
