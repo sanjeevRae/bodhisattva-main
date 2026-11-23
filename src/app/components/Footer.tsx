@@ -98,8 +98,8 @@ export default function Footer() {
   return (
     <footer className="bg-secondary border-t border-border">
       <div className="max-w-screen-xl mx-auto px-6 lg:px-10 pt-16 pb-10">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-16">
-          <div className="col-span-2 md:col-span-1">
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-6 md:gap-10 mb-16">
+          <div className="col-span-3 md:col-span-1">
             <div className="font-display text-base font-semibold tracking-[0.1em] uppercase mb-0.5">{siteName}</div>
             <div className="font-mono text-[0.54rem] tracking-[0.28em] uppercase text-accent mb-5">{siteTagline}</div>
             <p className="font-sans text-xs text-muted-foreground leading-relaxed font-light">{address}</p><br />
