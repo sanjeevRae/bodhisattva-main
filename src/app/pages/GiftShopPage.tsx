@@ -5,6 +5,7 @@ import { X, Search, ShoppingBag, Heart, Minus, Plus } from "lucide-react";
 import { usePage } from "../lib/api";
 import PageRenderer, { PageStatus } from "../components/PageRenderer";
 import { useCustomer } from "../lib/customer";
+import { PlacedImage } from "../lib/PlacedImage";
 import { useProductPurchase } from "../lib/use-product-purchase";
 import {
   formatRs,
@@ -279,7 +280,7 @@ export default function GiftShopPage() {
                   <div className="relative aspect-[3/4] overflow-hidden bg-muted mb-4">
                     {product.image && (
                       <Link to={`/shop/${product.slug}`} className="block w-full h-full" aria-label={product.name}>
-                        <img src={product.image.url} alt={product.image.alt} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                        <PlacedImage src={product.image.url} alt={product.image.alt} placement={product.image.placement} className={`w-full h-full object-cover transition-transform duration-700 ${product.image.placement ? "" : "group-hover:scale-105"}`} />
                       </Link>
                     )}
                     <div className="pointer-events-none absolute inset-0 bg-foreground/0 group-hover:bg-foreground/8 transition-colors" />
@@ -390,7 +391,7 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
       <div className="absolute inset-0 bg-foreground/60 backdrop-blur-sm" />
       <div className="relative bg-background max-w-2xl w-full grid sm:grid-cols-2 overflow-hidden shadow-2xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="aspect-square sm:aspect-auto overflow-hidden bg-muted relative">
-          {mainImage && <img src={mainImage.url} alt={mainImage.alt} className="w-full h-full object-cover" />}
+          {mainImage && <PlacedImage src={mainImage.url} alt={mainImage.alt} placement={mainImage.placement} className="w-full h-full object-cover" />}
           {detail && detail.images.length > 1 && (
             <div className="absolute bottom-3 left-3 flex gap-2">
               {detail.images.map((img, i) => (
@@ -400,7 +401,7 @@ function QuickView({ slug, config, onClose }: { slug: string; config: ShopConfig
                   className={`h-10 w-8 overflow-hidden border-2 transition-colors ${i === imageIdx ? "border-accent" : "border-transparent opacity-70 hover:opacity-100"}`}
                   aria-label={`Image ${i + 1}`}
                 >
-                  <img src={img.url} alt="" className="h-full w-full object-cover" />
+                  <PlacedImage src={img.url} alt="" placement={img.placement} className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>

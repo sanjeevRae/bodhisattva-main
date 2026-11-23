@@ -393,6 +393,85 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     expect(draft.id).toBeGreaterThan(0);
   });
 
+  it("product image placement (0025): persists, validates, clears with the source", async () => {
+    const admin = state.admin!;
+    const csrf = state.adminCsrf!;
+    const product = await adminCreateProduct({
+      slug: `placement-${runId}`,
+      sku: `PLC-${runId}`,
+      name: "Placement Relic",
+      price: "25.00",
+      status: "ACTIVE",
+      stockQty: 2,
+    });
+    const created = await admin
+      .post(`/api/admin/products/${product.id}/images`)
+      .set("X-CSRF-Token", csrf)
+      .send({ imageUrl: "https://example.com/relic.jpg", altText: "Relic", isPrimary: true, sortOrder: 0 });
+    expect(created.status).toBe(201);
+    const imageId = created.body.data.id as number;
+    expect(created.body.data.placement).toBeNull();
+
+    // Unset placement: the key is ABSENT from the public DTOs.
+    const pubBefore = await request(app).get(`/api/shop/products/placement-${runId}`);
+    expect(pubBefore.status).toBe(200);
+    expect(pubBefore.body.data.images).toHaveLength(1);
+    expect("placement" in pubBefore.body.data.images[0]).toBe(false);
+    expect("placement" in pubBefore.body.data.image).toBe(false);
+
+    const placement = {
+      desktop: { x: 30, y: 40, zoom: 1.6 },
+      mobile: { x: 35, y: 45, zoom: 1.8 },
+    };
+    const patched = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ placement });
+    expect(patched.status).toBe(200);
+    expect(patched.body.data.placement).toMatchObject(placement);
+
+    // Public detail images AND the list/detail primary image carry it.
+    const pubAfter = await request(app).get(`/api/shop/products/placement-${runId}`);
+    expect(pubAfter.body.data.images[0].placement).toMatchObject(placement);
+    expect(pubAfter.body.data.image.placement).toMatchObject(placement);
+
+    // Out-of-bounds placement is rejected by the shared schema.
+    const invalid = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ placement: { desktop: { x: 30, y: 40, zoom: 99 } } });
+    expect(invalid.status).toBe(400);
+
+    // An unrelated update (alt text) preserves the placement.
+    const altOnly = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ altText: "Relic II" });
+    expect(altOnly.status).toBe(200);
+    expect(altOnly.body.data.placement).toMatchObject(placement);
+
+    // A source change without a placement clears it server-side.
+    const sourceChange = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ imageUrl: "https://example.com/relic-2.jpg" });
+    expect(sourceChange.status).toBe(200);
+    expect(sourceChange.body.data.placement).toBeNull();
+
+    // Set again, then an explicit null clears it.
+    const setAgain = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ placement });
+    expect(setAgain.body.data.placement).toMatchObject(placement);
+    const cleared = await admin
+      .patch(`/api/admin/products/images/${imageId}`)
+      .set("X-CSRF-Token", csrf)
+      .send({ placement: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data.placement).toBeNull();
+  });
+
   it("gates the cart behind login and persists it across logout + fresh login", async () => {
     const anonCart = await request(app).get("/api/cart");
     expect(anonCart.status).toBe(401);

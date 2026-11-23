@@ -416,6 +416,8 @@ export interface ProductImageAdmin {
   mediaId: number | null;
   imageUrl: string | null;
   altText: string | null;
+  /** Per-usage placement (0025); null = centred default. */
+  placement: ImagePlacement | null;
   sortOrder: number;
   isPrimary: boolean;
   createdAt: string;

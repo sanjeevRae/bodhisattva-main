@@ -176,6 +176,13 @@
       "when": 1795336701031,
       "tag": "0024_cover_placement",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1795412688411,
+      "tag": "0025_product_image_placement",
+      "breakpoints": true
     }
   ]
 }

@@ -14,9 +14,13 @@
  * lib/customer.tsx builds on the primitives exported here.
  */
 
+import type { ImagePlacement } from "./image-placement";
+
 export interface ShopImage {
   url: string;
   alt: string;
+  /** Present only when an admin set a placement for this image (0025). */
+  placement?: ImagePlacement | null;
 }
 
 export interface ShopCategory {

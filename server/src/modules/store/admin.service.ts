@@ -568,6 +568,7 @@ export async function createProductImage(
         mediaId: input.mediaId ?? null,
         imageUrl: input.imageUrl ?? null,
         altText: input.altText ?? null,
+        placement: input.placement ?? null,
         sortOrder: input.sortOrder ?? 0,
         isPrimary: input.isPrimary ?? false,
       })
@@ -608,6 +609,19 @@ export async function updateProductImage(
   const { db } = deps;
   const image = await getProductImageOrThrow(db, imageId);
   if (input.mediaId != null) await assertMediaExists(db, input.mediaId, "mediaId");
+  const patch = definedPatch(input);
+  // Placement invariant (0025, mirroring the 0024 cover rule): a
+  // placement describes THIS image. If the update changes the image
+  // source — media asset or legacy URL — the old placement is cleared
+  // server-side, unless the same payload explicitly supplies one
+  // (an explicit placement, including null, always wins). Omission
+  // with an unchanged source preserves the stored placement.
+  const nextMediaId = "mediaId" in patch ? patch.mediaId : image.mediaId;
+  const nextImageUrl = "imageUrl" in patch ? patch.imageUrl : image.imageUrl;
+  const sourceChanged = nextMediaId !== image.mediaId || nextImageUrl !== image.imageUrl;
+  if (sourceChanged && !("placement" in patch)) {
+    patch.placement = null;
+  }
   await db.transaction(async (tx) => {
     if (input.isPrimary === true) {
       await tx
@@ -617,7 +631,7 @@ export async function updateProductImage(
     }
     await tx
       .update(productImages)
-      .set(definedPatch(input))
+      .set(patch)
       .where(eq(productImages.id, imageId));
   });
   const row = await getProductImageOrThrow(db, imageId);

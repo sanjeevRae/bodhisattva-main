@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { ArrowLeft, Minus, Plus } from "lucide-react";
 import { useCustomer } from "../lib/customer";
+import { PlacedImage } from "../lib/PlacedImage";
+import ProductMagnifier from "../components/ProductMagnifier";
 import { setPageMeta } from "../lib/meta";
 import {
   formatRs,
@@ -171,13 +173,9 @@ export default function ProductPage() {
           </div>
         ) : (
           <div className="mt-8 grid gap-10 lg:grid-cols-2 lg:gap-16">
-            {/* Gallery — main image with a thumbnail strip below. */}
+            {/* Gallery — magnifier main image with a thumbnail strip. */}
             <div>
-              <div className="aspect-[3/4] overflow-hidden bg-muted">
-                {mainImage && (
-                  <img src={mainImage.url} alt={mainImage.alt} className="w-full h-full object-cover" />
-                )}
-              </div>
+              {mainImage && <ProductMagnifier key={mainImage.url} image={mainImage} />}
               {detail.images.length > 1 && (
                 <div className="mt-3 flex gap-2">
                   {detail.images.map((img, i) => (
@@ -187,7 +185,7 @@ export default function ProductPage() {
                       className={`h-16 w-12 overflow-hidden border-2 transition-colors ${i === imageIdx ? "border-accent" : "border-transparent opacity-70 hover:opacity-100"}`}
                       aria-label={`Image ${i + 1}`}
                     >
-                      <img src={img.url} alt="" className="h-full w-full object-cover" />
+                      <PlacedImage src={img.url} alt="" placement={img.placement} className="h-full w-full object-cover" />
                     </button>
                   ))}
                 </div>

@@ -16,8 +16,11 @@
  */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, ImagePlus, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { ArrowLeft, Crop, ImagePlus, Pencil, Plus, Star, Trash2 } from "lucide-react";
 import { ApiError, storeApi } from "../api";
+import ImagePlacementEditor from "../ImagePlacementEditor";
+import type { FrameSpec } from "../image-frames";
+import type { ImagePlacement } from "../../app/lib/image-placement";
 import type {
   InventorySummaryAdmin,
   MediaAsset,
@@ -321,6 +324,20 @@ function imageThumb(image: ProductImageAdmin): string | null {
   return image.imageUrl;
 }
 
+/** Full-size source for the placement editor (master rendition). */
+function imageFull(image: ProductImageAdmin): string | null {
+  if (image.mediaId != null) return `/api/media/${image.mediaId}/file/master`;
+  return image.imageUrl;
+}
+
+/** Product images render in a 3:4 frame on the card and product page. */
+const PRODUCT_IMAGE_FRAME: FrameSpec = {
+  label: "Product image (shop card & product page)",
+  desktop: [3, 4],
+  tablet: [3, 4],
+  mobile: [3, 4],
+};
+
 function ImagesManager({ productId }: { productId: number }) {
   const [images, setImages] = useState<ProductImageAdmin[] | null>(null);
   const [error, setError] = useState<unknown>(null);
@@ -330,6 +347,7 @@ function ImagesManager({ productId }: { productId: number }) {
   const [makePrimary, setMakePrimary] = useState(false);
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState<ProductImageAdmin | null>(null);
+  const [placing, setPlacing] = useState<ProductImageAdmin | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -340,6 +358,22 @@ function ImagesManager({ productId }: { productId: number }) {
       setError(err);
     }
   }, [productId]);
+
+  const savePlacement = async (image: ProductImageAdmin, placement: ImagePlacement | undefined) => {
+    setPlacing(null);
+    setBusy(true);
+    setError(null);
+    try {
+      // The editor reports the centred default as `undefined` — the
+      // API stores that as an explicit null (no placement).
+      await storeApi.updateImage(image.id, { placement: placement ?? null });
+      await load();
+    } catch (err) {
+      setError(err);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   useEffect(() => {
     void load();
@@ -483,6 +517,13 @@ function ImagesManager({ productId }: { productId: number }) {
                     <OrderButtons index={i} total={images.length} onMove={(idx, dir) => void move(idx, dir)} />
                     <button
                       type="button"
+                      onClick={() => setPlacing(image)}
+                      className="inline-flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    >
+                      <Crop size={12} /> Edit position
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => setDeleting(image)}
                       className="rounded-sm p-1.5 text-muted-foreground hover:bg-secondary hover:text-destructive"
                       aria-label="Delete image"
@@ -521,6 +562,15 @@ function ImagesManager({ productId }: { productId: number }) {
         </>
       )}
       <MediaPicker open={pickerOpen} onClose={() => setPickerOpen(false)} onPick={(asset) => void addFromMedia(asset)} />
+      {placing && imageFull(placing) && (
+        <ImagePlacementEditor
+          open
+          image={{ url: imageFull(placing)!, alt: placing.altText ?? undefined, placement: placing.placement }}
+          frame={PRODUCT_IMAGE_FRAME}
+          onClose={() => setPlacing(null)}
+          onSave={(placement) => void savePlacement(placing, placement)}
+        />
+      )}
       <ConfirmDialog
         open={deleting !== null}
         title="Delete image"

@@ -85,10 +85,12 @@ import {
 } from "../orders/outbox.service.js";
 import { normalizePhone } from "../../utils/phone.js";
 import { mediaFileUrl } from "../media/media.service.js";
+import { placementSchema } from "../cms/registry.js";
 import type {
   AddCartItemInput,
   CheckoutInput,
   CreateAddressInput,
+  ImagePlacementValue,
   UpdateAddressInput,
   UpdateCartItemInput,
 } from "./store.schemas.js";
@@ -212,6 +214,19 @@ export async function variantAvailableQty(
 export interface ResolvedImage {
   url: string;
   alt: string;
+  /** Set only when the image row carries a valid placement (0025). */
+  placement?: ImagePlacementValue;
+}
+
+/**
+ * Defensive placement read (the 0024 rule): a stored value that fails
+ * the shared schema — hand-edited DB row, legacy drift — is omitted,
+ * never thrown, so a bad placement can never break a public read.
+ */
+export function parseImagePlacement(raw: unknown): ImagePlacementValue | undefined {
+  if (raw == null) return undefined;
+  const parsed = placementSchema.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
 }
 
 /** Primary image of a product from pre-loaded image rows (media wins per row). */
@@ -227,14 +242,20 @@ export function resolveProductImage(
       a.id - b.id,
   );
   for (const image of ordered) {
+    const placement = parseImagePlacement(image.placement);
     if (image.mediaId != null && liveMediaIds.has(image.mediaId)) {
       return {
         url: mediaFileUrl(image.mediaId, "master"),
         alt: image.altText ?? productName,
+        ...(placement ? { placement } : {}),
       };
     }
     if (image.imageUrl) {
-      return { url: image.imageUrl, alt: image.altText ?? productName };
+      return {
+        url: image.imageUrl,
+        alt: image.altText ?? productName,
+        ...(placement ? { placement } : {}),
+      };
     }
   }
   return null;

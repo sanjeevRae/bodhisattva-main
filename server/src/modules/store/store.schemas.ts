@@ -14,6 +14,7 @@ import { isMoneyString } from "@bodhisattva/shared/money";
 import { slugSchema } from "@bodhisattva/shared/ids";
 import { z } from "zod";
 import { phoneCountrySchema, phoneSchema } from "../../utils/phone.js";
+import { placementSchema } from "../cms/registry.js";
 
 const nullableText = (max: number) =>
   z.string().max(max).nullable().optional();
@@ -200,11 +201,20 @@ export const updateProductSchema = z
 // Admin — product images (§9.3) and variants (§9.4)
 // ---------------------------------------------------------------------------
 
+/**
+ * Per-usage image placement (0025) — the shared CMS placement schema
+ * (bounded focal 0–100, zoom ≤ 3), imported from the registry exactly
+ * as the museum cover schemas do. Nullable: null clears a placement.
+ */
+const imagePlacementField = placementSchema.nullable().optional();
+export type ImagePlacementValue = z.infer<typeof placementSchema>;
+
 export const createProductImageSchema = z
   .object({
     mediaId: z.number().int().positive().nullable().optional(),
     imageUrl: nullableText(1000),
     altText: nullableText(255),
+    placement: imagePlacementField,
     sortOrder: z.number().int().optional(),
     isPrimary: z.boolean().optional(),
   })
@@ -217,6 +227,7 @@ export const updateProductImageSchema = z
     mediaId: z.number().int().positive().nullable().optional(),
     imageUrl: nullableText(1000),
     altText: nullableText(255),
+    placement: imagePlacementField,
     sortOrder: z.number().int().optional(),
     isPrimary: z.boolean().optional(),
   })

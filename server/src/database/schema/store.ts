@@ -8,6 +8,7 @@ import {
   foreignKey,
   index,
   int,
+  json,
   mysqlTable,
   text,
   uniqueIndex,
@@ -183,6 +184,11 @@ export const productImages = mysqlTable(
     // Legacy remote imagery (see module header deviation 1).
     imageUrl: varchar('image_url', { length: 1000 }),
     altText: varchar('alt_text', { length: 255 }),
+    // Per-usage image placement (focal point + zoom), the shared
+    // ImagePlacement shape — NULL until an admin sets it via the
+    // product editor's "Edit position" (migration 0025). Placement
+    // belongs to this product-image row, never to the media asset.
+    placement: json('placement'),
     sortOrder: int('sort_order').notNull().default(0),
     isPrimary: boolean('is_primary').notNull().default(false),
     createdAt: datetime('created_at', { fsp: 3, mode: 'date' })

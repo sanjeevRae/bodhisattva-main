@@ -180,8 +180,8 @@ Do NOT set `PORT` — cPanel/Passenger assigns it and the app reads it.
 
 The cPanel DB was seeded with 0001–0011 (done 2026-11-18); every
 later migration must be applied or the features behind it will
-error. Current head: **0024** (cover placement for Exhibitions and
-Collections, 2026-11-22). For any update: pull, build, then migrate
+error. Current head: **0025** (product image placement, 2026-11-23;
+0024 added cover placement for Exhibitions and Collections). For any update: pull, build, then migrate
 BEFORE restarting the app — new server code selects new columns
 immediately.
 
