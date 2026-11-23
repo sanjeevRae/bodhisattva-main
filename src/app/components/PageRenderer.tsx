@@ -653,7 +653,7 @@ function TeamMembersSection({ section }: { section: CmsSection }) {
     <section className="py-24 max-w-screen-xl mx-auto px-6 lg:px-10">
       <SectionLabel>{config.sectionLabel}</SectionLabel>
       <h2 className="font-display text-3xl md:text-4xl font-medium mb-14">{config.heading}</h2>
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
         {members.map((member, i) => (
           <motion.div key={`${member.name}-${member.role}`} initial={{ opacity: 0, y: 16 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: i * 0.07 }}>
             <div className="aspect-square bg-secondary border border-border mb-4 relative overflow-hidden">
