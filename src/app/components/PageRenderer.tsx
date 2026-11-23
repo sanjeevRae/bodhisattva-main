@@ -424,7 +424,7 @@ function RichTextSection({ section }: { section: CmsSection }) {
           {facts.map((fact) => (
             <div key={fact.label} className="flex items-end justify-between border-b border-border pb-4">
               <span className="font-mono text-[0.64rem] tracking-widest uppercase text-muted-foreground">{fact.label}</span>
-              <span className="font-display text-xl font-medium">{fact.value}</span>
+              <span className="font-display text-xl">{fact.value}</span>
             </div>
           ))}
         </div>
