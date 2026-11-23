@@ -325,6 +325,22 @@ const SANITIZE_OPTIONS: sanitizeHtml.IOptions = {
   },
   allowedSchemes: ["http", "https", "mailto", "tel"],
   allowProtocolRelative: false,
+  transformTags: {
+    // A link that opens a new tab must not be able to script the opener
+    // (tabnabbing): force rel="noopener noreferrer" server-side instead
+    // of trusting whatever the editor or HTML source mode supplied.
+    a: (tagName, attribs) => {
+      if (attribs.target === "_blank") {
+        const rel = new Set(
+          (attribs.rel ?? "").split(/\s+/).filter(Boolean),
+        );
+        rel.add("noopener");
+        rel.add("noreferrer");
+        return { tagName, attribs: { ...attribs, rel: [...rel].join(" ") } };
+      }
+      return { tagName, attribs };
+    },
+  },
 };
 
 /** Sanitise one rich-text string. Exported for tests. */
@@ -352,7 +368,15 @@ function sanitizeHtmlKeyedFields(value: unknown): unknown {
   return value;
 }
 
-/** Declared rich-text paths per type (dot paths; `[]` = every array item). */
+/**
+ * Declared rich-text paths per type (dot paths; `[]` = every array item).
+ * These fields hold server-sanitized HTML (the admin TipTap editor emits
+ * HTML strings). The public site MUST render them through the RichHtml
+ * component (src/app/components/RichHtml.tsx) — rendering one as a plain
+ * text child escapes the HTML and prints literal tags on the page (the
+ * 2026-11-23 bug). The source-scan guard in tests/rich-html-guard.test.ts
+ * fails if dangerouslySetInnerHTML appears outside the sanctioned files.
+ */
 const RICH_TEXT_PATHS: Record<string, readonly string[]> = {
   rich_text: ["paragraphs[]", "columns[].body"],
   image_text: ["paragraphs[]", "paragraph"],

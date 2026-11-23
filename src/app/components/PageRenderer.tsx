@@ -13,6 +13,7 @@ import {
 } from "../lib/api";
 import { formatRs, shopRequest, ShopApiError, getShopCsrfToken, setShopCsrfToken } from "../lib/shop";
 import { SectionLabel } from "./shared";
+import RichHtml from "./RichHtml";
 import { PlacedImage } from "../lib/PlacedImage";
 import { TurnstileWidget, TURNSTILE_SITE_KEY } from "./Turnstile";
 
@@ -257,7 +258,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
             <h2 className="font-display text-4xl md:text-5xl font-medium leading-[1.08] mb-6">
               {config.headingLine1}<br /><em className="font-sans italic font-light text-accent">{config.headingAccent}</em>
             </h2>
-            <p className="font-sans text-sm text-muted-foreground leading-relaxed mb-8 font-light">{config.paragraph}</p>
+            <RichHtml html={config.paragraph} className="font-sans text-sm text-muted-foreground leading-relaxed mb-8 font-light" />
             {config.stats && (
               <div className="grid grid-cols-3 gap-4 mb-10 py-6 border-y border-border">
                 {config.stats.map((s: { value: string; label: string }) => (
@@ -291,7 +292,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
             </h2>
             <div className="space-y-5">
               {paragraphs.map((p, i) => (
-                <p key={i} className="font-sans text-sm text-muted-foreground leading-relaxed font-light">{p}</p>
+                <RichHtml key={i} html={p} className="font-sans text-sm text-muted-foreground leading-relaxed font-light" />
               ))}
             </div>
           </div>
@@ -322,7 +323,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
               {config.headingLine1}<br /><em className="font-sans italic font-light text-accent">{config.headingAccent}</em>
             </h2>
             {paragraphs.map((p, i) => (
-              <p key={i} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : "mb-10"}`}>{p}</p>
+              <RichHtml key={i} html={p} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : "mb-10"}`} />
             ))}
             {config.cta && (
               <CmsLink link={config.cta} className="inline-flex items-center gap-2 text-[0.7rem] tracking-[0.18em] uppercase font-sans border-b border-foreground pb-0.5 hover:text-accent hover:border-accent transition-colors">
@@ -357,7 +358,7 @@ function ImageTextSection({ section }: { section: CmsSection }) {
             {config.headingLine1}<br /><em className="font-sans italic font-light text-accent">{config.headingAccent}</em>
           </h2>
           {paragraphs.map((p, i) => (
-            <p key={i} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : ""}`}>{p}</p>
+            <RichHtml key={i} html={p} className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : ""}`} />
           ))}
         </div>
         {config.image && (
@@ -389,9 +390,9 @@ function RichTextSection({ section }: { section: CmsSection }) {
               <div key={col.label} className={i === 0 ? "py-14 md:pr-14" : "py-14 md:pl-14"}>
                 <span className="font-mono text-[0.6rem] tracking-[0.22em] uppercase text-accent block mb-6">{col.label}</span>
                 {col.emphasis === "display" ? (
-                  <p className="font-display text-2xl md:text-3xl font-medium leading-[1.25]" dangerouslySetInnerHTML={{ __html: col.body }} />
+                  <RichHtml html={col.body} className="font-display text-2xl md:text-3xl font-medium leading-[1.25]" />
                 ) : (
-                  <p className="font-sans text-sm text-muted-foreground leading-relaxed font-light" dangerouslySetInnerHTML={{ __html: col.body }} />
+                  <RichHtml html={col.body} className="font-sans text-sm text-muted-foreground leading-relaxed font-light" />
                 )}
               </div>
             ))}
@@ -412,10 +413,10 @@ function RichTextSection({ section }: { section: CmsSection }) {
             {config.headingLine1}<br /><em className="font-sans italic font-light text-accent">{config.headingAccent}</em>
           </h2>
           {paragraphs.map((p, i) => (
-            <p
+            <RichHtml
               key={i}
+              html={p}
               className={`font-sans text-sm text-muted-foreground leading-relaxed font-light ${i < paragraphs.length - 1 ? "mb-5" : ""}`}
-              dangerouslySetInnerHTML={{ __html: p }}
             />
           ))}
         </div>

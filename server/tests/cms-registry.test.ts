@@ -93,6 +93,44 @@ describe("cms section registry", () => {
     expect(paragraphs[0]).not.toContain("<img");
   });
 
+  it("sanitises image_text rich text (paragraphs + single paragraph) at save time", () => {
+    // Regression guard for the 2026-11-23 bug: image_text rich fields
+    // hold TipTap HTML; the sanitizer must keep the formatting (the
+    // public RichHtml renderer injects it as HTML) while stripping
+    // active payloads — exactly like rich_text.
+    const result = validateSection("image_text", {
+      sectionLabel: "About",
+      headingLine1: "Of Sacred",
+      headingAccent: "Civilization",
+      paragraphs: [
+        '<p>We believe that art is <strong>lived</strong>.</p><script>alert("xss")</script>',
+        "<p>Second</p><img src=x onerror=alert(1)>",
+      ],
+      paragraph:
+        '<p>Single <em>paragraph</em></p><a href="javascript:alert(1)">bad</a>',
+    });
+    const paragraphs = result.config.paragraphs as string[];
+    expect(paragraphs[0]).toContain(
+      "<p>We believe that art is <strong>lived</strong>.</p>",
+    );
+    expect(paragraphs[0]).not.toContain("<script");
+    expect(paragraphs[1]).toContain("<p>Second</p>");
+    expect(paragraphs[1]).not.toContain("onerror");
+    expect(paragraphs[1]).not.toContain("<img");
+    const single = result.config.paragraph as string;
+    expect(single).toContain("<p>Single <em>paragraph</em></p>");
+    expect(single).not.toContain("javascript:");
+  });
+
+  it("forces rel=noopener noreferrer on target=_blank rich-text links", () => {
+    const cleaned = sanitizeRichText(
+      '<a href="https://example.com" target="_blank">visit</a>',
+    );
+    expect(cleaned).toContain('rel="noopener noreferrer"');
+    const plain = sanitizeRichText('<a href="https://example.com">visit</a>');
+    expect(plain).not.toContain("noopener");
+  });
+
   it("strips javascript: URLs and event handlers from *Html fields", () => {
     const cleaned = sanitizeRichText(
       '<a href="javascript:alert(1)" onclick="alert(2)">click</a>',
