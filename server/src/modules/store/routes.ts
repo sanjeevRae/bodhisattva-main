@@ -14,7 +14,7 @@
  *
  *  Admin (full session + the module's permission on every route) —
  *  mount at /api/admin:
- *    /products (CRUD + archive), /products/:id/images,
+ *    /products (CRUD + archive + activate), /products/:id/images,
  *    /products/images/:id, /products/:id/variants,
  *    /products/:id/inventory (+ /adjust), /product-categories.
  *
@@ -420,6 +420,15 @@ export function createStoreAdminRouter(deps: StoreRouteDeps): Router {
     asyncHandler(async (req: Request, res: Response) => {
       const archived = await adminService.archiveProduct(svc, actorOf(req), parseIdParam(req), requestMeta(req));
       sendData(res, 200, archived);
+    }),
+  );
+  router.post(
+    "/products/:id/activate",
+    fullSession,
+    productsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const activated = await adminService.activateProduct(svc, actorOf(req), parseIdParam(req), requestMeta(req));
+      sendData(res, 200, activated);
     }),
   );
 
@@ -1295,6 +1304,36 @@ export function createStoreAdminRouter(deps: StoreRouteDeps): Router {
  *         $ref: '#/components/responses/Forbidden'
  *       '404':
  *         $ref: '#/components/responses/NotFound'
+ *   post:
+ *     tags: [Store]
+ *     summary: Activate (un-archive) a product (admin)
+ *     description: An ARCHIVED product returns to ACTIVE and reappears in the public shop, exactly as it was. Already ACTIVE is an idempotent no-op; a DRAFT product conflicts — drafts are published through the editor.
+ *     operationId: storeAdminActivateProduct
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Product active (or already active — unchanged).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
  */
 
 /**

@@ -647,6 +647,9 @@ export const storeApi = {
   archiveProduct(id: number): Promise<ProductAdmin> {
     return moduleOne(`/api/admin/products/${id}`, { method: "DELETE" });
   },
+  activateProduct(id: number): Promise<ProductAdmin> {
+    return moduleOne(`/api/admin/products/${id}/activate`, { method: "POST" });
+  },
 
   async listImages(productId: number): Promise<ProductImageAdmin[]> {
     const data = await moduleOne<{ items: ProductImageAdmin[] }>(`/api/admin/products/${productId}/images`);

@@ -503,6 +503,45 @@ export async function updateProduct(
   return view;
 }
 
+/** POST activate — the reverse of archive (§9.2). Only ARCHIVED → ACTIVE
+ * is a real transition, performed as ONE conditional UPDATE so that
+ * concurrent activations flip the row exactly once and write exactly
+ * one audit row (only the request whose UPDATE matched writes it).
+ * Already ACTIVE is an idempotent no-op (no audit, no updatedBy
+ * change). A DRAFT product conflicts: drafts are published deliberately
+ * through the editor, never as a side effect of un-archiving. The
+ * product's data returns exactly as it was — price, category and stock
+ * were validated when written, and the slug/SKU unique indexes are
+ * global (they cover archived rows), so nothing could have claimed
+ * them while the product was archived. */
+export async function activateProduct(
+  deps: StoreAdminDeps,
+  actor: StoreActor,
+  id: number,
+  meta: RequestMeta,
+): Promise<ProductAdminView> {
+  const { db } = deps;
+  const product = await getProductOrThrow(db, id);
+  if (product.status === "DRAFT") {
+    throw AppError.conflict(
+      "Only an archived product can be activated — this product is still a draft.",
+    );
+  }
+  if (product.status === "ARCHIVED") {
+    const result = await db
+      .update(products)
+      .set({ status: "ACTIVE", updatedBy: actor.userId })
+      .where(and(eq(products.id, id), eq(products.status, "ARCHIVED")));
+    const header = (result as unknown as [{ affectedRows?: unknown }] | null)?.[0];
+    if (typeof header?.affectedRows === "number" && header.affectedRows === 1) {
+      await audit(deps, actor, AUDIT_ACTIONS.storeProductsActivate, "product", id, meta, {
+        slug: product.slug,
+      });
+    }
+  }
+  return getAdminProduct(deps, id);
+}
+
 /** DELETE = archive (§9.2). Already-archived products archive idempotently. */
 export async function archiveProduct(
   deps: StoreAdminDeps,

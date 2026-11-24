@@ -393,6 +393,77 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     expect(draft.id).toBeGreaterThan(0);
   });
 
+  it("activate (un-archive): restores the product publicly, idempotent, one audit row, draft conflicts", async () => {
+    const admin = state.admin!;
+    const csrf = state.adminCsrf!;
+    const product = await adminCreateProduct({
+      slug: `reactivate-${runId}`,
+      sku: `REACT-${runId}`,
+      name: "Reactivated Relic",
+      price: "25.00",
+      status: "ACTIVE",
+      stockQty: 4,
+    });
+    const archived = await admin
+      .delete(`/api/admin/products/${product.id}`)
+      .set("X-CSRF-Token", csrf);
+    expect(archived.body.data.status).toBe("ARCHIVED");
+    const gone = await request(app).get(`/api/shop/products/reactivate-${runId}`);
+    expect(gone.status).toBe(404);
+
+    // Two concurrent activations: both succeed, the row flips once.
+    const [first, second] = await Promise.all([
+      admin.post(`/api/admin/products/${product.id}/activate`).set("X-CSRF-Token", csrf),
+      admin.post(`/api/admin/products/${product.id}/activate`).set("X-CSRF-Token", csrf),
+    ]);
+    expect(first.status).toBe(200);
+    expect(second.status).toBe(200);
+    expect(first.body.data.status).toBe("ACTIVE");
+    const back = await request(app).get(`/api/shop/products/reactivate-${runId}`);
+    expect(back.status).toBe(200);
+
+    // Re-activating an ACTIVE product is an idempotent no-op — and after
+    // all three calls there is still exactly ONE activation audit row.
+    const again = await admin
+      .post(`/api/admin/products/${product.id}/activate`)
+      .set("X-CSRF-Token", csrf);
+    expect(again.status).toBe(200);
+    expect(again.body.data.status).toBe("ACTIVE");
+    const auditCount = await sqlCount(
+      "SELECT COUNT(*) AS c FROM audit_logs WHERE action = 'store.products.activate' AND target_id = ?",
+      [product.id],
+    );
+    expect(auditCount).toBe(1);
+
+    // A draft cannot be activated — 409, and it stays a draft.
+    const draftProduct = await adminCreateProduct({
+      slug: `reactivate-draft-${runId}`,
+      sku: `REACTD-${runId}`,
+      name: "Draft Relic",
+      price: "25.00",
+      status: "DRAFT",
+      stockQty: 1,
+    });
+    const draftAttempt = await admin
+      .post(`/api/admin/products/${draftProduct.id}/activate`)
+      .set("X-CSRF-Token", csrf);
+    expect(draftAttempt.status).toBe(409);
+    const draftAfter = await admin.get(`/api/admin/products/${draftProduct.id}`);
+    expect(draftAfter.body.data.status).toBe("DRAFT");
+
+    // Unknown product → 404. No session → rejected before any state
+    // change: the CSRF layer refuses tokenless mutations with 403
+    // (the same answer every admin mutation gives an anonymous caller).
+    const missing = await admin
+      .post("/api/admin/products/99999999/activate")
+      .set("X-CSRF-Token", csrf);
+    expect(missing.status).toBe(404);
+    const anon = await request(app).post(`/api/admin/products/${product.id}/activate`);
+    expect(anon.status).toBe(403);
+    const stillActive = await admin.get(`/api/admin/products/${product.id}`);
+    expect(stillActive.body.data.status).toBe("ACTIVE");
+  });
+
   it("product image placement (0025): persists, validates, clears with the source", async () => {
     const admin = state.admin!;
     const csrf = state.adminCsrf!;

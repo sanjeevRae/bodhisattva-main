@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Archive, Pencil, Plus, Search } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Plus, Search } from "lucide-react";
 import { storeApi } from "../api";
 import type { ProductAdmin } from "../types";
 import { Badge, Btn, ConfirmDialog, ErrorBox, Spinner, inputCls } from "../ui";
@@ -25,6 +25,9 @@ export default function ProductsScreen() {
   const [archiving, setArchiving] = useState<ProductAdmin | null>(null);
   const [archiveError, setArchiveError] = useState<unknown>(null);
   const [archiveBusy, setArchiveBusy] = useState(false);
+  const [activating, setActivating] = useState<ProductAdmin | null>(null);
+  const [activateError, setActivateError] = useState<unknown>(null);
+  const [activateBusy, setActivateBusy] = useState(false);
 
   const load = useCallback(async (pageNo: number, term: string) => {
     try {
@@ -60,6 +63,21 @@ export default function ProductsScreen() {
       setArchiveError(err);
     } finally {
       setArchiveBusy(false);
+    }
+  };
+
+  const confirmActivate = async () => {
+    if (!activating) return;
+    setActivateBusy(true);
+    setActivateError(null);
+    try {
+      await storeApi.activateProduct(activating.id);
+      setActivating(null);
+      await load(page, search);
+    } catch (err) {
+      setActivateError(err);
+    } finally {
+      setActivateBusy(false);
     }
   };
 
@@ -185,6 +203,18 @@ export default function ProductsScreen() {
                           <Archive size={13} /> Archive
                         </button>
                       )}
+                      {product.status === "ARCHIVED" && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs font-medium hover:bg-secondary"
+                          onClick={() => {
+                            setActivateError(null);
+                            setActivating(product);
+                          }}
+                        >
+                          <ArchiveRestore size={13} /> Activate
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -218,14 +248,32 @@ export default function ProductsScreen() {
           <div className="space-y-3">
             <p>
               Archive <strong>{archiving?.name}</strong>? It leaves the public shop immediately.
-              Order history keeps its snapshot, and the product can be restored by setting its
-              status back in the editor.
+              Order history keeps its snapshot, and the product can be brought back at any time
+              with its Activate button.
             </p>
             <ErrorBox error={archiveError} />
           </div>
         }
         onConfirm={() => void confirmArchive()}
         onCancel={() => setArchiving(null)}
+      />
+
+      <ConfirmDialog
+        open={activating !== null}
+        title="Activate product"
+        busy={activateBusy}
+        confirmLabel="Activate product"
+        body={
+          <div className="space-y-3">
+            <p>
+              Activate <strong>{activating?.name}</strong>? It returns to the public shop
+              immediately, with its previous price, stock and details.
+            </p>
+            <ErrorBox error={activateError} />
+          </div>
+        }
+        onConfirm={() => void confirmActivate()}
+        onCancel={() => setActivating(null)}
       />
     </div>
   );
