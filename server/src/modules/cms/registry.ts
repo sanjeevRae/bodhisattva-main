@@ -255,6 +255,19 @@ const statisticsConfig = z.object({
   items: z.array(labelValueSchema).min(1).max(50),
 });
 
+/** "Site Under Construction" notice (ported from the sanjeevRae/test
+ * site). Every field is optional: the admin defaultConfig supplies the
+ * original wording, blank strings are accepted (the renderer falls
+ * back to the original wording for anything blank), and with no image
+ * the renderer uses the bundled crane animation. The message is PLAIN
+ * text by design — never rich text, never rendered as HTML. */
+const underConstructionConfig = z.object({
+  eyebrow: z.string().max(120).optional(),
+  heading: z.string().max(160).optional(),
+  message: z.string().max(600).optional(),
+  image: imageSchema.optional(),
+});
+
 const partnerListConfig = z.object({
   heading: z.string().min(1).max(300),
   items: z
@@ -459,6 +472,7 @@ export const SECTION_SCHEMAS = {
   team_members: teamMembersConfig,
   contact_information: contactInformationConfig,
   contact_form: contactFormConfig,
+  under_construction: underConstructionConfig,
 } as const;
 
 export type SectionType = keyof typeof SECTION_SCHEMAS;

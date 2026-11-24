@@ -541,6 +541,23 @@ export const SECTION_SPECS: Record<string, SectionSpec> = {
     note: "A divider has no content fields — use the Design group below to vary its band.",
     defaultConfig: () => ({}),
   },
+
+  under_construction: {
+    type: "under_construction",
+    name: "Under construction",
+    description: "A centred 'site under construction' notice with the crane illustration — for pages that are not ready yet.",
+    fields: [
+      { kind: "text", path: "eyebrow", label: "Eyebrow" },
+      { kind: "text", path: "heading", label: "Heading" },
+      { kind: "textarea", path: "message", label: "Message", rows: 3 },
+      { kind: "image", path: "image", label: "Illustration (optional — the crane animation is used when empty)" },
+    ],
+    defaultConfig: () => ({
+      eyebrow: "Bodhisattva International",
+      heading: "Site Under Construction",
+      message: "We are building something beautiful. The full website is on its way.",
+    }),
+  },
 };
 
 /** The design vocabulary (registry designSchema) edited for every type. */

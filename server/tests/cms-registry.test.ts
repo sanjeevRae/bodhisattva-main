@@ -141,7 +141,7 @@ describe("cms section registry", () => {
 
   it("registers the five Phase 4 library types", () => {
     // The full library: 19 specification types (§11.1) + the 3 proposed
-    // additions (§11.2). The seed data exercises 17 of the 22.
+    // additions (§11.2). The seed data exercises 17 of the 23.
     for (const type of [
       "image",
       "image_gallery",
@@ -151,7 +151,46 @@ describe("cms section registry", () => {
     ]) {
       expect(SECTION_TYPES).toContain(type);
     }
-    expect(SECTION_TYPES).toHaveLength(22);
+    expect(SECTION_TYPES).toHaveLength(23);
+  });
+
+  it("accepts a valid under_construction section", () => {
+    const full = validateSection("under_construction", {
+      eyebrow: "Bodhisattva International",
+      heading: "Site Under Construction",
+      message: "We are building something beautiful. The full website is on its way.",
+      image: { url: "https://example.com/crane.png", alt: "Crane" },
+    });
+    expect(full.config.heading).toBe("Site Under Construction");
+    // Every field is optional — an empty config is valid (the admin
+    // defaultConfig and the renderer supply the original wording).
+    expect(validateSection("under_construction", {}).config).toEqual({});
+    // Blank strings are accepted too; the renderer falls back for them.
+    expect(
+      validateSection("under_construction", { heading: "" }).config.heading,
+    ).toBe("");
+  });
+
+  it("rejects over-length under_construction text and a bad image", () => {
+    expect(() =>
+      validateSection("under_construction", { eyebrow: "e".repeat(121) }),
+    ).toThrowError(AppError);
+    expect(() =>
+      validateSection("under_construction", { heading: "h".repeat(161) }),
+    ).toThrowError(AppError);
+    expect(() =>
+      validateSection("under_construction", { message: "m".repeat(601) }),
+    ).toThrowError(AppError);
+    expect(() =>
+      validateSection("under_construction", { image: { url: "", alt: "x" } }),
+    ).toThrowError(AppError);
+  });
+
+  it("keeps under_construction message markup as a plain string", () => {
+    const result = validateSection("under_construction", {
+      message: "Back <b>soon</b> — no HTML is interpreted.",
+    });
+    expect(result.config.message).toBe("Back <b>soon</b> — no HTML is interpreted.");
   });
 
   it("accepts a valid image section", () => {

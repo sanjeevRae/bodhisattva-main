@@ -456,6 +456,61 @@ function StatisticsSection({ section }: { section: CmsSection }) {
 }
 
 // ---------------------------------------------------------------------------
+// Under construction — a faithful port of the "Site Under Construction"
+// block from the sanjeevRae/test site: cream band, crane illustration,
+// gold kicker, heading, italic message. Content is editable, the
+// presentation is fixed (exact reference colours/sizes, mobile layout
+// below the source's 900px breakpoint). Any text left blank falls back
+// to the original wording; with no image chosen (or a chosen image
+// failing to load) the bundled crane animation is used, with a static
+// poster frame for reduced-motion visitors. The message is plain text
+// — React-escaped, never HTML.
+// ---------------------------------------------------------------------------
+
+const UNDER_CONSTRUCTION_DEFAULTS = {
+  eyebrow: "Bodhisattva International",
+  heading: "Site Under Construction",
+  message: "We are building something beautiful. The full website is on its way.",
+  alt: "Animated illustration of a building under construction with a crane",
+  image: "/images/under-construction.gif",
+  poster: "/images/under-construction-poster.png",
+};
+
+function ucText(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() !== "" ? value : fallback;
+}
+
+function UnderConstructionSection({ section }: { section: CmsSection }) {
+  const config = section.config ?? {};
+  const eyebrow = ucText(config.eyebrow, UNDER_CONSTRUCTION_DEFAULTS.eyebrow);
+  const heading = ucText(config.heading, UNDER_CONSTRUCTION_DEFAULTS.heading);
+  const message = ucText(config.message, UNDER_CONSTRUCTION_DEFAULTS.message);
+  const custom: CmsImageRef | null =
+    config.image && typeof config.image.url === "string" && config.image.url.trim() !== ""
+      ? (config.image as CmsImageRef)
+      : null;
+  const [customFailed, setCustomFailed] = useState(false);
+  const showCustom = custom !== null && !customFailed;
+  const alt = showCustom ? ucText(custom.alt, UNDER_CONSTRUCTION_DEFAULTS.alt) : UNDER_CONSTRUCTION_DEFAULTS.alt;
+  const imgClass = "mx-auto block h-auto w-[min(560px,88vw)] rounded-[14px]";
+  return (
+    <section className="border-t border-[rgba(138,95,22,0.25)] bg-[#f7f1e2] px-[18px] pt-12 pb-11 text-center min-[901px]:px-6 min-[901px]:pt-[84px] min-[901px]:pb-[72px]">
+      {showCustom ? (
+        <img src={custom.url} alt={alt} width={720} height={460} onError={() => setCustomFailed(true)} className={imgClass} />
+      ) : (
+        <>
+          <img src={UNDER_CONSTRUCTION_DEFAULTS.image} alt={alt} width={720} height={460} className={`${imgClass} motion-reduce:hidden`} />
+          <img src={UNDER_CONSTRUCTION_DEFAULTS.poster} alt={alt} width={720} height={460} className={`${imgClass} hidden motion-reduce:block`} />
+        </>
+      )}
+      <p className="mt-[30px] font-sans text-[10.5px] font-bold uppercase tracking-[0.32em] text-[#a97e2f]">{eyebrow}</p>
+      <h2 className="mt-3 font-sans text-[28px] font-medium text-[#26221b] min-[901px]:text-[40px]">{heading}</h2>
+      <p className="mx-auto mt-[14px] max-w-[520px] font-sans text-[18px] italic leading-[1.55] text-[#4c473c] whitespace-pre-line min-[901px]:text-[20px]">{message}</p>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Testimonials — single-featured (Home H5) and grid (Foundation F5).
 // Records come from the testimonials pool via moduleData (GET
 // /api/foundation). Grid mode filters by the config selection's context
@@ -1596,6 +1651,8 @@ function renderDefaultSection(section: CmsSection, pageSlug: string, moduleData?
       return <DirectorySection section={section} />;
     case "cta":
       return <CtaSection section={section} />;
+    case "under_construction":
+      return <UnderConstructionSection section={section} />;
     case "partner_list":
       return <PartnerListSection section={section} />;
     case "team_members":
