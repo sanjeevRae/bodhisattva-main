@@ -14,7 +14,7 @@
  *
  *  Admin (full session + the module's permission on every route) —
  *  mount at /api/admin:
- *    /products (CRUD + archive + activate), /products/:id/images,
+ *    /products (CRUD + archive + activate + permanent delete), /products/:id/images,
  *    /products/images/:id, /products/:id/variants,
  *    /products/:id/inventory (+ /adjust), /product-categories.
  *
@@ -429,6 +429,15 @@ export function createStoreAdminRouter(deps: StoreRouteDeps): Router {
     asyncHandler(async (req: Request, res: Response) => {
       const activated = await adminService.activateProduct(svc, actorOf(req), parseIdParam(req), requestMeta(req));
       sendData(res, 200, activated);
+    }),
+  );
+  router.delete(
+    "/products/:id/permanent",
+    fullSession,
+    productsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const deleted = await adminService.deleteProductPermanently(svc, actorOf(req), parseIdParam(req), requestMeta(req));
+      sendData(res, 200, deleted);
     }),
   );
 
@@ -1322,6 +1331,41 @@ export function createStoreAdminRouter(deps: StoreRouteDeps): Router {
  *     responses:
  *       '200':
  *         description: Product active (or already active — unchanged).
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/products/{id}/permanent:
+ *   delete:
+ *     tags: [Store]
+ *     summary: Delete a product permanently (admin)
+ *     description: Hard delete for mistaken/test products. Only an ARCHIVED product with no order history, no reserved stock and zero stock on hand can be deleted; anything else conflicts (409). The product's images and variants are removed with it; a full snapshot survives in the audit log (store.products.delete).
+ *     operationId: storeAdminDeleteProductPermanently
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Product permanently deleted (returns its id and slug).
  *         content:
  *           application/json:
  *             schema:

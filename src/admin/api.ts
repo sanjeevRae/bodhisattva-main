@@ -650,6 +650,9 @@ export const storeApi = {
   activateProduct(id: number): Promise<ProductAdmin> {
     return moduleOne(`/api/admin/products/${id}/activate`, { method: "POST" });
   },
+  deleteProductPermanently(id: number): Promise<{ id: number; slug: string }> {
+    return moduleOne(`/api/admin/products/${id}/permanent`, { method: "DELETE" });
+  },
 
   async listImages(productId: number): Promise<ProductImageAdmin[]> {
     const data = await moduleOne<{ items: ProductImageAdmin[] }>(`/api/admin/products/${productId}/images`);

@@ -7,7 +7,7 @@
  */
 import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
-import { Archive, ArchiveRestore, Pencil, Plus, Search } from "lucide-react";
+import { Archive, ArchiveRestore, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { storeApi } from "../api";
 import type { ProductAdmin } from "../types";
 import { Badge, Btn, ConfirmDialog, ErrorBox, Spinner, inputCls } from "../ui";
@@ -28,6 +28,9 @@ export default function ProductsScreen() {
   const [activating, setActivating] = useState<ProductAdmin | null>(null);
   const [activateError, setActivateError] = useState<unknown>(null);
   const [activateBusy, setActivateBusy] = useState(false);
+  const [deleting, setDeleting] = useState<ProductAdmin | null>(null);
+  const [deleteError, setDeleteError] = useState<unknown>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const load = useCallback(async (pageNo: number, term: string) => {
     try {
@@ -78,6 +81,21 @@ export default function ProductsScreen() {
       setActivateError(err);
     } finally {
       setActivateBusy(false);
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      await storeApi.deleteProductPermanently(deleting.id);
+      setDeleting(null);
+      await load(page, search);
+    } catch (err) {
+      setDeleteError(err);
+    } finally {
+      setDeleteBusy(false);
     }
   };
 
@@ -215,6 +233,18 @@ export default function ProductsScreen() {
                           <ArchiveRestore size={13} /> Activate
                         </button>
                       )}
+                      {product.status === "ARCHIVED" && (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-sm px-2 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setDeleteError(null);
+                            setDeleting(product);
+                          }}
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -274,6 +304,30 @@ export default function ProductsScreen() {
         }
         onConfirm={() => void confirmActivate()}
         onCancel={() => setActivating(null)}
+      />
+
+      <ConfirmDialog
+        open={deleting !== null}
+        title="Delete product permanently"
+        danger
+        busy={deleteBusy}
+        confirmLabel="Delete permanently"
+        body={
+          <div className="space-y-3">
+            <p>
+              Delete <strong>{deleting?.name}</strong> permanently? This cannot be undone — the
+              product, its images and its variants will be removed forever. A full record stays in
+              the audit log.
+            </p>
+            <p>
+              Products with order history, reserved stock, or stock still on hand cannot be
+              deleted — if this one is blocked, the reason will appear here.
+            </p>
+            <ErrorBox error={deleteError} />
+          </div>
+        }
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleting(null)}
       />
     </div>
   );

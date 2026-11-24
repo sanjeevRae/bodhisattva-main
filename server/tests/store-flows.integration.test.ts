@@ -464,6 +464,125 @@ describe.skipIf(!RUN)("Phase 6 store flows (integration)", () => {
     expect(stillActive.body.data.status).toBe("ACTIVE");
   });
 
+  it("permanent delete: guarded cleanup of a never-sold product; stock and order history block it", async () => {
+    const admin = state.admin!;
+    const csrf = state.adminCsrf!;
+
+    // Not archived yet -> 409. Archived but holding stock -> still 409.
+    const stocked = await adminCreateProduct({
+      slug: `perm-stocked-${runId}`,
+      sku: `PERMS-${runId}`,
+      name: "Stocked Relic",
+      price: "30.00",
+      status: "ACTIVE",
+      stockQty: 5,
+    });
+    const activeAttempt = await admin
+      .delete(`/api/admin/products/${stocked.id}/permanent`)
+      .set("X-CSRF-Token", csrf);
+    expect(activeAttempt.status).toBe(409);
+    await admin.delete(`/api/admin/products/${stocked.id}`).set("X-CSRF-Token", csrf);
+    const stockedAttempt = await admin
+      .delete(`/api/admin/products/${stocked.id}/permanent`)
+      .set("X-CSRF-Token", csrf);
+    expect(stockedAttempt.status).toBe(409);
+    const stillArchived = await admin.get(`/api/admin/products/${stocked.id}`);
+    expect(stillArchived.body.data.status).toBe("ARCHIVED");
+
+    // Zero the stock via an explicit adjustment; now two concurrent
+    // permanent deletes race — exactly one wins, one audit row survives.
+    const adjust = await admin
+      .post(`/api/admin/products/${stocked.id}/inventory/adjust`)
+      .set("X-CSRF-Token", csrf)
+      .send({ setQuantity: 0 });
+    expect(adjust.status).toBe(200);
+    const [del1, del2] = await Promise.all([
+      admin.delete(`/api/admin/products/${stocked.id}/permanent`).set("X-CSRF-Token", csrf),
+      admin.delete(`/api/admin/products/${stocked.id}/permanent`).set("X-CSRF-Token", csrf),
+    ]);
+    expect([del1.status, del2.status].sort()).toEqual([200, 404]);
+    const gone = await admin.get(`/api/admin/products/${stocked.id}`);
+    expect(gone.status).toBe(404);
+    const deleteAudits = await sqlCount(
+      "SELECT COUNT(*) AS c FROM audit_logs WHERE action = 'store.products.delete' AND target_id = ?",
+      [stocked.id],
+    );
+    expect(deleteAudits).toBe(1);
+    const [metaRows] = await handle.pool.query(
+      "SELECT metadata FROM audit_logs WHERE action = 'store.products.delete' AND target_id = ?",
+      [stocked.id],
+    );
+    const rawMeta = (metaRows as { metadata: unknown }[])[0]?.metadata;
+    const snapshot = (typeof rawMeta === "string" ? JSON.parse(rawMeta) : rawMeta) as {
+      movementCount: number;
+      movements: unknown[];
+      slug: string;
+    };
+    expect(snapshot.slug).toBe(`perm-stocked-${runId}`);
+    expect(snapshot.movementCount).toBe(2); // OPENING + the zeroing adjustment
+    expect(snapshot.movements).toHaveLength(2);
+
+    // The freed slug/SKU can be reused; a DRAFT still cannot be deleted.
+    const reused = await adminCreateProduct({
+      slug: `perm-stocked-${runId}`,
+      sku: `PERMS-${runId}`,
+      name: "Reused Relic",
+      price: "30.00",
+      status: "DRAFT",
+      stockQty: 0,
+    });
+    const draftAttempt = await admin
+      .delete(`/api/admin/products/${reused.id}/permanent`)
+      .set("X-CSRF-Token", csrf);
+    expect(draftAttempt.status).toBe(409);
+
+    // A product with an order can never be permanently deleted.
+    const ordered = await adminCreateProduct({
+      slug: `perm-ordered-${runId}`,
+      sku: `PERMO-${runId}`,
+      name: "Ordered Relic",
+      price: "40.00",
+      status: "ACTIVE",
+      stockQty: 2,
+    });
+    const { agent: buyer, csrf: buyerCsrf } = await registerCustomer(
+      `perm-buyer-${runId}@example.com`,
+      "perm-buyer-pass-2026",
+      "Perm Buyer",
+    );
+    const address = await buyer
+      .post("/api/addresses")
+      .set("X-CSRF-Token", buyerCsrf)
+      .send({
+        recipientName: "Perm Buyer",
+        phone: "+9779800000099",
+        addressLine: "Kupondole",
+        city: "Lalitpur",
+      });
+    expect(address.status).toBe(201);
+    const addedToCart = await buyer
+      .post("/api/cart/items")
+      .set("X-CSRF-Token", buyerCsrf)
+      .send({ productId: ordered.id, quantity: 1 });
+    expect(addedToCart.status).toBe(200);
+    const placed = await buyer
+      .post("/api/checkout")
+      .set("X-CSRF-Token", buyerCsrf)
+      .send({ addressId: address.body.data.id, idempotencyKey: `perm-order-${runId}` });
+    expect(placed.status).toBe(201);
+    await admin.delete(`/api/admin/products/${ordered.id}`).set("X-CSRF-Token", csrf);
+    const orderedAttempt = await admin
+      .delete(`/api/admin/products/${ordered.id}/permanent`)
+      .set("X-CSRF-Token", csrf);
+    expect(orderedAttempt.status).toBe(409);
+    const orderedStill = await admin.get(`/api/admin/products/${ordered.id}`);
+    expect(orderedStill.body.data.status).toBe("ARCHIVED");
+
+    // Anonymous caller is rejected (CSRF layer) before anything happens.
+    const anon = await request(app).delete(`/api/admin/products/${ordered.id}/permanent`);
+    expect(anon.status).toBe(403);
+  });
+
   it("product image placement (0025): persists, validates, clears with the source", async () => {
     const admin = state.admin!;
     const csrf = state.adminCsrf!;

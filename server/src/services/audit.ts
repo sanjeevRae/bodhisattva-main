@@ -111,6 +111,7 @@ export const AUDIT_ACTIONS = {
   storeProductsUpdate: "store.products.update",
   storeProductsArchive: "store.products.archive",
   storeProductsActivate: "store.products.activate",
+  storeProductsDelete: "store.products.delete",
   storeProductImagesCreate: "store.product_images.create",
   storeProductImagesUpdate: "store.product_images.update",
   storeProductImagesDelete: "store.product_images.delete",

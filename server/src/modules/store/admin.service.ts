@@ -542,6 +542,123 @@ export async function activateProduct(
   return getAdminProduct(deps, id);
 }
 
+/** DELETE /:id/permanent — the hard delete the original §9.2 design
+ * deliberately did not offer, added for cleaning up mistaken / test /
+ * placeholder products. Everything runs in ONE transaction with the
+ * product row locked FOR UPDATE, and every guard is re-checked under
+ * that lock:
+ *   - only an ARCHIVED product may be deleted (archive-first, two-step);
+ *   - ANY order_items reference blocks forever (409): orders and
+ *     invoices keep their product — such products stay archived;
+ *   - stock reserved by carts / unfulfilled orders blocks (409);
+ *   - on-hand stock (product or any variant) must be zero (409):
+ *     physical stock is written off through an explicit inventory
+ *     adjustment first, never vaporised by a delete.
+ * The deletion removes the product's cart lines and its inventory
+ * movements, then the product row; images and variants go by FK
+ * CASCADE. Media-library assets are shared and are NOT touched. The
+ * store.products.delete audit row is written inside the same
+ * transaction and carries the full snapshot that survives the product:
+ * identity (id, slug, SKU, name), final stock, variant count, cart
+ * lines removed, and the complete inventory-movement history (first
+ * 50 movements; the total count is always recorded). Audit rows have
+ * no FK to products, so this record is permanent. */
+export async function deleteProductPermanently(
+  deps: StoreAdminDeps,
+  actor: StoreActor,
+  id: number,
+  meta: RequestMeta,
+): Promise<{ id: number; slug: string }> {
+  const { db } = deps;
+  return db.transaction(async (tx) => {
+    const [product] = await tx
+      .select()
+      .from(products)
+      .where(and(eq(products.id, id), isNull(products.deletedAt)))
+      .for("update");
+    if (!product) throw AppError.notFound("Product not found.");
+    if (product.status !== "ARCHIVED") {
+      throw AppError.conflict(
+        "Only an archived product can be deleted permanently — archive it first.",
+      );
+    }
+    const [orderLine] = await tx
+      .select({ id: orderItems.id })
+      .from(orderItems)
+      .where(eq(orderItems.productId, id))
+      .limit(1);
+    if (orderLine) {
+      throw AppError.conflict(
+        "This product has order history and cannot be deleted permanently — it must stay archived so orders and invoices keep their records.",
+      );
+    }
+    const reserved = await reservedQty(tx, id);
+    if (reserved > 0) {
+      throw AppError.conflict(
+        "This product has stock reserved by carts or unfulfilled orders and cannot be deleted yet.",
+      );
+    }
+    if (product.trackInventory && product.stockQty !== 0) {
+      throw AppError.conflict(
+        `This product still has ${product.stockQty} units in stock — adjust its stock to zero before deleting it permanently.`,
+      );
+    }
+    const variants = await tx
+      .select()
+      .from(productVariants)
+      .where(eq(productVariants.productId, id));
+    const variantStock = variants.reduce((sum, v) => sum + v.stockQty, 0);
+    if (variantStock !== 0) {
+      throw AppError.conflict(
+        "This product's variants still have stock — adjust their stock to zero before deleting it permanently.",
+      );
+    }
+    const movements = await tx
+      .select()
+      .from(inventoryMovements)
+      .where(eq(inventoryMovements.productId, id))
+      .orderBy(asc(inventoryMovements.id));
+    const cartLines = await tx
+      .select({ id: cartItems.id })
+      .from(cartItems)
+      .where(eq(cartItems.productId, id));
+
+    await tx.delete(cartItems).where(eq(cartItems.productId, id));
+    await tx.delete(inventoryMovements).where(eq(inventoryMovements.productId, id));
+    await tx.delete(products).where(eq(products.id, id));
+
+    await audit(
+      { ...deps, db: tx as unknown as Database },
+      actor,
+      AUDIT_ACTIONS.storeProductsDelete,
+      "product",
+      id,
+      meta,
+      {
+        slug: product.slug,
+        sku: product.sku,
+        name: product.name,
+        stockQty: product.stockQty,
+        trackInventory: product.trackInventory,
+        variantCount: variants.length,
+        cartLinesRemoved: cartLines.length,
+        movementCount: movements.length,
+        movements: movements.slice(0, 50).map((m) => ({
+          type: m.movementType,
+          qty: m.quantity,
+          balanceAfter: m.balanceAfter,
+          variantId: m.variantId,
+          orderId: m.orderId,
+          reason: m.reason,
+          at: m.createdAt,
+        })),
+        movementsTruncated: movements.length > 50,
+      },
+    );
+    return { id, slug: product.slug };
+  });
+}
+
 /** DELETE = archive (§9.2). Already-archived products archive idempotently. */
 export async function archiveProduct(
   deps: StoreAdminDeps,
