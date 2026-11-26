@@ -1,6 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useLocation } from "react-router";
 import "../../styles/entrance.css";
+
+/**
+ * Emailed-link account pages are transactional, not browsing — they
+ * open straight into their form and never show the entrance (review
+ * decision, 2026-11-26). The bypass lives only in this component; the
+ * inline claim script and its CSP hash are untouched.
+ */
+const ENTRANCE_BYPASS_PATHS = new Set([
+  "/accept-invitation",
+  "/forgot-password",
+  "/reset-password",
+]);
 
 /**
  * First-visit entrance — "The Inscribed Seal".
@@ -155,8 +168,10 @@ function imageReady(src: string): Promise<boolean> {
 type Mode = "layers" | "fallback";
 
 export default function EntranceIntro() {
+  const { pathname } = useLocation();
   const [gone, setGone] = useState(
     () =>
+      ENTRANCE_BYPASS_PATHS.has(pathname) ||
       typeof document === "undefined" ||
       !document.documentElement.classList.contains("bi-intro"),
   );

@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { shopRequest } from "../lib/shop";
+import { ShopApiError, shopRequest } from "../lib/shop";
 import { apiErrorText, AuthError, AuthNotice, AuthShell, authButtonCls, authInputCls, authLabelCls } from "./auth-shared";
 
 /**
@@ -157,6 +157,170 @@ export function ResetPasswordPage() {
           </div>
           <button type="submit" disabled={busy} className={authButtonCls}>
             {busy ? "Saving…" : "Set New Password"}
+          </button>
+        </form>
+      )}
+    </AuthShell>
+  );
+}
+
+const INVITE_TOKEN_KEY = "bi-invite-token";
+
+/**
+ * Accept invitation — the emailed admin-invitation link lands here
+ * ({APP_URL}/accept-invitation?token=...). Until this page existed the
+ * router's catch-all bounced invitees to the homepage.
+ *
+ * The token is a single-use bearer credential, so it does not stay in
+ * the address bar: on arrival it moves into sessionStorage (this tab
+ * only) and the URL is replaced with the bare path. A same-tab reload
+ * recovers it from sessionStorage. It is cleared once the server
+ * accepts it or definitively rejects it (any HTTP error answer), and
+ * kept only across transport failures so a reload can retry. The
+ * accept API creates the account WITHOUT a session — the new admin
+ * then signs in at /admin and enrols in two-factor authentication.
+ */
+export function AcceptInvitationPage() {
+  const [params] = useSearchParams();
+  const navigate = useNavigate();
+  const [token] = useState<string>(() => {
+    const fromUrl = params.get("token") ?? "";
+    try {
+      if (fromUrl) {
+        sessionStorage.setItem(INVITE_TOKEN_KEY, fromUrl);
+        return fromUrl;
+      }
+      return sessionStorage.getItem(INVITE_TOKEN_KEY) ?? "";
+    } catch {
+      return fromUrl;
+    }
+  });
+  useEffect(() => {
+    if (params.get("token")) navigate("/accept-invitation", { replace: true });
+  }, [navigate, params]);
+
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const clearStoredToken = () => {
+    try {
+      sessionStorage.removeItem(INVITE_TOKEN_KEY);
+    } catch {
+      // Storage unavailable — nothing to clear.
+    }
+  };
+
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      setError("Please enter your full name.");
+      return;
+    }
+    if (password.length < 12) {
+      setError("Your password must be at least 12 characters.");
+      return;
+    }
+    if (password !== confirm) {
+      setError("The two passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await shopRequest("/api/auth/invitations/accept", {
+        method: "POST",
+        body: { token, name: trimmedName, password },
+      });
+      clearStoredToken();
+      setDone(true);
+    } catch (err) {
+      if (err instanceof ShopApiError) clearStoredToken();
+      setError(
+        apiErrorText(
+          err,
+          "That invitation link is no longer valid. Please ask your administrator for a new invitation.",
+        ),
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AuthShell
+      eyebrow="Bodhisattva Museum"
+      heading="Accept Your Invitation"
+      intro="Create your administrator account. After creating it, sign in to the admin area and set up two-factor authentication."
+    >
+      {done ? (
+        <>
+          <AuthNotice>
+            Account created successfully. Sign in to the admin area using your new credentials,
+            then complete two-factor authentication setup.
+          </AuthNotice>
+          <Link to="/admin" className={`${authButtonCls} block text-center`}>
+            Go to Admin Sign In
+          </Link>
+        </>
+      ) : !token ? (
+        <>
+          <AuthError error="This page needs the token from your invitation email." />
+          <p className="text-center font-sans text-sm font-light text-muted-foreground">
+            Ask your administrator to send a new invitation.
+          </p>
+        </>
+      ) : (
+        <form onSubmit={submit} className="space-y-5">
+          <AuthError error={error} />
+          <div>
+            <label className={authLabelCls} htmlFor="invite-name">Full name</label>
+            <input
+              id="invite-name"
+              type="text"
+              required
+              minLength={2}
+              maxLength={120}
+              autoComplete="name"
+              className={authInputCls}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Your full name"
+            />
+          </div>
+          <div>
+            <label className={authLabelCls} htmlFor="invite-password">Password</label>
+            <input
+              id="invite-password"
+              type="password"
+              required
+              minLength={12}
+              autoComplete="new-password"
+              className={authInputCls}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="At least 12 characters"
+            />
+          </div>
+          <div>
+            <label className={authLabelCls} htmlFor="invite-confirm">Confirm password</label>
+            <input
+              id="invite-confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+              className={authInputCls}
+              value={confirm}
+              onChange={(e) => setConfirm(e.target.value)}
+              placeholder="Repeat the password"
+            />
+          </div>
+          <button type="submit" disabled={busy} className={authButtonCls}>
+            {busy ? "Creating…" : "Create Account"}
           </button>
         </form>
       )}

@@ -234,7 +234,7 @@ export async function createInvitation(
     metadata: { email, role: input.role, invitationId },
   });
 
-  const acceptUrl = `${config.appUrl}/accept-invitation?token=${encodeURIComponent(rawToken)}`;
+  const acceptUrl = `${config.appUrl.replace(/\/$/, "")}/accept-invitation?token=${encodeURIComponent(rawToken)}`;
   try {
     await getMailer(config).sendMail({
       to: email,

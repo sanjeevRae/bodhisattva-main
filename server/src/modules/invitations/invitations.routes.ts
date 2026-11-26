@@ -150,7 +150,7 @@ export function createInvitationAcceptRouter(
  *   post:
  *     tags: [Invitations]
  *     summary: Invite a new admin user
- *     description: Creates a single-use invitation (expires after 7 days) and emails the accept link. Requires a full session, the invitations.create permission and a recent step-up. Invitations can never grant the CUSTOMER role.
+ *     description: Creates a single-use invitation (expires after 72 hours) and emails the accept link. Requires a full session, the invitations.create permission and a recent step-up. Invitations can never grant the CUSTOMER role.
  *     operationId: invitationsCreate
  *     security:
  *       - cookieAuth: []

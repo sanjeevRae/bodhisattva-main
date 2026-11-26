@@ -21,7 +21,7 @@ import PolicyPage from "./pages/PolicyPage";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
-import { ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
+import { AcceptInvitationPage, ForgotPasswordPage, ResetPasswordPage } from "./pages/PasswordPages";
 import AccountPage from "./pages/AccountPage";
 import AccountOrdersPage from "./pages/AccountOrdersPage";
 import AccountAddressesPage from "./pages/AccountAddressesPage";
@@ -90,6 +90,7 @@ function Shell() {
                 <Route path="/verify-email" element={<VerifyEmailPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                 <Route path="/reset-password" element={<ResetPasswordPage />} />
+                <Route path="/accept-invitation" element={<AcceptInvitationPage />} />
                 <Route path="/checkout" element={<CheckoutPage />} />
                 <Route path="/account" element={<AccountPage />} />
                 <Route path="/account/orders" element={<AccountOrdersPage />} />
