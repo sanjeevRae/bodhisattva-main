@@ -24,6 +24,11 @@ import type { AppConfig } from "../../config/env.js";
 import type { Database } from "../../database/client.js";
 import { createRateLimiter, type RateLimiter } from "../../security/rate-limit.js";
 import { writeAudit } from "../../services/audit.js";
+import {
+  passwordResetEmail,
+  verificationEmail,
+  type EmailContent,
+} from "../../services/email-templates.js";
 import type { Mailer } from "../../services/mailer.js";
 import {
   ADMIN_ROLE_CODES,
@@ -117,17 +122,26 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     return { ipAddress: ctx.ipAddress, userAgent: ctx.userAgent };
   }
 
-  /** Send mail without ever failing the flow or logging content. */
+  /**
+   * Send mail without ever failing the flow or logging content.
+   * The failure log carries ONLY a static kind label: the
+   * verification subject itself contains the code (see
+   * email-templates.ts), so subjects and bodies are never logged.
+   */
   async function sendMailSafe(
     to: string,
-    subject: string,
-    text: string,
+    content: EmailContent,
+    label: string,
   ): Promise<void> {
     try {
-      await mailer.sendMail({ to, subject, text });
+      await mailer.sendMail({
+        to,
+        subject: content.subject,
+        text: content.text,
+        html: content.html,
+      });
     } catch (err) {
-      // Only the failure is logged — never the body (it may carry a code).
-      logger.error({ err, subject }, "auth email delivery failed");
+      logger.error({ err, label }, "auth email delivery failed");
     }
   }
 
@@ -180,15 +194,11 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     await rateLimiter.recordHit("otp:email", user.emailNormalized, ONE_HOUR_SECONDS);
     await sendMailSafe(
       user.email,
-      "Your Bodhisattva Museum verification code",
-      [
-        `Welcome to Bodhisattva Museum.`,
-        ``,
-        `Your email verification code is: ${code}`,
-        ``,
-        `It expires in ${Math.round(config.otpPolicy.expirySeconds / 60)} minutes.`,
-        `If you did not create an account, you can ignore this email.`,
-      ].join("\n"),
+      verificationEmail({
+        code,
+        expiryMinutes: Math.round(config.otpPolicy.expirySeconds / 60),
+      }),
+      "verification",
     );
     return true;
   }
@@ -587,15 +597,8 @@ export function createAuthService(deps: AuthServiceDeps): AuthService {
     const resetUrl = `${config.appUrl.replace(/\/$/, "")}/reset-password?token=${encodeURIComponent(raw)}`;
     await sendMailSafe(
       user.email,
-      "Reset your Bodhisattva Museum password",
-      [
-        `We received a request to reset your password.`,
-        ``,
-        `Use this link within ${RESET_TOKEN_TTL_SECONDS / 60} minutes:`,
-        resetUrl,
-        ``,
-        `If you did not request this, you can ignore this email — your password will not change.`,
-      ].join("\n"),
+      passwordResetEmail({ resetUrl, ttlMinutes: RESET_TOKEN_TTL_SECONDS / 60 }),
+      "password reset",
     );
     await writeAudit(db, {
       actorId: user.id,

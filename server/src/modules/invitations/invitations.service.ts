@@ -32,6 +32,7 @@ import {
 } from "../../database/schema/index.js";
 import type { AuthContext } from "../../middleware/authorization.js";
 import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
+import { invitationEmail } from "../../services/email-templates.js";
 import { getMailer } from "../../services/mailer.js";
 import {
   ROLE_RANK,
@@ -238,20 +239,7 @@ export async function createInvitation(
   try {
     await getMailer(config).sendMail({
       to: email,
-      subject: "You have been invited to administer the Bodhisattva Museum website",
-      text: [
-        `You have been invited to join the Bodhisattva Museum website administration team with the role ${input.role}.`,
-        ``,
-        `Accept the invitation within 72 hours using this link:`,
-        acceptUrl,
-        ``,
-        `If you were not expecting this invitation, you can ignore this email.`,
-      ].join("\n"),
-      html: [
-        `<p>You have been invited to join the Bodhisattva Museum website administration team with the role <strong>${input.role}</strong>.</p>`,
-        `<p><a href="${acceptUrl}">Accept the invitation</a> within 72 hours.</p>`,
-        `<p>If you were not expecting this invitation, you can ignore this email.</p>`,
-      ].join("\n"),
+      ...invitationEmail({ role: input.role, acceptUrl }),
     });
   } catch (cause) {
     await writeAudit(db, {

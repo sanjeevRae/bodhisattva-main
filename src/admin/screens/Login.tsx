@@ -100,6 +100,15 @@ function CredentialsForm() {
           required
         />
       </Field>
+      <p className="-mt-2 text-right text-xs">
+        {/* The recovery flow lives in the public app; a plain anchor
+            (full-page navigation) is the correct route to it. The
+            flow itself is role-agnostic and never bypasses MFA: a
+            reset admin still completes TOTP at the next login. */}
+        <a href="/forgot-password" className="text-muted-foreground transition-colors hover:text-accent">
+          Forgot password?
+        </a>
+      </p>
       <Btn type="submit" variant="accent" className="w-full" disabled={busy}>
         {busy ? "Signing in…" : "Sign in"}
       </Btn>

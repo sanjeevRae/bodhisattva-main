@@ -80,14 +80,43 @@ export function ForgotPasswordPage() {
  * Reset password — the token arrives in the emailed link's ?token=
  * parameter and is single-use; a successful reset revokes all sessions.
  */
+const RESET_TOKEN_KEY = "bi-reset-token";
+
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
-  const token = params.get("token") ?? "";
+  // Same token hygiene as the invitation accept page: the single-use
+  // bearer token moves into sessionStorage on arrival and the URL is
+  // scrubbed, so it does not linger in the address bar, history or
+  // screenshots. Cleared on success or any definitive server answer;
+  // kept only across transport failures so a reload can retry.
+  const [token] = useState<string>(() => {
+    const fromUrl = params.get("token") ?? "";
+    try {
+      if (fromUrl) {
+        sessionStorage.setItem(RESET_TOKEN_KEY, fromUrl);
+        return fromUrl;
+      }
+      return sessionStorage.getItem(RESET_TOKEN_KEY) ?? "";
+    } catch {
+      return fromUrl;
+    }
+  });
+  useEffect(() => {
+    if (params.get("token")) navigate("/reset-password", { replace: true });
+  }, [navigate, params]);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const clearStoredToken = () => {
+    try {
+      sessionStorage.removeItem(RESET_TOKEN_KEY);
+    } catch {
+      // Storage unavailable — nothing to clear.
+    }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -102,8 +131,10 @@ export function ResetPasswordPage() {
         method: "POST",
         body: { token, newPassword: password },
       });
+      clearStoredToken();
       navigate("/login?reset=1", { replace: true });
     } catch (err) {
+      if (err instanceof ShopApiError) clearStoredToken();
       setError(apiErrorText(err, "That reset link is no longer valid. Please request a new one."));
     } finally {
       setBusy(false);
