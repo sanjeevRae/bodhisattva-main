@@ -144,8 +144,6 @@ export function verificationEmail(input: { code: string; expiryMinutes: number }
     ``,
     `It expires in ${input.expiryMinutes} minutes.`,
     `If you did not create an account, you can ignore this email.`,
-    ``,
-    `Tip: on your phone, press and hold the code to copy it.`,
   ].join("\n");
   const html = shell({
     preheader: `Your verification code expires in ${input.expiryMinutes} minutes.`,
@@ -156,7 +154,6 @@ export function verificationEmail(input: { code: string; expiryMinutes: number }
       // The contiguous code as real text (client code-detection and
       // copy/paste must never depend on reading split table cells).
       `<p style="margin:0 0 14px 0;text-align:center;font-family:${SANS};font-size:15px;color:${INK};">Code: <strong>${input.code}</strong></p>`,
-      mutedLine(`Tip: on your phone, press and hold the code to copy it.`),
       mutedLine(`It expires in ${input.expiryMinutes} minutes.`),
       mutedLine(`If you did not create an account, you can ignore this email.`),
     ].join("\n"),
