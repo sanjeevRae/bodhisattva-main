@@ -10,6 +10,7 @@
  * caller supplies the full database handle (server.ts does). Tests that
  * pass just a readiness probe keep the Phase 1 behaviour: health only.
  */
+import compression from "compression";
 import cookieParser from "cookie-parser";
 import cors from "cors";
 import express, { type Express } from "express";
@@ -17,6 +18,7 @@ import helmet from "helmet";
 import type { Logger } from "pino";
 import type { AppConfig } from "./config/env.js";
 import type { Database } from "./database/client.js";
+import { shouldCompress } from "./middleware/compression.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { createOriginCheck } from "./middleware/origin.js";
 import { errorHandler, notFoundHandler } from "./middleware/error-handler.js";
@@ -96,6 +98,10 @@ export function createApp(deps: AppDeps): Express {
   app.use(requestIdMiddleware);
   app.use(httpLogger(logger));
   app.use(helmet());
+  // Response compression for JSON/HTML/static text, with the
+  // exclusion policy in middleware/compression.ts (streams, PDFs,
+  // partial responses and x-no-compression are never transformed).
+  app.use(compression({ filter: shouldCompress }));
   app.use(cors({ origin: config.corsOrigins, credentials: true }));
   app.use(cookieParser());
   app.use(express.json({ limit: "1mb" }));

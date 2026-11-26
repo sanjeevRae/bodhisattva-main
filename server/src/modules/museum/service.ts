@@ -41,6 +41,7 @@ import {
   count,
   desc,
   eq,
+  getTableColumns,
   gt,
   gte,
   inArray,
@@ -1841,12 +1842,27 @@ export interface AdminNewsListFilters {
   sort?: "updated" | "published" | "title";
 }
 
-export type NewsArticleAdminListItem = NewsArticleRow & {
+/**
+ * List items deliberately omit the article body (`content`, LONGTEXT)
+ * and its plain-text projection (`contentPlain`, MEDIUMTEXT): no list
+ * consumer reads them (the editor loads the detail endpoint), and they
+ * made a 20-row page ~40 KB. The detail type below keeps both.
+ */
+export type NewsArticleAdminListItem = Omit<
+  NewsArticleRow,
+  "content" | "contentPlain"
+> & {
   hasPdf: boolean;
   pdfOriginalName: string | null;
   createdByName: string | null;
   tags: NewsTagView[];
 };
+
+const {
+  content: _newsContent,
+  contentPlain: _newsContentPlain,
+  ...newsListColumns
+} = getTableColumns(newsArticles);
 
 export type NewsArticleAdminDetail = NewsArticleRow & {
   tags: NewsTagView[];
@@ -1889,7 +1905,7 @@ export async function listAdminNewsArticles(
         : [desc(newsArticles.updatedAt), desc(newsArticles.id)];
   const [totalRow] = await db.select({ value: count() }).from(newsArticles).where(where);
   const rows = await db
-    .select()
+    .select(newsListColumns)
     .from(newsArticles)
     .where(where)
     .orderBy(...orderBy)

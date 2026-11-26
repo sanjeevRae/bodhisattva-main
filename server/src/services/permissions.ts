@@ -99,34 +99,75 @@ export async function getUserRoles(
  * whatever its seed/migration history. No endpoint can edit a role's
  * permission set, so nothing can legitimately trim this.
  */
-export async function getEffectivePermissions(
+/**
+ * Roles + granted permission codes in ONE joined read: user_roles ⋈
+ * roles with LEFT JOINs through role_permissions ⋈ permissions, so a
+ * role holding no grants still appears (permissionCode null). This is
+ * the single-query twin of getUserRoles + the grant join — same role
+ * validation, same grant semantics — and still a FRESH read on every
+ * call (no caching; see the file header).
+ */
+async function loadRolePermissionPairs(
   db: Database,
   userId: number,
-): Promise<Set<Permission>> {
-  const rolesHeld = await getUserRoles(db, userId);
-  if (rolesHeld.includes("SUPER_ADMIN")) {
-    return new Set(PERMISSIONS);
-  }
+): Promise<{ roles: Role[]; permissionCodes: string[] }> {
   const rows = await db
-    .select({ code: permissionsTable.code })
+    .select({
+      roleCode: rolesTable.code,
+      permissionCode: permissionsTable.code,
+    })
     .from(userRoles)
-    .innerJoin(
+    .innerJoin(rolesTable, eq(userRoles.roleId, rolesTable.id))
+    .leftJoin(
       rolePermissions,
       eq(userRoles.roleId, rolePermissions.roleId),
     )
-    .innerJoin(
+    .leftJoin(
       permissionsTable,
       eq(rolePermissions.permissionId, permissionsTable.id),
     )
     .where(eq(userRoles.userId, userId));
-  const out = new Set<Permission>();
+  const rolesOut: Role[] = [];
+  const permissionCodes: string[] = [];
   for (const row of rows) {
-    if (isPermission(row.code)) out.add(row.code);
+    if (
+      (row.roleCode === "SUPER_ADMIN" ||
+        row.roleCode === "ADMIN" ||
+        row.roleCode === "STORE_ADMIN" ||
+        row.roleCode === "CUSTOMER") &&
+      !rolesOut.includes(row.roleCode)
+    ) {
+      rolesOut.push(row.roleCode);
+    }
+    if (row.permissionCode !== null) {
+      permissionCodes.push(row.permissionCode);
+    }
+  }
+  return { roles: rolesOut, permissionCodes };
+}
+
+function permissionsFromPairs(pairs: {
+  roles: Role[];
+  permissionCodes: string[];
+}): Set<Permission> {
+  if (pairs.roles.includes("SUPER_ADMIN")) {
+    return new Set(PERMISSIONS);
+  }
+  const out = new Set<Permission>();
+  for (const code of pairs.permissionCodes) {
+    if (isPermission(code)) out.add(code);
   }
   return out;
 }
 
-/** Roles + effective permissions + highest role, resolved in two reads. */
+export async function getEffectivePermissions(
+  db: Database,
+  userId: number,
+): Promise<Set<Permission>> {
+  return permissionsFromPairs(await loadRolePermissionPairs(db, userId));
+}
+
+/** Roles + effective permissions + highest role, resolved in one read. */
 export interface SessionAuthContext {
   userId: number;
   roles: Role[];
@@ -138,15 +179,12 @@ export async function resolveSessionAuthContext(
   db: Database,
   userId: number,
 ): Promise<SessionAuthContext> {
-  const [roles, permissions] = await Promise.all([
-    getUserRoles(db, userId),
-    getEffectivePermissions(db, userId),
-  ]);
+  const pairs = await loadRolePermissionPairs(db, userId);
   return {
     userId,
-    roles,
-    highestRole: getHighestRole(roles),
-    permissions,
+    roles: pairs.roles,
+    highestRole: getHighestRole(pairs.roles),
+    permissions: permissionsFromPairs(pairs),
   };
 }
 

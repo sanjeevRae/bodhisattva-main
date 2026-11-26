@@ -2,6 +2,7 @@
   "dependencies": {
     "@bodhisattva/shared": "file:../shared",
     "argon2": "^0.44.0",
+    "compression": "^1.8.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -23,6 +24,7 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@types/compression": "^1.8.1",
     "@types/cookie-parser": "^1.4.7",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.0",
@@ -53,7 +55,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "test:integration": "bash -c 'set -a; . ./.env; set +a; INTEGRATION_DB=1 vitest run tests/auth-flows.integration.test.ts tests/auth-email.integration.test.ts tests/cms-flows.integration.test.ts tests/museum-flows.integration.test.ts tests/store-flows.integration.test.ts tests/orders-flows.integration.test.ts tests/orders-admin-access.integration.test.ts tests/security.integration.test.ts tests/super-admin-cap.integration.test.ts tests/news-clippings.integration.test.ts tests/contact.integration.test.ts tests/spa.integration.test.ts tests/policies.integration.test.ts tests/users-promotion.integration.test.ts tests/users-delete.integration.test.ts tests/invitation-link.integration.test.ts'",
+    "test:integration": "bash -c 'set -a; . ./.env; set +a; INTEGRATION_DB=1 vitest run tests/auth-flows.integration.test.ts tests/auth-email.integration.test.ts tests/cms-flows.integration.test.ts tests/museum-flows.integration.test.ts tests/store-flows.integration.test.ts tests/orders-flows.integration.test.ts tests/orders-admin-access.integration.test.ts tests/security.integration.test.ts tests/super-admin-cap.integration.test.ts tests/news-clippings.integration.test.ts tests/contact.integration.test.ts tests/spa.integration.test.ts tests/policies.integration.test.ts tests/users-promotion.integration.test.ts tests/users-delete.integration.test.ts tests/invitation-link.integration.test.ts tests/perf-guards.integration.test.ts'",
     "test:watch": "vitest",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "outbox:drain": "tsx src/cli/drain-outbox.ts",

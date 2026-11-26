@@ -57,6 +57,7 @@ import {
   loadProductImages,
   productAvailableQty,
   reservedQty,
+  reservedQtyByProduct,
   resolveProductImage,
   variantAvailableQty,
   type DbLike,
@@ -345,29 +346,71 @@ async function assertCategoryExists(
   });
 }
 
+/**
+ * Batched admin views for a page of products. The enrichment runs a
+ * constant number of queries regardless of page size — category slugs
+ * (one IN query), images (one IN query via loadProductImages), live
+ * media (one IN query) and reserved quantities (one grouped SUM) —
+ * instead of ~5 queries per product. Values are identical to the old
+ * per-product builder: reserved comes from reservedQtyByProduct (the
+ * batch twin of reservedQty) and available mirrors
+ * productAvailableQty (stockQty when untracked, else stockQty −
+ * reserved, with reserved computed once).
+ */
+async function toProductAdminViews(
+  db: DbLike,
+  rows: ProductRow[],
+): Promise<ProductAdminView[]> {
+  if (rows.length === 0) return [];
+  const categoryIds = [
+    ...new Set(
+      rows
+        .map((row) => row.categoryId)
+        .filter((id): id is number => id !== null),
+    ),
+  ];
+  const slugByCategory = new Map<number, string>();
+  if (categoryIds.length > 0) {
+    const categories = await db
+      .select({ id: productCategories.id, slug: productCategories.slug })
+      .from(productCategories)
+      .where(inArray(productCategories.id, categoryIds));
+    for (const category of categories) {
+      slugByCategory.set(category.id, category.slug);
+    }
+  }
+  const imagesByProduct = await loadProductImages(
+    db,
+    rows.map((row) => row.id),
+  );
+  const allImages = rows.flatMap((row) => imagesByProduct.get(row.id) ?? []);
+  const liveMedia = await liveMediaIdSet(db, allImages);
+  const reservedByProduct = await reservedQtyByProduct(
+    db,
+    rows.map((row) => row.id),
+  );
+  return rows.map((row) => {
+    const reserved = reservedByProduct.get(row.id) ?? 0;
+    const imageRows = imagesByProduct.get(row.id) ?? [];
+    return {
+      ...row,
+      categorySlug:
+        row.categoryId !== null
+          ? (slugByCategory.get(row.categoryId) ?? null)
+          : null,
+      reservedQty: reserved,
+      availableQty: row.trackInventory ? row.stockQty - reserved : row.stockQty,
+      image: resolveProductImage(row.name, imageRows, liveMedia),
+    };
+  });
+}
+
 async function toProductAdminView(
   db: DbLike,
   row: ProductRow,
 ): Promise<ProductAdminView> {
-  let categorySlug: string | null = null;
-  if (row.categoryId !== null) {
-    const [category] = await db
-      .select({ slug: productCategories.slug })
-      .from(productCategories)
-      .where(eq(productCategories.id, row.categoryId))
-      .limit(1);
-    categorySlug = category?.slug ?? null;
-  }
-  const imagesByProduct = await loadProductImages(db, [row.id]);
-  const imageRows = imagesByProduct.get(row.id) ?? [];
-  const liveMedia = await liveMediaIdSet(db, imageRows);
-  return {
-    ...row,
-    categorySlug,
-    reservedQty: await reservedQty(db, row.id),
-    availableQty: await productAvailableQty(db, row),
-    image: resolveProductImage(row.name, imageRows, liveMedia),
-  };
+  const [view] = await toProductAdminViews(db, [row]);
+  return view!;
 }
 
 export async function listAdminProducts(
@@ -396,8 +439,7 @@ export async function listAdminProducts(
     .orderBy(desc(products.createdAt), desc(products.id))
     .limit(pagination.pageSize)
     .offset((pagination.page - 1) * pagination.pageSize);
-  const items: ProductAdminView[] = [];
-  for (const row of rows) items.push(await toProductAdminView(db, row));
+  const items = await toProductAdminViews(db, rows);
   return { items, total: totalRow?.value ?? 0 };
 }
 

@@ -191,6 +191,35 @@ export async function reservedQty(
   return -Number(row?.total ?? 0);
 }
 
+/**
+ * Reserved quantities for many products in ONE grouped query — the
+ * batch twin of reservedQty() with variantId undefined: same movement
+ * types, same sign convention. Products with no RESERVE/RELEASE
+ * movements are absent from the map; callers default them to 0.
+ */
+export async function reservedQtyByProduct(
+  db: DbLike,
+  productIds: number[],
+): Promise<Map<number, number>> {
+  const byProduct = new Map<number, number>();
+  if (productIds.length === 0) return byProduct;
+  const rows = await db
+    .select({
+      productId: inventoryMovements.productId,
+      total: sql<number>`COALESCE(SUM(${inventoryMovements.quantity}), 0)`,
+    })
+    .from(inventoryMovements)
+    .where(
+      and(
+        inArray(inventoryMovements.productId, productIds),
+        inArray(inventoryMovements.movementType, ["RESERVE", "RELEASE"]),
+      ),
+    )
+    .groupBy(inventoryMovements.productId);
+  for (const row of rows) byProduct.set(row.productId, -Number(row.total ?? 0));
+  return byProduct;
+}
+
 /** Available units of a product as a whole (its stock mirrors variant sums). */
 export async function productAvailableQty(
   db: DbLike,

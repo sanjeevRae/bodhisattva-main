@@ -54,14 +54,28 @@ export default function ProductsScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
+  // Quick actions update the visible rows in place from the API's
+  // canonical response instead of refetching the whole page: archive /
+  // activate return the full updated product view, and a status flip
+  // changes neither the createdAt ordering nor search membership.
+  // Permanent delete removes the row locally; only a page that was
+  // full refetches, to pull the next row up.
+  const replaceRow = (updated: ProductAdmin) => {
+    setItems((prev) =>
+      prev === null
+        ? prev
+        : prev.map((item) => (item.id === updated.id ? updated : item)),
+    );
+  };
+
   const confirmArchive = async () => {
     if (!archiving) return;
     setArchiveBusy(true);
     setArchiveError(null);
     try {
-      await storeApi.archiveProduct(archiving.id);
+      const updated = await storeApi.archiveProduct(archiving.id);
       setArchiving(null);
-      await load(page, search);
+      replaceRow(updated);
     } catch (err) {
       setArchiveError(err);
     } finally {
@@ -74,9 +88,9 @@ export default function ProductsScreen() {
     setActivateBusy(true);
     setActivateError(null);
     try {
-      await storeApi.activateProduct(activating.id);
+      const updated = await storeApi.activateProduct(activating.id);
       setActivating(null);
-      await load(page, search);
+      replaceRow(updated);
     } catch (err) {
       setActivateError(err);
     } finally {
@@ -90,8 +104,13 @@ export default function ProductsScreen() {
     setDeleteError(null);
     try {
       await storeApi.deleteProductPermanently(deleting.id);
+      const wasFullPage = items !== null && items.length >= PAGE_SIZE;
       setDeleting(null);
-      await load(page, search);
+      setItems((prev) =>
+        prev === null ? prev : prev.filter((item) => item.id !== deleting.id),
+      );
+      setTotal((prev) => Math.max(0, prev - 1));
+      if (wasFullPage) await load(page, search);
     } catch (err) {
       setDeleteError(err);
     } finally {
