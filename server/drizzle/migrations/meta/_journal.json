@@ -183,6 +183,13 @@
       "when": 1795412688411,
       "tag": "0025_product_image_placement",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1795676270987,
+      "tag": "0026_admin_order_permissions",
+      "breakpoints": true
     }
   ]
 }

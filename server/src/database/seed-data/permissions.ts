@@ -146,13 +146,24 @@ const ACCOUNT_PERMISSIONS: readonly Permission[] = [
   'account.security.manage',
 ];
 
-/** ADMIN — 28 grants (§5): account + CMS + media + museum/editorial. No store, no system administration. */
+/** ADMIN — 32 grants (§5): account + CMS + media + museum/editorial +
+ * the two owner-granted store carve-outs below. No products, inventory,
+ * invoices or reports; no system administration. */
 const ADMIN_PERMISSIONS: readonly Permission[] = [
   ...ACCOUNT_PERMISSIONS,
   // Store *settings* only (shipping fee, VAT rate, COD toggle) — the
   // owner asked Admins to manage these (2026-11-20); the rest of the
   // store domain stays STORE_ADMIN-only.
   'store.settings.manage',
+  // Order management (2026-11-26): the owner asked Admins to run order
+  // statuses from the Orders list alongside Store Admins — read +
+  // approve + cancel + lifecycle update. Products, inventory, invoices
+  // and reports stay STORE_ADMIN-only. Migration 0026 grants the same
+  // rows on existing databases.
+  'store.orders.read',
+  'store.orders.approve',
+  'store.orders.cancel',
+  'store.orders.update',
   'cms.pages.read',
   'cms.pages.create',
   'cms.pages.update',

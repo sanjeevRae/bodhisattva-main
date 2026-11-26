@@ -12,7 +12,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router";
 import { ArrowLeft, Download, MailPlus } from "lucide-react";
-import { ordersApi, type OrderTransitionAction } from "../api";
+import { ordersApi } from "../api";
 import { useAuth } from "../AdminApp";
 import type { AdminOrderDetail } from "../types";
 import {
@@ -27,96 +27,14 @@ import {
   inputCls,
 } from "../ui";
 import { formatRsPaisa } from "./module-shared";
-import { InvoiceEmailBadge, OrderStatusBadge, formatAge, orderStatusLabel } from "./order-shared";
-
-interface ActionSpec {
-  action: OrderTransitionAction;
-  label: string;
-  permission: string;
-  variant: "accent" | "primary" | "outline" | "danger";
-  needsReason?: boolean;
-  blurb: string;
-}
-
-function actionsFor(status: string): ActionSpec[] {
-  switch (status) {
-    case "PENDING_APPROVAL":
-      return [
-        {
-          action: "approve",
-          label: "Approve order",
-          permission: "store.orders.approve",
-          variant: "accent",
-          blurb:
-            "Approving finalises the reserved stock, creates the invoice and emails it to the customer.",
-        },
-        {
-          action: "reject",
-          label: "Reject",
-          permission: "store.orders.cancel",
-          variant: "danger",
-          needsReason: true,
-          blurb: "Rejecting cancels the order and releases its reserved stock.",
-        },
-        {
-          action: "cancel",
-          label: "Cancel order",
-          permission: "store.orders.cancel",
-          variant: "danger",
-          needsReason: true,
-          blurb: "Cancelling releases the reserved stock. The customer is notified with the reason.",
-        },
-      ];
-    case "APPROVED":
-      return [
-        {
-          action: "process",
-          label: "Start processing",
-          permission: "store.orders.update",
-          variant: "accent",
-          blurb: "Marks the order as being prepared for dispatch.",
-        },
-        {
-          action: "cancel",
-          label: "Cancel order",
-          permission: "store.orders.cancel",
-          variant: "danger",
-          needsReason: true,
-          blurb: "Cancelling restores the deducted stock. The issued invoice stays on record.",
-        },
-      ];
-    case "PROCESSING":
-      return [
-        {
-          action: "ship",
-          label: "Mark shipped",
-          permission: "store.orders.update",
-          variant: "accent",
-          blurb: "Marks the order as dispatched to the customer.",
-        },
-        {
-          action: "cancel",
-          label: "Cancel order",
-          permission: "store.orders.cancel",
-          variant: "danger",
-          needsReason: true,
-          blurb: "Cancelling restores the deducted stock. The issued invoice stays on record.",
-        },
-      ];
-    case "SHIPPED":
-      return [
-        {
-          action: "deliver",
-          label: "Mark delivered",
-          permission: "store.orders.update",
-          variant: "accent",
-          blurb: "Marks the order as delivered — the lifecycle is complete.",
-        },
-      ];
-    default:
-      return [];
-  }
-}
+import {
+  InvoiceEmailBadge,
+  OrderStatusBadge,
+  actionsFor,
+  formatAge,
+  orderStatusLabel,
+  type ActionSpec,
+} from "./order-shared";
 
 export default function OrderDetailScreen() {
   const { id } = useParams();

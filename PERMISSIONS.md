@@ -215,10 +215,10 @@ A "—" is enforced by the API regardless of what any UI shows.
 | `store.products.manage` | ✓ | — | ✓ | — |
 | `store.categories.manage` | ✓ | — | ✓ | — |
 | `store.inventory.manage` | ✓ | — | ✓ | — |
-| `store.orders.read` | ✓ | — | ✓ | — |
-| `store.orders.approve` | ✓ | — | ✓ | — |
-| `store.orders.cancel` | ✓ | — | ✓ | — |
-| `store.orders.update` | ✓ | — | ✓ | — |
+| `store.orders.read` | ✓ | ✓ | ✓ | — |
+| `store.orders.approve` | ✓ | ✓ | ✓ | — |
+| `store.orders.cancel` | ✓ | ✓ | ✓ | — |
+| `store.orders.update` | ✓ | ✓ | ✓ | — |
 | `store.invoices.manage` | ✓ | — | ✓ | — |
 | `store.invoices.resend` | ✓ | — | ✓ | — |
 | `store.invoice_templates.manage` | ✓ | — | ✓ | — |
@@ -236,10 +236,13 @@ A "—" is enforced by the API regardless of what any UI shows.
 
 **Notes on deliberate exclusions (from spec §9.2–9.3):**
 
-- **ADMIN has no store permissions by default.** Spec §9.2: an Admin "cannot manage store operations
-  unless separately granted." If Meena later wants a specific Admin to run the shop, the correct
-  mechanism is to *also* assign that user the STORE_ADMIN role (union of permissions), not to widen
-  the ADMIN role for everyone.
+- **ADMIN has no store permissions by default — with two owner-granted carve-outs.** Spec §9.2: an
+  Admin "cannot manage store operations unless separately granted." The owner granted store
+  settings to Admins on 2026-11-20 and ORDER MANAGEMENT (store.orders.read / .approve / .cancel /
+  .update — statuses from the Orders list) on 2026-11-26, widening the ADMIN role itself for
+  those two areas (seed matrix + migration 0026). Products, inventory, invoices and reports
+  remain STORE_ADMIN-only; beyond the carve-outs, the mechanism is to *also* assign that user
+  the STORE_ADMIN role (union of permissions).
 - **STORE_ADMIN has no CMS/museum/news/foundation permissions and no `audit.read`.** Spec §9.3:
   a Store Admin "cannot edit website CMS pages, publish museum content, manage administrator roles,
   access Super Admin configuration, or view full system audit logs." Their view of customer data is

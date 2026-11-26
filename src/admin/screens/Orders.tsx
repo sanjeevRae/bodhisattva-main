@@ -6,15 +6,31 @@
  * how long the order has been waiting (Phase 6 review disposition:
  * pending orders hold reserved stock, so age is the priority signal).
  * Status chips switch to the other lifecycle states / all orders.
+ *
+ * On the ALL-orders view only (owner request, 2026-11-26), the status
+ * badge is a dropdown: it offers exactly the lifecycle actions the
+ * shared actionsFor model allows from that status, filtered by the
+ * signed-in admin's permissions, and runs them through the same
+ * transition endpoints + confirm dialog as the order detail page.
+ * The server state machine remains the only authority.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router";
-import { Search } from "lucide-react";
+import { ChevronDown, Search } from "lucide-react";
 import { ordersApi } from "../api";
+import { useAuth } from "../AdminApp";
 import type { AdminOrderListItem } from "../types";
-import { Btn, ErrorBox, Spinner, cx, formatDateTime, inputCls } from "../ui";
+import { Btn, ErrorBox, Field, Modal, Notice, Spinner, cx, formatDateTime, inputCls } from "../ui";
 import { formatRsPaisa } from "./module-shared";
-import { ORDER_STATUSES, OrderStatusBadge, formatAge, orderStatusLabel } from "./order-shared";
+import {
+  ORDER_STATUSES,
+  OrderStatusBadge,
+  actionsFor,
+  formatAge,
+  orderStatusLabel,
+  type ActionSpec,
+} from "./order-shared";
 
 const PAGE_SIZE = 50;
 
@@ -30,6 +46,7 @@ const FILTERS: Array<{ key: Filter; label: string }> = [
 ];
 
 export default function OrdersScreen() {
+  const { hasPermission } = useAuth();
   const [filter, setFilter] = useState<Filter>("PENDING_APPROVAL");
   const [items, setItems] = useState<AdminOrderListItem[] | null>(null);
   const [total, setTotal] = useState(0);
@@ -38,6 +55,17 @@ export default function OrdersScreen() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [error, setError] = useState<unknown>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Inline status editing (All-orders view only): the open menu, and
+  // the pending action awaiting confirmation in the dialog.
+  const [menu, setMenu] = useState<{ order: AdminOrderListItem; rect: DOMRect } | null>(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  const menuButtonRef = useRef<HTMLButtonElement | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ order: AdminOrderListItem; spec: ActionSpec } | null>(null);
+  const [reason, setReason] = useState("");
+  const [actionError, setActionError] = useState<unknown>(null);
+  const [actionBusy, setActionBusy] = useState(false);
 
   const load = useCallback(
     async (pageNo: number, status: Filter, term: string, fromDate: string, toDate: string) => {
@@ -70,6 +98,120 @@ export default function OrdersScreen() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, from, to]);
+
+  // Close the status menu on outside interaction, Escape (returning
+  // focus to its button), any scroll (capture phase — table containers
+  // scroll too) or resize: a fixed-position menu must never be left
+  // floating detached from its row.
+  useEffect(() => {
+    if (!menu) return;
+    const close = (refocus: boolean) => {
+      setMenu(null);
+      if (refocus) menuButtonRef.current?.focus();
+    };
+    const onPointerDown = (e: PointerEvent) => {
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (menuButtonRef.current?.contains(target)) return;
+      close(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close(true);
+    };
+    const onFocusIn = (e: FocusEvent) => {
+      // Tabbing away from the menu closes it and lets focus move on
+      // normally (the menu pattern's Tab contract).
+      const target = e.target as Node;
+      if (menuRef.current?.contains(target)) return;
+      if (menuButtonRef.current?.contains(target)) return;
+      close(false);
+    };
+    const onScrollOrResize = () => close(false);
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    document.addEventListener("focusin", onFocusIn);
+    window.addEventListener("scroll", onScrollOrResize, true);
+    window.addEventListener("resize", onScrollOrResize);
+    menuRef.current?.querySelector("button")?.focus();
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("focusin", onFocusIn);
+      window.removeEventListener("scroll", onScrollOrResize, true);
+      window.removeEventListener("resize", onScrollOrResize);
+    };
+  }, [menu]);
+
+  const runTransition = async () => {
+    if (!pendingAction) return;
+    const { order, spec } = pendingAction;
+    setActionBusy(true);
+    setActionError(null);
+    try {
+      const next = await ordersApi.transition(
+        order.id,
+        spec.action,
+        spec.needsReason ? reason.trim() : undefined,
+      );
+      setNotice(
+        `${spec.label.replace(/ order$/, "")} complete — ${order.orderNumber} is now ${orderStatusLabel(next.order.status).toLowerCase()}.`,
+      );
+      setPendingAction(null);
+      setReason("");
+    } catch (err) {
+      // The server's typed message (e.g. a stale-state 422) shows in
+      // the dialog; the list also reloads so the row can never sit
+      // there displaying a status another admin has already changed.
+      setActionError(err);
+    } finally {
+      setActionBusy(false);
+      void load(page, filter, search, from, to);
+    }
+  };
+
+  const reasonMissing = pendingAction?.spec.needsReason && reason.trim() === "";
+  const editable = filter === "ALL";
+
+  /** The status cell: a dropdown on the All-orders view when the
+   * signed-in admin holds at least one of the status's action
+   * permissions; the plain badge everywhere else. */
+  const statusCell = (order: AdminOrderListItem) => {
+    const specs = editable
+      ? actionsFor(order.status).filter((spec) => hasPermission(spec.permission))
+      : [];
+    if (specs.length === 0) return <OrderStatusBadge status={order.status} />;
+    const tone =
+      order.status === "PENDING_APPROVAL" || order.status === "CANCELLED"
+        ? "bg-primary text-primary-foreground"
+        : order.status === "DELIVERED" || order.status === "APPROVED"
+          ? "bg-accent text-accent-foreground"
+          : "bg-muted text-muted-foreground";
+    return (
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={menu?.order.id === order.id}
+        aria-controls={menu?.order.id === order.id ? `status-menu-${order.id}` : undefined}
+        aria-label={`Change status of ${order.orderNumber}, currently ${orderStatusLabel(order.status)}`}
+        disabled={actionBusy && pendingAction?.order.id === order.id}
+        onClick={(e) => {
+          if (menu?.order.id === order.id) {
+            setMenu(null);
+            return;
+          }
+          menuButtonRef.current = e.currentTarget;
+          setMenu({ order, rect: e.currentTarget.getBoundingClientRect() });
+        }}
+        className={cx(
+          "inline-flex cursor-pointer items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[0.6rem] tracking-[0.14em] uppercase transition-opacity hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          tone,
+        )}
+      >
+        {orderStatusLabel(order.status)}
+        <ChevronDown size={11} aria-hidden />
+      </button>
+    );
+  };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const pending = filter === "PENDING_APPROVAL";
@@ -140,6 +282,7 @@ export default function OrdersScreen() {
       </div>
 
       <ErrorBox error={error} />
+      {notice && <Notice>{notice}</Notice>}
 
       {items === null ? (
         <Spinner label="Loading orders…" />
@@ -183,9 +326,7 @@ export default function OrdersScreen() {
                   <td className="px-4 py-3 text-right font-medium whitespace-nowrap">
                     {formatRsPaisa(order.grandTotalPaisa)}
                   </td>
-                  <td className="px-4 py-3">
-                    <OrderStatusBadge status={order.status} />
-                  </td>
+                  <td className="px-4 py-3">{statusCell(order)}</td>
                   {pending && (
                     <td className="px-4 py-3 text-right">
                       <span className="inline-flex items-center rounded-full bg-amber-500/15 px-2 py-0.5 font-mono text-[0.65rem] font-medium text-amber-700 dark:text-amber-400">
@@ -213,6 +354,110 @@ export default function OrdersScreen() {
           </Btn>
         </div>
       )}
+
+      {menu &&
+        createPortal(
+          <div
+            ref={menuRef}
+            id={`status-menu-${menu.order.id}`}
+            role="menu"
+            aria-label={`Change status of ${menu.order.orderNumber}`}
+            onKeyDown={(e) => {
+              // Arrow/Home/End navigation between menu items (the
+              // menu pattern's keyboard contract; Tab also works —
+              // the items are native buttons).
+              if (!["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) return;
+              const items = Array.from(
+                menuRef.current?.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]') ?? [],
+              );
+              if (items.length === 0) return;
+              e.preventDefault();
+              const idx = items.indexOf(document.activeElement as HTMLButtonElement);
+              let next = 0;
+              if (e.key === "ArrowDown") next = idx < 0 ? 0 : (idx + 1) % items.length;
+              else if (e.key === "ArrowUp")
+                next = idx < 0 ? items.length - 1 : (idx - 1 + items.length) % items.length;
+              else if (e.key === "End") next = items.length - 1;
+              items[next]?.focus();
+            }}
+            className="fixed z-50 min-w-44 overflow-hidden rounded-sm border border-border bg-background shadow-lg"
+            style={(() => {
+              const specs = actionsFor(menu.order.status).filter((spec) =>
+                hasPermission(spec.permission),
+              );
+              const height = specs.length * 37 + 8;
+              const below = menu.rect.bottom + 4;
+              const top =
+                below + height > window.innerHeight - 8
+                  ? Math.max(8, menu.rect.top - height - 4)
+                  : below;
+              const left = Math.min(menu.rect.left, window.innerWidth - 184);
+              return { top, left };
+            })()}
+          >
+            {actionsFor(menu.order.status)
+              .filter((spec) => hasPermission(spec.permission))
+              .map((spec) => (
+                <button
+                  key={spec.action}
+                  type="button"
+                  role="menuitem"
+                  onClick={() => {
+                    setMenu(null);
+                    setReason("");
+                    setActionError(null);
+                    setPendingAction({ order: menu.order, spec });
+                  }}
+                  className={cx(
+                    "block w-full px-3 py-2 text-left text-sm transition-colors hover:bg-secondary focus:bg-secondary focus:outline-none",
+                    spec.variant === "danger" && "text-destructive",
+                  )}
+                >
+                  {spec.label}
+                </button>
+              ))}
+          </div>,
+          document.body,
+        )}
+
+      <Modal
+        open={pendingAction !== null}
+        onClose={() => setPendingAction(null)}
+        title={pendingAction?.spec.label ?? ""}
+      >
+        <div className="space-y-4">
+          <p className="text-sm font-medium">
+            {pendingAction?.order.orderNumber} — {pendingAction?.order.delivery.recipientName} ·{" "}
+            {pendingAction ? formatRsPaisa(pendingAction.order.grandTotalPaisa) : ""}
+          </p>
+          <p className="text-sm">{pendingAction?.spec.blurb}</p>
+          {pendingAction?.spec.needsReason && (
+            <Field label="Reason (required — recorded in the order history)">
+              <textarea
+                className={inputCls}
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why is this order being cancelled / rejected?"
+                autoFocus
+              />
+            </Field>
+          )}
+          <ErrorBox error={actionError} />
+          <div className="flex justify-end gap-2">
+            <Btn onClick={() => setPendingAction(null)} disabled={actionBusy}>
+              Back
+            </Btn>
+            <Btn
+              variant={pendingAction?.spec.variant ?? "accent"}
+              onClick={() => void runTransition()}
+              disabled={actionBusy || !!reasonMissing}
+            >
+              {actionBusy ? "Working…" : pendingAction?.spec.label}
+            </Btn>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
