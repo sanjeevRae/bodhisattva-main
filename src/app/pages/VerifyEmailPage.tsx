@@ -1,5 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
+import { extractVerificationCode } from "../lib/clipboard-code";
 import { shopRequest } from "../lib/shop";
 import { apiErrorText, AuthError, AuthNotice, AuthShell, authButtonCls, authInputCls, authLabelCls, useReturnParam } from "./auth-shared";
 
@@ -18,6 +19,56 @@ export default function VerifyEmailPage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+  const [canPaste, setCanPaste] = useState(false);
+  const [pasteHint, setPasteHint] = useState<string | null>(null);
+  const codeInputRef = useRef<HTMLInputElement>(null);
+  // Monotonic edit sequence: bumped by every manual edit and every
+  // Paste click, so a late clipboard result can only land when
+  // NOTHING has happened since its own click — a value snapshot
+  // would miss the type-and-revert case (ChatGPT post-review).
+  const editSeqRef = useRef(0);
+
+  useEffect(() => {
+    setCanPaste(
+      window.isSecureContext && typeof navigator.clipboard?.readText === "function",
+    );
+  }, []);
+
+  /**
+   * "Paste code" — the copy button an email cannot contain, on the
+   * page where it can exist. readText() is called directly from the
+   * tap (the Clipboard API needs the live user gesture). Fill-only:
+   * it never submits, so a stale clipboard cannot burn a limited
+   * verification attempt. A result that arrives after any manual
+   * edit or a newer Paste click is dropped (edit-sequence guard).
+   * Clipboard contents are never logged, stored or sent anywhere
+   * but this field.
+   */
+  const pasteFromClipboard = () => {
+    const seq = ++editSeqRef.current;
+    setPasteHint(null);
+    void navigator.clipboard.readText().then(
+      (text) => {
+        if (editSeqRef.current !== seq) return;
+        const found = extractVerificationCode(text ?? "");
+        if (found) {
+          setPasteHint(null);
+          setCode(found);
+          codeInputRef.current?.focus();
+        } else {
+          setPasteHint(
+            "No verification code found in the clipboard. You can paste it into the field manually.",
+          );
+        }
+      },
+      () => {
+        if (editSeqRef.current !== seq) return;
+        setPasteHint(
+          "Couldn't access the clipboard. Allow paste access in your browser, or paste the code into the field manually.",
+        );
+      },
+    );
+  };
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -83,6 +134,7 @@ export default function VerifyEmailPage() {
           <label className={authLabelCls} htmlFor="verify-code">Verification code</label>
           <input
             id="verify-code"
+            ref={codeInputRef}
             required
             inputMode="numeric"
             autoComplete="one-time-code"
@@ -90,9 +142,27 @@ export default function VerifyEmailPage() {
             maxLength={8}
             className={`${authInputCls} text-center font-mono text-lg tracking-[0.5em]`}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => {
+              editSeqRef.current += 1;
+              setPasteHint(null);
+              setCode(e.target.value.replace(/\D/g, ""));
+            }}
             placeholder="········"
           />
+          {canPaste && (
+            <div className="mt-2 flex items-start justify-between gap-3">
+              <p aria-live="polite" className="font-sans text-xs font-light text-muted-foreground">
+                {pasteHint ?? ""}
+              </p>
+              <button
+                type="button"
+                onClick={pasteFromClipboard}
+                className="shrink-0 font-sans text-sm font-light text-muted-foreground transition-colors hover:text-accent"
+              >
+                Paste code
+              </button>
+            </div>
+          )}
         </div>
         <button type="submit" disabled={busy || code.length !== 8} className={authButtonCls}>
           {busy ? "Verifying…" : "Verify Email"}

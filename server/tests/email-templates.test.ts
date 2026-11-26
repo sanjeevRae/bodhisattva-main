@@ -28,6 +28,16 @@ describe("verificationEmail", () => {
     expect(mail.text).toContain("It expires in 10 minutes.");
   });
 
+  it("carries the press-and-hold copy tip in both parts", () => {
+    const mail = verificationEmail({ code: "31662065", expiryMinutes: 10 });
+    const tip = "Tip: on your phone, press and hold the code to copy it.";
+    expect(mail.text).toContain(tip);
+    expect(mail.html).toContain(tip);
+    // The other two emails do not carry the code tip.
+    expect(passwordResetEmail({ resetUrl: "https://example.com/x", ttlMinutes: 60 }).html).not.toContain(tip);
+    expect(invitationEmail({ role: "ADMIN", acceptUrl: "https://example.com/y" }).text).not.toContain(tip);
+  });
+
   it("html has 8 boxed digits in order plus the contiguous code as text", () => {
     const mail = verificationEmail({ code: "31662065", expiryMinutes: 10 });
     const digits = [...mail.html.matchAll(/font-size:20px;font-weight:bold[^>]*>(\d)</g)].map(
