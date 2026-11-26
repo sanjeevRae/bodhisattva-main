@@ -18,11 +18,18 @@
  */
 import { AppError } from "@bodhisattva/shared/errors";
 import { isRole, PERMISSIONS, type Role } from "@bodhisattva/shared/permissions";
-import { and, asc, count, eq, inArray, isNull } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, or } from "drizzle-orm";
 import type { AppConfig } from "../../config/env.js";
 import { MAX_SUPER_ADMINS } from "../../config/limits.js";
 import type { Database } from "../../database/client.js";
 import {
+  carts,
+  customerAddresses,
+  emailVerificationCodes,
+  invitations,
+  mfaCredentials,
+  mfaRecoveryCodes,
+  passwordResetTokens,
   permissions as permissionsTable,
   rolePermissions,
   roles as rolesTable,
@@ -229,6 +236,16 @@ export async function assignRole(
     return { userId: targetUserId, role, changed: false };
   }
 
+  // An administrative role on a non-active account is a role the user
+  // can never exercise (login refuses non-ACTIVE accounts) — refuse it
+  // loudly instead of persisting a silent no-op promotion. Clearing to
+  // CUSTOMER stays allowed for any status.
+  if (newAdmin !== null && target.status !== "ACTIVE") {
+    throw AppError.conflict(
+      "This account is not active, so it cannot hold an administrative role. Reactivate the account first.",
+    );
+  }
+
   const roleRows = await db
     .select({ id: rolesTable.id, code: rolesTable.code })
     .from(rolesTable);
@@ -354,4 +371,199 @@ export async function assignRole(
   });
 
   return { userId: targetUserId, role, changed: true };
+}
+
+export interface DeleteUserResult {
+  userId: number;
+}
+
+/**
+ * Delete a user account (owner request 2026-11-26; plan reviewed by
+ * ChatGPT Thinking 8.2/10 and Gemini 8.5/10 — proceed with changes).
+ *
+ * A hard DELETE is impossible by design: sessions, MFA material,
+ * invitations, audit rows, CMS authorship and orders all reference
+ * users.id with ON DELETE RESTRICT, and order/invoice history must
+ * survive for the financial record. Deletion is therefore a
+ * tombstone + pseudonymization, in one transaction:
+ *  - the row is marked deleted_at (the authoritative marker — login
+ *    and session validation already refuse deleted accounts) and set
+ *    DEACTIVATED;
+ *  - identity is pseudonymized: email + normalized email rewritten to
+ *    deleted-<id>@deleted.invalid (freeing the address for a future
+ *    account), display name replaced, phone/password/verification
+ *    stamps cleared;
+ *  - every live access mechanism is removed: role rows, MFA
+ *    credentials + recovery codes, email verification codes, password
+ *    reset tokens, the user's cart (items cascade) and saved
+ *    addresses, and pending invitations issued by or addressed to
+ *    the user (revoked, history preserved);
+ *  - sessions are revoked afterwards (ADMIN_ACTION), which also bumps
+ *    session_version.
+ * Orders keep their own immutable delivery snapshots, so fulfilment
+ * never depends on the deleted profile.
+ *
+ * Guards: the actor cannot delete themself; an actor cannot delete an
+ * account whose highest administrative role outranks their own (the
+ * same privilege cap as role assignment); the last active
+ * SUPER_ADMIN cannot be deleted — enforced inside the transaction
+ * under the same FOR UPDATE lock on Super Admin assignment rows that
+ * serializes promotions and demotions.
+ *
+ * The audit row stores the target id, the actor, and the account's
+ * prior roles and status — deliberately NOT the email address, and
+ * not a hash of it either: an unsalted hash of a low-entropy address
+ * is reversible by guessing, and deletion is the one action whose
+ * purpose is erasure (post-implementation review, ChatGPT 9.0/10).
+ */
+export async function deleteUser(
+  deps: RolesDeps,
+  actor: AuthContext,
+  targetUserId: number,
+  meta: RequestMeta,
+): Promise<DeleteUserResult> {
+  const { db } = deps;
+
+  const [target] = await db
+    .select({
+      id: users.id,
+      email: users.email,
+      emailNormalized: users.emailNormalized,
+      status: users.status,
+      deletedAt: users.deletedAt,
+    })
+    .from(users)
+    .where(eq(users.id, targetUserId))
+    .limit(1);
+  if (!target || target.deletedAt) throw AppError.notFound("User not found.");
+
+  if (target.id === actor.userId) {
+    throw AppError.conflict("You cannot delete your own account.");
+  }
+
+  const targetRoles = await getUserRoles(db, targetUserId);
+  const targetAdmin =
+    targetRoles
+      .filter((r) => isAdminRole(r))
+      .sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0] ?? null;
+
+  // Privilege cap (mirrors assignRole): nobody deletes an account that
+  // outranks them.
+  const actorHighest = getHighestRole(await getUserRoles(db, actor.userId));
+  if (
+    targetAdmin &&
+    (!actorHighest || ROLE_RANK[actorHighest] < ROLE_RANK[targetAdmin])
+  ) {
+    throw AppError.forbidden(
+      "You cannot delete an account with a higher role than your own.",
+    );
+  }
+
+  const tombstoneEmail = `deleted-${target.id}@deleted.invalid`;
+  const now = new Date();
+
+  await db.transaction(async (tx) => {
+    // Last-active-Super-Admin invariant under the shared lock: lock
+    // every SUPER_ADMIN assignment row so a concurrent promotion,
+    // demotion or deletion cannot interleave with the count below.
+    if (targetAdmin === "SUPER_ADMIN" && target.status === "ACTIVE") {
+      const [saRole] = await tx
+        .select({ id: rolesTable.id })
+        .from(rolesTable)
+        .where(eq(rolesTable.code, "SUPER_ADMIN"))
+        .limit(1);
+      if (saRole) {
+        await tx
+          .select({ userId: userRoles.userId })
+          .from(userRoles)
+          .where(eq(userRoles.roleId, saRole.id))
+          .for("update");
+        const activeSuperAdmins = await countActiveSuperAdmins(
+          tx as unknown as Database,
+        );
+        if (activeSuperAdmins <= 1) {
+          throw AppError.conflict(
+            "This user is the last active Super Admin and cannot be deleted. Promote another Super Admin first.",
+          );
+        }
+      }
+    }
+
+    await tx
+      .update(users)
+      .set({
+        deletedAt: now,
+        status: "DEACTIVATED",
+        email: tombstoneEmail,
+        emailNormalized: tombstoneEmail,
+        fullName: "Deleted user",
+        phone: null,
+        passwordHash: null,
+        emailVerifiedAt: null,
+      })
+      .where(eq(users.id, target.id));
+
+    await tx.delete(userRoles).where(eq(userRoles.userId, target.id));
+    await tx
+      .delete(mfaCredentials)
+      .where(eq(mfaCredentials.userId, target.id));
+    await tx
+      .delete(mfaRecoveryCodes)
+      .where(eq(mfaRecoveryCodes.userId, target.id));
+    await tx
+      .delete(emailVerificationCodes)
+      .where(eq(emailVerificationCodes.userId, target.id));
+    await tx
+      .delete(passwordResetTokens)
+      .where(eq(passwordResetTokens.userId, target.id));
+
+    // Pending invitations in either direction die with the account;
+    // accepted/revoked history rows are preserved.
+    await tx
+      .update(invitations)
+      .set({ revokedAt: now })
+      .where(
+        and(
+          isNull(invitations.acceptedAt),
+          isNull(invitations.revokedAt),
+          or(
+            eq(invitations.invitedBy, target.id),
+            eq(invitations.emailNormalized, target.emailNormalized),
+          ),
+        ),
+      );
+
+    // Cart items cascade with the cart; saved addresses are the user's
+    // own personal data and go with the account. Orders are untouched:
+    // they carry immutable delivery snapshots from checkout.
+    await tx.delete(carts).where(eq(carts.userId, target.id));
+    await tx
+      .delete(customerAddresses)
+      .where(eq(customerAddresses.userId, target.id));
+  });
+
+  await createSessionService(deps).revokeAllSessions(
+    targetUserId,
+    "ADMIN_ACTION",
+  );
+
+  await writeAudit(db, {
+    actorId: actor.userId,
+    actorType: "ADMIN",
+    actorRole: actorHighest,
+    actorEmail: actor.email,
+    action: AUDIT_ACTIONS.usersDelete,
+    resourceType: "user",
+    resourceId: targetUserId,
+    result: "SUCCESS",
+    ipAddress: meta.ipAddress ?? null,
+    userAgent: meta.userAgent ?? null,
+    metadata: {
+      userId: targetUserId,
+      roles: targetRoles,
+      status: target.status,
+    },
+  });
+
+  return { userId: targetUserId };
 }

@@ -61,6 +61,7 @@ export const AUDIT_ACTIONS = {
   mfaReset: "auth.mfa.reset",
   mfaStepUp: "auth.mfa.step_up",
   rolesAssign: "admin.roles.assign",
+  usersDelete: "admin.users.delete",
   bootstrapSuperAdmin: "admin.bootstrap.super_admin",
   authorizationDenied: "authorization.denied",
   cmsPagesCreate: "cms.pages.create",

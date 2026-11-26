@@ -7,6 +7,9 @@
  *                               no credential or token material)
  *   PUT /users/:userId/roles    roles.manage + step-up → assign/replace the
  *                               target's administrative role
+ *   DELETE /users/:userId       users.manage + step-up → delete the account
+ *                               (tombstone + pseudonymization; see
+ *                               roles.service deleteUser)
  */
 import { AppError } from "@bodhisattva/shared/errors";
 import { paginationQuerySchema } from "@bodhisattva/shared/pagination";
@@ -23,6 +26,7 @@ import { asyncHandler } from "../../utils/async-handler.js";
 import { assignRoleSchema } from "./roles.schemas.js";
 import {
   assignRole,
+  deleteUser,
   listRoles,
   listUsers,
   type RequestMeta,
@@ -101,6 +105,26 @@ export function createRolesRouter(deps: RolesRouterDeps): Router {
         message: result.changed
           ? "Role updated. The user's existing sessions were revoked."
           : "The user already holds this role; nothing changed.",
+      });
+    }),
+  );
+
+  router.delete(
+    "/users/:userId",
+    fullSession,
+    requirePermission(deps.db, "users.manage"),
+    requireStepUp(),
+    asyncHandler(async (req, res) => {
+      const result = await deleteUser(
+        deps,
+        getAuthContext(req),
+        parseUserIdParam(req.params.userId),
+        requestMeta(req),
+      );
+      res.status(200).json({
+        ...result,
+        message:
+          "User deleted. The account can no longer sign in and its email address is free to use again.",
       });
     }),
   );
@@ -198,6 +222,41 @@ export function createRolesRouter(deps: RolesRouterDeps): Router {
  *               $ref: '#/components/schemas/SuccessEnvelope'
  *       '400':
  *         $ref: '#/components/responses/BadRequest'
+ *       '401':
+ *         $ref: '#/components/responses/Unauthorized'
+ *       '403':
+ *         $ref: '#/components/responses/Forbidden'
+ *       '404':
+ *         $ref: '#/components/responses/NotFound'
+ *       '409':
+ *         $ref: '#/components/responses/Conflict'
+ */
+
+/**
+ * @openapi
+ * /api/admin/users/{userId}:
+ *   delete:
+ *     tags: [Roles & Users]
+ *     summary: Delete a user account
+ *     description: Tombstones and pseudonymizes the account (the row is kept for order and audit history; the identity, credentials, roles, cart and saved addresses are removed and all sessions are revoked). Requires the users.manage permission and a recent step-up. An account cannot delete itself, a lower-ranked actor cannot delete a higher-ranked account, and the last active Super Admin cannot be deleted.
+ *     operationId: usersDelete
+ *     security:
+ *       - cookieAuth: []
+ *     parameters:
+ *       - $ref: '#/components/parameters/CsrfToken'
+ *       - name: userId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *     responses:
+ *       '200':
+ *         description: Deletion result, with a human-readable message.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/SuccessEnvelope'
  *       '401':
  *         $ref: '#/components/responses/Unauthorized'
  *       '403':

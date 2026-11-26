@@ -10,7 +10,7 @@
  * admin never has to sign out and back in (Phase 4 review fix).
  */
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { KeyRound, MailPlus } from "lucide-react";
+import { KeyRound, MailPlus, Trash2, X } from "lucide-react";
 import { ApiError, authApi, usersApi } from "../api";
 import { useAuth } from "../AdminApp";
 import type { AdminUser, Invitation, RoleInfo } from "../types";
@@ -23,6 +23,11 @@ function isStepUpError(err: unknown): boolean {
     err.status === 403 &&
     err.message.includes("recent MFA verification")
   );
+}
+
+/** The server's refusal reason in one readable line. */
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : "Something went wrong.";
 }
 
 const ASSIGNABLE_ROLES = ["SUPER_ADMIN", "ADMIN", "STORE_ADMIN", "CUSTOMER"];
@@ -46,10 +51,21 @@ export default function UsersScreen() {
 
   const [roleTarget, setRoleTarget] = useState<{ user: AdminUser; role: string } | null>(null);
   const [resetTarget, setResetTarget] = useState<AdminUser | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AdminUser | null>(null);
+  // A refused sensitive action (role change, MFA reset, delete) is shown
+  // here — directly above the users table, naming the account and the
+  // server's reason — and stays until dismissed or the next action. A
+  // page-top error alone was too easy to miss: the role dropdown simply
+  // snapped back and the refusal looked like "nothing happened"
+  // (owner report, 2026-11-26).
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   // The step-up-gated action parked while the step-up modal verifies a
   // fresh TOTP code; retried exactly once on success.
-  const [stepUpRetry, setStepUpRetry] = useState<{ run: () => Promise<void> } | null>(null);
+  const [stepUpRetry, setStepUpRetry] = useState<{
+    run: () => Promise<void>;
+    describe: (err: unknown) => string;
+  } | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -75,16 +91,21 @@ export default function UsersScreen() {
    * Run a step-up-gated action. If the server refuses because the last
    * MFA verification aged out of the step-up window, park the action and
    * open the step-up modal rather than surfacing the raw 403; any other
-   * error is shown as before.
+   * refusal is reported through `describe` into the persistent action
+   * banner above the table, so it can never be mistaken for a silent
+   * no-op.
    */
-  const runSensitive = async (run: () => Promise<void>): Promise<void> => {
+  const runSensitive = async (
+    run: () => Promise<void>,
+    describe: (err: unknown) => string,
+  ): Promise<void> => {
     try {
       await run();
     } catch (err) {
       if (isStepUpError(err)) {
-        setStepUpRetry({ run });
+        setStepUpRetry({ run, describe });
       } else {
-        setError(err);
+        setActionError(describe(err));
       }
     }
   };
@@ -93,14 +114,18 @@ export default function UsersScreen() {
     if (!roleTarget) return;
     const target = roleTarget;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     setRoleTarget(null);
     try {
-      await runSensitive(async () => {
-        const result = await usersApi.assignRole(target.user.id, target.role);
-        setNotice(result.message);
-        await load();
-      });
+      await runSensitive(
+        async () => {
+          const result = await usersApi.assignRole(target.user.id, target.role);
+          setNotice(result.message);
+          await load();
+        },
+        (err) =>
+          `Could not change ${target.user.email} to ${target.role.replace(/_/g, " ")}: ${errText(err)}`,
+      );
     } finally {
       setBusy(false);
     }
@@ -110,17 +135,49 @@ export default function UsersScreen() {
     if (!resetTarget) return;
     const target = resetTarget;
     setBusy(true);
-    setError(null);
+    setActionError(null);
     setResetTarget(null);
     try {
-      await runSensitive(async () => {
-        const result = await authApi.resetMfa(target.id);
-        setNotice(result.message);
-      });
+      await runSensitive(
+        async () => {
+          const result = await authApi.resetMfa(target.id);
+          setNotice(result.message);
+        },
+        (err) => `Could not reset two-factor authentication for ${target.email}: ${errText(err)}`,
+      );
     } finally {
       setBusy(false);
     }
   };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    const target = deleteTarget;
+    setBusy(true);
+    setActionError(null);
+    setDeleteTarget(null);
+    try {
+      await runSensitive(
+        async () => {
+          await usersApi.deleteUser(target.id);
+          setNotice(
+            `Deleted ${target.email}. The account can no longer sign in and the email address is free to use again.`,
+          );
+          await load();
+        },
+        (err) => `Could not delete ${target.email}: ${errText(err)}`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // Same predicate as the server's Super Admin cap: ACTIVE accounts
+  // holding the role. The cap itself (3) is MAX_SUPER_ADMINS in the
+  // server config — mirrored here so a refused promotion is never a
+  // surprise.
+  const superAdminSeats =
+    users?.filter((u) => u.status === "ACTIVE" && u.roles.includes("SUPER_ADMIN")).length ?? 0;
 
   return (
     <div className="mx-auto max-w-5xl space-y-8">
@@ -130,10 +187,27 @@ export default function UsersScreen() {
           Accounts, administrative roles and invitations. Sensitive actions need a recent two-factor verification —
           if yours has lapsed, you will be asked for a fresh code in place, with no need to sign out.
         </p>
+        {hasPermission("roles.manage") && users !== null && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            Super Admin seats: {superAdminSeats} of 3 in use.
+          </p>
+        )}
       </div>
 
       <ErrorBox error={error} />
       {notice && <Notice>{notice}</Notice>}
+
+      {actionError && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-sm border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <p>{actionError}</p>
+          <Btn size="sm" variant="ghost" onClick={() => setActionError(null)} aria-label="Dismiss">
+            <X size={14} />
+          </Btn>
+        </div>
+      )}
 
       {/* ---------------------------------------------------------- users */}
       <section aria-label="Users">
@@ -192,11 +266,18 @@ export default function UsersScreen() {
                         )}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        {hasAdminRole && hasPermission("users.manage") && (
-                          <Btn size="sm" variant="ghost" onClick={() => setResetTarget(user)}>
-                            <KeyRound size={14} /> Reset MFA
-                          </Btn>
-                        )}
+                        <span className="inline-flex gap-1">
+                          {hasAdminRole && hasPermission("users.manage") && (
+                            <Btn size="sm" variant="ghost" onClick={() => setResetTarget(user)}>
+                              <KeyRound size={14} /> Reset MFA
+                            </Btn>
+                          )}
+                          {hasPermission("users.manage") && !isSelf && (
+                            <Btn size="sm" variant="ghost" onClick={() => setDeleteTarget(user)}>
+                              <Trash2 size={14} /> Delete
+                            </Btn>
+                          )}
+                        </span>
                       </td>
                     </tr>
                   );
@@ -304,6 +385,23 @@ export default function UsersScreen() {
         onCancel={() => setRoleTarget(null)}
       />
       <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Delete user account"
+        confirmLabel="Delete user"
+        danger
+        busy={busy}
+        body={
+          <p>
+            Delete <strong>{deleteTarget?.email}</strong> permanently? The account is removed from this list and
+            can never sign in again; its sign-in details, roles, two-factor data, cart and saved addresses are
+            erased, and the email address becomes free to use again. Past orders, invoices and audit records are
+            kept, under an anonymized “Deleted user” record. This cannot be undone.
+          </p>
+        }
+        onConfirm={() => void confirmDelete()}
+        onCancel={() => setDeleteTarget(null)}
+      />
+      <ConfirmDialog
         open={resetTarget !== null}
         title="Reset two-factor authentication"
         confirmLabel="Reset MFA"
@@ -328,7 +426,9 @@ export default function UsersScreen() {
             try {
               await retry.run();
             } catch (err) {
-              setError(err);
+              // A refusal after a successful step-up gets the same
+              // contextual banner as a first-attempt refusal.
+              setActionError(retry.describe(err));
             }
           }
         }}

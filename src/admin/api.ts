@@ -347,6 +347,9 @@ export const usersApi = {
   assignRole(userId: number, role: string): Promise<{ userId: number; role: string; changed: boolean; message: string }> {
     return request(`/api/admin/users/${userId}/roles`, { method: "PUT", body: { role } });
   },
+  deleteUser(userId: number): Promise<{ userId: number; message: string }> {
+    return request(`/api/admin/users/${userId}`, { method: "DELETE" });
+  },
   listInvitations(page = 1, pageSize = 50): Promise<{ items: Invitation[]; meta: PageMeta }> {
     return request(`/api/admin/invitations?page=${page}&pageSize=${pageSize}`);
   },
