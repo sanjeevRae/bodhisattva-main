@@ -92,6 +92,48 @@ Two related traps from the same day:
   a 301 www→apex RewriteRule at the top of the webroot
   `.htaccess`, above the Passenger block.
 
+## 1d. ZIP-deploy route — build on PC, upload dist (learned live 2026-11-26)
+
+This is the route actually used for the fe259de3 deploy (2026-11-26).
+The GitHub zip / dist zips carry **no `server/package.json`**, and
+cPanel has **no `tsx`** — so the deploy sequence differs from §2/§4
+in three ways that each caused a 503 that day. Correct order on
+cPanel Terminal (venv active, in `server/`):
+
+```bash
+# 1. NEW DEPENDENCY BY NAME — the uploaded dist has no package.json
+#    to install from, so a dependency added in this round must be
+#    installed explicitly (2026-11-26: compression):
+npm install compression@1.8.2
+
+# 2. SHARED PACKAGE COPY — LAST, after every npm install.
+#    Any npm install rebuilds node_modules/@bodhisattva/shared back
+#    into a dangling symlink, which crashes the boot with
+#    "Cannot find package '@bodhisattva/shared'". Remove the link
+#    first — plain `cp -r` fails on it ("cannot overwrite
+#    non-directory") — then copy, then verify:
+rm node_modules/@bodhisattva/shared
+cp -r ../shared node_modules/@bodhisattva/shared
+ls node_modules/@bodhisattva/shared/dist   # must list index.js etc.
+
+# 3. MIGRATE with plain node — `npm run db:migrate` fails on cPanel
+#    (tsx: command not found). Expect 27 total / 27 applied:
+node dist/database/migrate.js
+
+# 4. RESTART — equivalent to the Restart button on the Node.js App page:
+touch tmp/restart.txt
+```
+
+Local rule from the same day: a server build fails if a newly added
+dependency was never installed on that machine — run `npm install`
+in `server/` BEFORE building, on the PC and on cPanel. Rule for
+every future deploy: **installs first, shared-package copy last,
+restart after that** — never the other way round.
+
+Verify live after the restart: homepage returns 200, and the
+response carries exactly one `Content-Encoding: gzip` (no
+double-compression by Apache/Passenger).
+
 ## 2. Install + build (cPanel → Terminal) — VERIFIED 2026-11-22
 
 Host quirks learned live on this server (all confirmed by terminal
@@ -180,15 +222,26 @@ Do NOT set `PORT` — cPanel/Passenger assigns it and the app reads it.
 
 The cPanel DB was seeded with 0001–0011 (done 2026-11-18); every
 later migration must be applied or the features behind it will
-error. Current head: **0025** (product image placement, 2026-11-23;
-0024 added cover placement for Exhibitions and Collections). For any update: pull, build, then migrate
+error. Current head: **0026** (Admin order permissions, 2026-11-26;
+0025 product image placement, 0024 cover placement). Total: **27
+migrations**. For any update: pull, build, then migrate
 BEFORE restarting the app — new server code selects new columns
 immediately.
+
+On your PC (tsx is available there):
 
 ```bash
 cd ~/www.bodhisattvainternational.com/server
 npm run db:migrate        # loads server/.env itself; applies all pending
 npm run db:status         # verify: nothing pending
+```
+
+On cPanel, `npm run db:migrate` FAILS (`tsx: command not found` —
+verified 2026-11-26). Use the compiled migrator instead, from
+`server/` with the venv active (see §1d for the full order):
+
+```bash
+node dist/database/migrate.js   # expect: 27 total / 27 applied
 ```
 
 ## 5. Create the Node.js App
