@@ -38,8 +38,24 @@ import {
   requirePermission,
 } from "../../middleware/authorization.js";
 import { asyncHandler } from "../../utils/async-handler.js";
+import { AUDIT_ACTIONS, writeAudit } from "../../services/audit.js";
+import {
+  EXPORT_ROW_CAP,
+  XLSX_CONTENT_TYPE,
+  exportHeaders,
+  toCsv,
+  toXlsx,
+} from "../../services/exports.js";
+import { formatMoney, minorUnitsToMoneyString } from "../../utils/money.js";
 import * as adminService from "./admin.service.js";
 import type { StoreAdminDeps } from "./admin.service.js";
+import {
+  countOrdersInWindow,
+  getStoreInsights,
+  listOrdersForExport,
+  rangeWindow,
+  type InsightsRange,
+} from "./insights.service.js";
 import * as service from "./service.js";
 import type { StoreActor, StoreDeps, RequestMeta } from "./service.js";
 import {
@@ -541,6 +557,187 @@ export function createStoreAdminRouter(deps: StoreRouteDeps): Router {
       const body = adjustInventorySchema.parse(req.body);
       const summary = await adminService.adjustInventory(svc, actorOf(req), parseIdParam(req), body, requestMeta(req));
       sendData(res, 200, summary);
+    }),
+  );
+
+  // ---- Store insights (2026-11-27) ----------------------------------------
+  // The Store dashboard: aggregated KPIs/series/tops from the live
+  // orders + catalogue. View = store.reports.read; downloads =
+  // store.reports.export (separate on purpose: bulk export is a
+  // stronger action than viewing). Every download writes an audit
+  // row. Metric definitions live in insights.service.ts.
+  const reportsPerm = requirePermission(deps.db, "store.reports.read");
+  const reportsExportPerm = requirePermission(deps.db, "store.reports.export");
+  const rangeSchema = z.enum(["7d", "30d", "90d", "12m", "all"]);
+
+  router.get(
+    "/store/insights",
+    fullSession,
+    reportsPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const range = rangeSchema.catch("30d").parse(req.query.range ?? "30d");
+      const insights = await getStoreInsights(deps.db, range as InsightsRange);
+      sendData(res, 200, insights);
+    }),
+  );
+
+  router.get(
+    "/store/insights/export",
+    fullSession,
+    reportsExportPerm,
+    asyncHandler(async (req: Request, res: Response) => {
+      const range = rangeSchema.catch("30d").parse(req.query.range ?? "30d") as InsightsRange;
+      const format = req.query.format === "xlsx" ? "xlsx" : "csv";
+      const now = new Date();
+      const w = rangeWindow(range, now);
+      const total = await countOrdersInWindow(deps.db, w.start, w.end);
+      const stamp = now.toISOString().slice(0, 10);
+      const meta = requestMeta(req);
+      const actor = actorOf(req);
+
+      if (format === "csv") {
+        // CSV carries orders only; an over-cap CSV is refused (413)
+        // rather than silently truncated — the UI explains and the
+        // Excel report (which flags truncation inside the file)
+        // stays available.
+        if (total > EXPORT_ROW_CAP) {
+          // Refused exports are audited too (ChatGPT post-review R3):
+          // an attempted over-cap extraction is exactly the kind of
+          // event the log exists for.
+          await writeAudit(deps.db, {
+            actorId: actor.userId,
+            actorType: "ADMIN",
+            actorEmail: actor.email,
+            action: AUDIT_ACTIONS.storeInsightsExport,
+            resourceType: "store_report",
+            result: "FAILURE",
+            ipAddress: meta.ipAddress,
+            userAgent: meta.userAgent,
+            metadata: { range, format, rows: total, rejected: "EXPORT_TOO_LARGE" },
+          });
+          res.status(413).json({
+            success: false,
+            error: {
+              code: "EXPORT_TOO_LARGE",
+              message: `This period has ${total} orders, over the ${EXPORT_ROW_CAP}-row CSV limit. Download the Excel report instead, or pick a shorter range.`,
+            },
+            requestId: res.locals.requestId,
+          });
+          return;
+        }
+        const rows = await listOrdersForExport(deps.db, w.start, w.end, EXPORT_ROW_CAP);
+        const csv = toCsv([
+          ["Order number", "Date (UTC)", "Customer", "Email", "Status", "Items", "Subtotal", "Shipping", "Discount", "Tax", "Grand total"],
+          ...rows.map((r) => [
+            r.orderNumber,
+            r.placedAt.toISOString(),
+            r.customerName,
+            r.customerEmail,
+            r.status,
+            r.items,
+            r.subtotal,
+            r.shippingFee,
+            r.discountTotal,
+            r.taxTotal,
+            r.grandTotal,
+          ]),
+        ]);
+        await writeAudit(deps.db, {
+          actorId: actor.userId,
+          actorType: "ADMIN",
+          actorEmail: actor.email,
+          action: AUDIT_ACTIONS.storeInsightsExport,
+          resourceType: "store_report",
+          result: "SUCCESS",
+          ipAddress: meta.ipAddress,
+          userAgent: meta.userAgent,
+          metadata: { range, format, rows: rows.length, truncated: false },
+        });
+        res.set(exportHeaders("text/csv; charset=utf-8", `store-orders-${range}-${stamp}.csv`, false));
+        res.status(200).send(csv);
+        return;
+      }
+
+      const insights = await getStoreInsights(deps.db, range, now);
+      const orderRows = await listOrdersForExport(deps.db, w.start, w.end, EXPORT_ROW_CAP + 1);
+      const truncated = orderRows.length > EXPORT_ROW_CAP;
+      const visibleOrders = truncated ? orderRows.slice(0, EXPORT_ROW_CAP) : orderRows;
+      const money = (paisa: number) => formatMoney(minorUnitsToMoneyString(paisa));
+      const buffer = await toXlsx([
+        {
+          name: "Export info",
+          headers: ["Field", "Value"],
+          rows: [
+            ["Report", "Store insights"],
+            ["Range", range],
+            ["Timezone", "Asia/Kathmandu (periods by order date)"],
+            ["Generated at (UTC)", now.toISOString()],
+            ["Orders in period", total],
+            ["Order rows exported", visibleOrders.length],
+            ["Truncated at 10000 rows", truncated ? "YES" : "No"],
+          ],
+        },
+        {
+          name: "Summary",
+          headers: ["Metric", "Value"],
+          rows: [
+            ["Order value (approved+ orders, incl. shipping + tax)", money(insights.kpis.orderValuePaisa)],
+            ["Delivered sales", money(insights.kpis.deliveredSalesPaisa)],
+            ["Orders", insights.kpis.orders],
+            ["Average order value", money(insights.kpis.aovPaisa)],
+            ["New customer accounts", insights.kpis.newCustomerAccounts],
+            ["Repeat purchase rate %", insights.kpis.repeatPurchaseRatePct ?? "—"],
+            ["Pending approvals (current)", insights.kpis.pendingApprovals],
+            ["Active products (current)", insights.kpis.activeProducts],
+            ["Retail stock value (current)", money(insights.kpis.retailStockValuePaisa)],
+          ],
+        },
+        {
+          name: "Sales series",
+          headers: ["Period", "Order value", "Orders"],
+          rows: insights.series.map((s) => [s.bucket, money(s.orderValuePaisa), s.orders]),
+        },
+        {
+          name: "Top products",
+          headers: ["Product", "Units sold", "Revenue"],
+          rows: insights.topProducts.map((p) => [p.name, p.units, money(p.revenuePaisa)]),
+        },
+        {
+          name: "Top customers",
+          headers: ["Customer", "Orders", "Spend"],
+          rows: insights.topCustomers.map((c) => [c.name, c.orders, money(c.spendPaisa)]),
+        },
+        {
+          name: "Orders",
+          headers: ["Order number", "Date (UTC)", "Customer", "Email", "Status", "Items", "Subtotal", "Shipping", "Discount", "Tax", "Grand total"],
+          rows: visibleOrders.map((r) => [
+            r.orderNumber,
+            r.placedAt.toISOString(),
+            r.customerName,
+            r.customerEmail,
+            r.status,
+            r.items,
+            r.subtotal,
+            r.shippingFee,
+            r.discountTotal,
+            r.taxTotal,
+            r.grandTotal,
+          ]),
+        },
+      ]);
+      await writeAudit(deps.db, {
+        actorId: actor.userId,
+        actorType: "ADMIN",
+        actorEmail: actor.email,
+        action: AUDIT_ACTIONS.storeInsightsExport,
+        resourceType: "store_report",
+        result: "SUCCESS",
+        ipAddress: meta.ipAddress,
+        userAgent: meta.userAgent,
+        metadata: { range, format, rows: visibleOrders.length, truncated },
+      });
+      res.set(exportHeaders(XLSX_CONTENT_TYPE, `store-report-${range}-${stamp}.xlsx`, truncated));
+      res.status(200).send(buffer);
     }),
   );
 

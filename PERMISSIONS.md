@@ -160,6 +160,7 @@ though the permission string matches. This scoping rule must be covered by an au
 | `store.invoices.resend` | Resend / retry an invoice email (never creates a second invoice) |
 | `store.invoice_templates.manage` | Edit invoice template configuration and manage template versions |
 | `store.reports.read` | View store-specific operational reports |
+| `store.reports.export` | Download store insight reports as CSV/Excel files |
 | `store.settings.manage` | Store-scoped settings only: shipping fee, COD options, tax toggles |
 
 ### 4.6 Administration and system
@@ -222,7 +223,8 @@ A "—" is enforced by the API regardless of what any UI shows.
 | `store.invoices.manage` | ✓ | — | ✓ | — |
 | `store.invoices.resend` | ✓ | — | ✓ | — |
 | `store.invoice_templates.manage` | ✓ | — | ✓ | — |
-| `store.reports.read` | ✓ | — | ✓ | — |
+| `store.reports.read` | ✓ | ✓ | ✓ | — |
+| `store.reports.export` | ✓ | ✓ | ✓ | — |
 | `store.settings.manage` | ✓ | — | ✓ | — |
 | `users.read` | ✓ | — | — | — |
 | `users.manage` | ✓ | — | — | — |
@@ -236,13 +238,15 @@ A "—" is enforced by the API regardless of what any UI shows.
 
 **Notes on deliberate exclusions (from spec §9.2–9.3):**
 
-- **ADMIN has no store permissions by default — with two owner-granted carve-outs.** Spec §9.2: an
+- **ADMIN has no store permissions by default — with three owner-granted carve-outs.** Spec §9.2: an
   Admin "cannot manage store operations unless separately granted." The owner granted store
-  settings to Admins on 2026-11-20 and ORDER MANAGEMENT (store.orders.read / .approve / .cancel /
-  .update — statuses from the Orders list) on 2026-11-26, widening the ADMIN role itself for
-  those two areas (seed matrix + migration 0026). Products, inventory, invoices and reports
-  remain STORE_ADMIN-only; beyond the carve-outs, the mechanism is to *also* assign that user
-  the STORE_ADMIN role (union of permissions).
+  settings to Admins on 2026-11-20, ORDER MANAGEMENT (store.orders.read / .approve / .cancel /
+  .update — statuses from the Orders list) on 2026-11-26, and STORE INSIGHTS
+  (store.reports.read / .export — the Store dashboard and its CSV/Excel downloads) on
+  2026-11-27, widening the ADMIN role itself for those three areas (seed matrix + migrations
+  0026 and 0027). Products, inventory and invoices remain STORE_ADMIN-only; beyond the
+  carve-outs, the mechanism is to *also* assign that user the STORE_ADMIN role (union of
+  permissions).
 - **STORE_ADMIN has no CMS/museum/news/foundation permissions and no `audit.read`.** Spec §9.3:
   a Store Admin "cannot edit website CMS pages, publish museum content, manage administrator roles,
   access Super Admin configuration, or view full system audit logs." Their view of customer data is

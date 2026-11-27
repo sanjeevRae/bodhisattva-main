@@ -12,8 +12,8 @@ import { PERMISSIONS, isPermission } from "@bodhisattva/shared/permissions";
 import { diffPermissionCatalogue } from "../src/services/permissions.js";
 
 describe("permission catalogue", () => {
-  it("contains exactly the 50 grantable permissions from PERMISSIONS.md", () => {
-    expect(PERMISSIONS).toHaveLength(50);
+  it("contains exactly the 51 grantable permissions from PERMISSIONS.md", () => {
+    expect(PERMISSIONS).toHaveLength(51);
   });
 
   it("has no duplicates", () => {

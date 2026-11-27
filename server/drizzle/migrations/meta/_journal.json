@@ -190,6 +190,13 @@
       "when": 1795676270987,
       "tag": "0026_admin_order_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1795754262045,
+      "tag": "0027_store_reports_permissions",
+      "breakpoints": true
     }
   ]
 }

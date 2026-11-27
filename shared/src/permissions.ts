@@ -61,6 +61,7 @@ export const PERMISSIONS = [
   "store.invoices.resend",
   "store.invoice_templates.manage",
   "store.reports.read",
+  "store.reports.export",
   "store.settings.manage",
 
   // Administration and system — PERMISSIONS.md §4.6

@@ -134,6 +134,8 @@ export const AUDIT_ACTIONS = {
   storeInvoicesCreditNote: "store.invoices.credit_note",
   storeInvoiceTemplatesUpdate: "store.invoice_templates.update",
   storeOutboxRetry: "store.outbox.retry",
+  storeInsightsExport: "store.insights.export",
+  auditExport: "audit.export",
 } as const;
 
 const SENSITIVE_KEY = /password|otp|token|secret|code/i;

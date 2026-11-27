@@ -801,7 +801,110 @@ export const auditApi = {
     if (params.result) query.set("result", params.result);
     return moduleList(`/api/admin/audit-logs?${query.toString()}`);
   },
+  exportUrl(params: AuditListParams, format: "csv" | "xlsx"): string {
+    const query = new URLSearchParams({ format });
+    if (params.from) query.set("from", params.from);
+    if (params.to) query.set("to", params.to);
+    if (params.actor) query.set("actor", params.actor);
+    if (params.role) query.set("role", params.role);
+    if (params.action) query.set("action", params.action);
+    if (params.result) query.set("result", params.result);
+    return `/api/admin/audit-logs/export?${query.toString()}`;
+  },
 };
+
+// ---------------------------------------------------------------------------
+// Store insights (2026-11-27) — the Store dashboard (store.reports.read)
+// and its CSV/Excel downloads (store.reports.export). Money arrives as
+// integer paisa; the screen formats it.
+// ---------------------------------------------------------------------------
+
+export type InsightsRange = "7d" | "30d" | "90d" | "12m" | "all";
+
+export interface StoreInsights {
+  range: InsightsRange;
+  timezone: string;
+  generatedAt: string;
+  kpis: {
+    orderValuePaisa: number;
+    deliveredSalesPaisa: number;
+    orders: number;
+    aovPaisa: number;
+    newCustomerAccounts: number;
+    repeatPurchaseRatePct: number | null;
+    pendingApprovals: number;
+    activeProducts: number;
+    retailStockValuePaisa: number;
+  };
+  deltas: {
+    orderValuePct: number | null;
+    deliveredSalesPct: number | null;
+    ordersPct: number | null;
+    aovPct: number | null;
+    newCustomerAccountsPct: number | null;
+    repeatPurchaseRatePoints: number | null;
+  } | null;
+  series: Array<{ bucket: string; orderValuePaisa: number; orders: number }>;
+  topProducts: Array<{ productId: number | null; name: string; units: number; revenuePaisa: number }>;
+  topCustomers: Array<{ name: string; orders: number; spendPaisa: number }>;
+  recentOrders: Array<{
+    id: number;
+    orderNumber: string;
+    placedAt: string;
+    customerName: string;
+    status: string;
+    grandTotalPaisa: number;
+  }>;
+}
+
+export const storeInsightsApi = {
+  get(range: InsightsRange): Promise<StoreInsights> {
+    return moduleOne(`/api/admin/store/insights?range=${range}`);
+  },
+  exportUrl(range: InsightsRange, format: "csv" | "xlsx"): string {
+    return `/api/admin/store/insights/export?range=${range}&format=${format}`;
+  },
+};
+
+/**
+ * Download an export endpoint as a file. Fetch-based (not a plain
+ * navigation) so a server refusal — e.g. the 413 over-cap CSV — can
+ * surface as an in-page error with the server's own message instead
+ * of a raw error page.
+ */
+export async function downloadExport(url: string, fallbackName: string): Promise<void> {
+  let res: Response;
+  try {
+    res = await fetch(url, { credentials: "include" });
+  } catch {
+    throw new ApiError(0, "NETWORK", "Could not reach the server. Check your connection and try again.");
+  }
+  if (!res.ok) {
+    let message = `Download failed (${res.status}).`;
+    let code = "DOWNLOAD_FAILED";
+    try {
+      const data: any = await res.json();
+      if (data?.error?.message) message = data.error.message;
+      if (data?.error?.code) code = data.error.code;
+    } catch {
+      /* keep the generic message */
+    }
+    throw new ApiError(res.status, code, message);
+  }
+  const disposition = res.headers.get("Content-Disposition") ?? "";
+  const match = /filename="([^"]+)"/.exec(disposition);
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = match?.[1] ?? fallbackName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  // Delayed revoke: an immediate revoke can cancel the download in
+  // some browsers before it starts (Gemini post-review, 2026-11-27).
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+}
 
 /** Public path for a page slug (home is the root). */
 export function pagePath(slug: string): string {

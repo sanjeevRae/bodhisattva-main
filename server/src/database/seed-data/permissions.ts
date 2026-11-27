@@ -116,6 +116,7 @@ const PERMISSION_DESCRIPTIONS: Record<Permission, string> = {
   'store.invoices.resend': 'Resend / retry an invoice email (never creates a second invoice)',
   'store.invoice_templates.manage': 'Edit invoice template configuration and manage template versions',
   'store.reports.read': 'View store-specific operational reports',
+  'store.reports.export': 'Download store insight reports as CSV/Excel files',
   'store.settings.manage': 'Store-scoped settings only: shipping fee, COD options, VAT rate',
   // §4.6 Administration and system
   'users.read': 'List/view user accounts (admin user management screens)',
@@ -164,6 +165,13 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
   'store.orders.approve',
   'store.orders.cancel',
   'store.orders.update',
+  // Store insights (2026-11-27): the owner asked Admins to see the
+  // Store dashboard and its downloads alongside Store Admins — reports
+  // read + export. Products, inventory and invoices stay
+  // STORE_ADMIN-only. Migration 0027 grants the same rows on existing
+  // databases (and adds the store.reports.export catalogue row).
+  'store.reports.read',
+  'store.reports.export',
   'cms.pages.read',
   'cms.pages.create',
   'cms.pages.update',
@@ -190,7 +198,7 @@ const ADMIN_PERMISSIONS: readonly Permission[] = [
 ];
 
 /**
- * STORE_ADMIN — 21 grants (§5): account + product-scoped media (read/create/
+ * STORE_ADMIN — 22 grants (§5): account + product-scoped media (read/create/
  * update; delete is NOT granted) + the full store domain. No CMS/museum.
  */
 const STORE_ADMIN_PERMISSIONS: readonly Permission[] = [
@@ -209,6 +217,7 @@ const STORE_ADMIN_PERMISSIONS: readonly Permission[] = [
   'store.invoices.resend',
   'store.invoice_templates.manage',
   'store.reports.read',
+  'store.reports.export',
   'store.settings.manage',
 ];
 

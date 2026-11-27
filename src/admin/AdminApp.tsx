@@ -39,6 +39,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   ShoppingBag,
+  Store,
   Tags,
   Users as UsersIcon,
 } from "lucide-react";
@@ -67,6 +68,7 @@ import OrderDetailScreen from "./screens/OrderDetail";
 import InvoicesScreen from "./screens/Invoices";
 import InvoiceTemplateScreen from "./screens/InvoiceTemplate";
 import AuditLogScreen from "./screens/AuditLog";
+import StoreInsightsScreen from "./screens/StoreInsights";
 
 export type AuthStatus = "loading" | "anonymous" | AuthLevel;
 
@@ -191,6 +193,7 @@ const NAV_ITEMS: Array<{
   { to: "/admin/news", label: "News Clippings", icon: <Newspaper size={17} />, permission: "news.manage" },
   { to: "/admin/foundation", label: "Foundation", icon: <HeartHandshake size={17} />, permission: "foundation.manage" },
   { to: "/admin/policies", label: "Policy Pages", icon: <ScrollText size={17} />, permission: "policy.manage" },
+  { to: "/admin/store", label: "Store", icon: <Store size={17} />, permission: "store.reports.read" },
   { to: "/admin/products", label: "Products", icon: <ShoppingBag size={17} />, permission: "store.products.manage" },
   { to: "/admin/product-categories", label: "Product Categories", icon: <Tags size={17} />, permission: "store.categories.manage" },
   { to: "/admin/orders", label: "Orders", icon: <ClipboardList size={17} />, permission: "store.orders.read" },
@@ -364,6 +367,7 @@ function Shell() {
             <Route path="news" element={<NewsScreen />} />
             <Route path="foundation" element={<FoundationScreen />} />
             <Route path="policies" element={<PoliciesScreen />} />
+            <Route path="store" element={<StoreInsightsScreen />} />
             <Route path="products" element={<ProductsScreen />} />
             <Route path="products/new" element={<ProductEditorScreen />} />
             <Route path="products/:id" element={<ProductEditorScreen />} />

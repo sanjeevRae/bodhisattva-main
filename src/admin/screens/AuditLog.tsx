@@ -8,8 +8,8 @@
  * permission denials are audited too).
  */
 import { Fragment, useCallback, useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, Filter } from "lucide-react";
-import { auditApi } from "../api";
+import { ChevronDown, ChevronRight, Download, Filter } from "lucide-react";
+import { auditApi, downloadExport } from "../api";
 import type { AuditLogAdmin } from "../types";
 import { Badge, Btn, ErrorBox, Spinner, cx, formatDateTime, inputCls } from "../ui";
 
@@ -43,6 +43,36 @@ export default function AuditLogScreen() {
   const [page, setPage] = useState(1);
   const [error, setError] = useState<unknown>(null);
   const [expanded, setExpanded] = useState<number | null>(null);
+  const [downloadError, setDownloadError] = useState<unknown>(null);
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  // Downloads carry the APPLIED filters (what the table shows), not
+  // the un-applied draft. Fetch-based so an over-cap refusal (413)
+  // surfaces here with the server's message.
+  const download = async (format: "csv" | "xlsx") => {
+    setDownloadError(null);
+    setDownloading(format);
+    try {
+      await downloadExport(
+        auditApi.exportUrl(
+          {
+            from: applied.from || undefined,
+            to: applied.to || undefined,
+            actor: applied.actor.trim() || undefined,
+            role: applied.role || undefined,
+            action: applied.action.trim() || undefined,
+            result: applied.result || undefined,
+          },
+          format,
+        ),
+        format === "csv" ? "audit-log.csv" : "audit-log.xlsx",
+      );
+    } catch (e) {
+      setDownloadError(e);
+    } finally {
+      setDownloading(null);
+    }
+  };
 
   const load = useCallback(async (pageNo: number, filters: Filters) => {
     try {
@@ -154,9 +184,18 @@ export default function AuditLogScreen() {
           <span className="font-mono text-xs text-muted-foreground">
             {total} entr{total === 1 ? "y" : "ies"}
           </span>
+          <span className="ml-auto flex gap-2">
+            <Btn size="sm" disabled={downloading !== null} onClick={() => void download("xlsx")}>
+              <Download size={13} /> {downloading === "xlsx" ? "Preparing…" : "Download Excel"}
+            </Btn>
+            <Btn size="sm" disabled={downloading !== null} onClick={() => void download("csv")}>
+              <Download size={13} /> {downloading === "csv" ? "Preparing…" : "Download CSV"}
+            </Btn>
+          </span>
         </div>
       </div>
 
+      <ErrorBox error={downloadError} />
       <ErrorBox error={error} />
 
       {items === null ? (

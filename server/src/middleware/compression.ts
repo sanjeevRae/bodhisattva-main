@@ -24,7 +24,10 @@ export function shouldCompress(req: Request, res: Response): boolean {
   const type = res.getHeader("Content-Type");
   if (
     typeof type === "string" &&
-    (type.includes("text/event-stream") || type.includes("application/pdf"))
+    (type.includes("text/event-stream") ||
+      type.includes("application/pdf") ||
+      // XLSX exports are ZIP containers — already compressed.
+      type.includes("spreadsheetml.sheet"))
   ) {
     return false;
   }
